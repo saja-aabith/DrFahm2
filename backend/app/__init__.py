@@ -13,20 +13,22 @@ def create_app():
     migrate.init_app(app, db)
     jwt.init_app(app)
 
-    # ── Models (must import before migrate so Alembic sees them) ──
+    # ── Models (must be imported before migrate) ──────────
     with app.app_context():
-        from . import models  # noqa: F401 — registers all models
+        from . import models  # noqa: F401
 
     # ── Error handlers ────────────────────────────────────
     register_error_handlers(app)
 
-    # ── Blueprints (registered as they are built) ─────────
-    # Auth    — CHUNK 3
-    # Billing — CHUNK 4
-    # Exams   — CHUNK 5
-    # Admin   — CHUNK 7
-    # Schools — CHUNK 7
-    # Events  — CHUNK 7
+    # ── Blueprints ────────────────────────────────────────
+    from .api.auth import auth_bp
+    app.register_blueprint(auth_bp)
+
+    # Billing  — CHUNK 4
+    # Exams    — CHUNK 5
+    # Admin    — CHUNK 7
+    # Schools  — CHUNK 7
+    # Events   — CHUNK 7
 
     # ── Health check ──────────────────────────────────────
     @app.route("/api/health")
