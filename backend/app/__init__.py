@@ -27,7 +27,9 @@ def create_app():
     from .api.billing import billing_bp
     app.register_blueprint(billing_bp)
 
-    # Exams   — CHUNK 5
+    from .api.exams import exams_bp
+    app.register_blueprint(exams_bp)
+
     # Admin   — CHUNK 7
     # Schools — CHUNK 7
     # Events  — CHUNK 7
