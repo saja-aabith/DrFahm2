@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from .config import get_config
 from .extensions import db, migrate, jwt
 from .api.errors import register_error_handlers
@@ -12,8 +13,9 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 
-    # ── Models ────────────────────────────────────────────
+    # ── Models (must be imported before migrate) ──────────
     with app.app_context():
         from . import models  # noqa: F401
 
@@ -30,9 +32,14 @@ def create_app():
     from .api.exams import exams_bp
     app.register_blueprint(exams_bp)
 
-    # Admin   — CHUNK 7
-    # Schools — CHUNK 7
-    # Events  — CHUNK 7
+    from .api.admin import admin_bp
+    app.register_blueprint(admin_bp)
+
+    from .api.schools import schools_bp
+    app.register_blueprint(schools_bp)
+
+    from .api.events import events_bp
+    app.register_blueprint(events_bp)
 
     # ── Health check ──────────────────────────────────────
     @app.route("/api/health")
