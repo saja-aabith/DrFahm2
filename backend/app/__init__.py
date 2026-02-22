@@ -13,7 +13,7 @@ def create_app():
     migrate.init_app(app, db)
     jwt.init_app(app)
 
-    # ── Models (must be imported before migrate) ──────────
+    # ── Models ────────────────────────────────────────────
     with app.app_context():
         from . import models  # noqa: F401
 
@@ -24,11 +24,13 @@ def create_app():
     from .api.auth import auth_bp
     app.register_blueprint(auth_bp)
 
-    # Billing  — CHUNK 4
-    # Exams    — CHUNK 5
-    # Admin    — CHUNK 7
-    # Schools  — CHUNK 7
-    # Events   — CHUNK 7
+    from .api.billing import billing_bp
+    app.register_blueprint(billing_bp)
+
+    # Exams   — CHUNK 5
+    # Admin   — CHUNK 7
+    # Schools — CHUNK 7
+    # Events  — CHUNK 7
 
     # ── Health check ──────────────────────────────────────
     @app.route("/api/health")
