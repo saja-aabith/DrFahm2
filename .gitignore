@@ -1,0 +1,4 @@
+# Catch-all at repo root
+.DS_Store
+Thumbs.db
+*.log
