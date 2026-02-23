@@ -29,6 +29,15 @@ async function adminRequest(path, options = {}) {
 // ── Stats ────────────────────────────────────────────────────────────────────
 export const getStats = () => adminRequest('/api/admin/stats');
 
+// ── Topics ───────────────────────────────────────────────────────────────────
+export const getTopics       = (section) => adminRequest(`/api/admin/topics${section ? '?section=' + section : ''}`);
+export const topicCoverage   = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString();
+  return adminRequest(`/api/admin/questions/topic-coverage${qs ? '?' + qs : ''}`);
+};
+
 // ── Questions ────────────────────────────────────────────────────────────────
 export const listQuestions = (params = {}) => {
   const qs = new URLSearchParams(
@@ -44,11 +53,12 @@ export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/quest
 export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
 export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
 export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
+export const bulkTopic       = (data)     => adminRequest('/api/admin/questions/bulk-topic', { method: 'POST', body: JSON.stringify(data) });
 export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
 
 /**
  * Quick inline update — sends only changed field + version for optimistic locking.
- * Used by inline answer picker and inline difficulty picker.
+ * Used by inline answer picker, inline difficulty picker, and inline topic picker.
  */
 export const quickUpdate = (id, field, value, version) =>
   adminRequest(`/api/admin/questions/${id}`, {

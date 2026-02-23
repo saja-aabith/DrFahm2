@@ -8,52 +8,57 @@ import LaTeXCheatsheet from '../components/LaTeXCheatsheet';
 import * as adminApi from '../api/admin';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const EXAMS      = ['qudurat', 'tahsili'];
+
+const EXAMS = ['qudurat', 'tahsili'];
 const WORLD_KEYS = {
   qudurat: ['math_100','math_150','math_200','math_250','math_300','verbal_100','verbal_150','verbal_200','verbal_250','verbal_300'],
   tahsili: ['math_100','math_150','math_200','math_250','biology_100','biology_150','chemistry_100','chemistry_150','physics_100','physics_150'],
 };
 
-const SUBJECT_POOLS = [
-  { label: 'Qudurat — Math',      exam: 'qudurat', prefix: 'math'      },
-  { label: 'Qudurat — Verbal',    exam: 'qudurat', prefix: 'verbal'    },
-  { label: 'Tahsili — Math',      exam: 'tahsili', prefix: 'math'      },
-  { label: 'Tahsili — Biology',   exam: 'tahsili', prefix: 'biology'   },
-  { label: 'Tahsili — Chemistry', exam: 'tahsili', prefix: 'chemistry' },
-  { label: 'Tahsili — Physics',   exam: 'tahsili', prefix: 'physics'   },
-];
+function getSectionFromWorldKey(wk) {
+  if (!wk) return null;
+  return wk.replace(/_\d+$/, '');
+}
 
-// ── Shared components ─────────────────────────────────────────────────────────
+
+// ── Shared Components ─────────────────────────────────────────────────────────
+
+function useFlash() {
+  const [flash, setFlash] = useState(null);
+  const showFlash = useCallback((msg, type = 'success') => {
+    setFlash({ msg, type });
+    setTimeout(() => setFlash(null), 4000);
+  }, []);
+  return [flash, showFlash];
+}
+
+function Pill({ color = 'gray', children, style, ...rest }) {
+  const colors = {
+    green: { bg: 'rgba(34,197,94,0.15)', text: '#4ade80', border: 'rgba(34,197,94,0.3)' },
+    amber: { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
+    violet: { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa', border: 'rgba(139,92,246,0.3)' },
+    gray: { bg: 'rgba(148,163,184,0.1)', text: '#94a3b8', border: 'rgba(148,163,184,0.2)' },
+    blue: { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', border: 'rgba(59,130,246,0.3)' },
+    cyan: { bg: 'rgba(34,211,238,0.12)', text: '#22d3ee', border: 'rgba(34,211,238,0.25)' },
+  };
+  const c = colors[color] || colors.gray;
+  return (
+    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
+      background: c.bg, color: c.text, border: `1px solid ${c.border}`, whiteSpace: 'nowrap', ...style }} {...rest}>
+      {children}
+    </span>
+  );
+}
 
 function TabBar({ tabs, active, onChange }) {
   return (
     <div className="admin-tab-bar">
       {tabs.map((t) => (
         <button key={t.id} className={`admin-tab ${active === t.id ? 'active' : ''}`} onClick={() => onChange(t.id)}>
-          <span className="admin-tab-icon">{t.icon}</span>
-          {t.label}
+          <span className="admin-tab-icon">{t.icon}</span> {t.label}
         </button>
       ))}
     </div>
-  );
-}
-
-function Pill({ children, color = 'violet', onClick, title, style = {} }) {
-  const colors = {
-    violet: { bg: 'rgba(124,58,237,0.15)', border: 'rgba(124,58,237,0.3)', text: '#a78bfa' },
-    green:  { bg: 'rgba(22,163,74,0.15)',  border: 'rgba(22,163,74,0.3)',  text: '#86efac' },
-    red:    { bg: 'rgba(220,38,38,0.12)',  border: 'rgba(220,38,38,0.25)', text: '#fca5a5' },
-    amber:  { bg: 'rgba(217,119,6,0.15)',  border: 'rgba(217,119,6,0.3)',  text: '#fcd34d' },
-    gray:   { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)', text: '#94a3b8' },
-  };
-  const c = colors[color] || colors.gray;
-  return (
-    <span onClick={onClick} title={title} style={{
-      fontSize: '0.78rem', fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-      background: c.bg, border: `1px solid ${c.border}`, color: c.text,
-      textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap',
-      cursor: onClick ? 'pointer' : 'default', transition: 'all 0.15s ease', ...style,
-    }}>{children}</span>
   );
 }
 
@@ -71,100 +76,115 @@ function Modal({ title, onClose, children, width }) {
   );
 }
 
-function useFlash() {
-  const [flash, setFlash] = useState(null);
-  const show = useCallback((msg, type = 'success') => {
-    setFlash({ msg, type });
-    setTimeout(() => setFlash(null), 4000);
-  }, []);
-  return [flash, show];
-}
 
+// ── REVIEW PROGRESS PANEL ─────────────────────────────────────────────────────
 
-// ── STATS TAB ─────────────────────────────────────────────────────────────────
-
-function StatsTab() {
-  const [stats, setStats] = useState(null);
-  useEffect(() => { adminApi.getStats().then(setStats).catch(() => {}); }, []);
-  if (!stats) return <div className="admin-loading"><div className="spinner" /></div>;
-
-  const cards = [
-    { label: 'Students',        value: stats.students?.total ?? '—',      sub: `${stats.students?.active ?? 0} active`, color: 'green' },
-    { label: 'Active Trials',   value: stats.trials?.active ?? '—',      sub: '7-day free trials',  color: 'violet' },
-    { label: 'Paid Plans',      value: stats.entitlements?.active ?? '—', sub: 'active entitlements', color: 'green' },
-    { label: 'Stripe Payments', value: stats.stripe_payments ?? '—',     sub: 'completed checkouts', color: 'amber' },
-    { label: 'Questions',       value: stats.questions?.total ?? '—',     sub: `${stats.questions?.active ?? 0} active`, color: 'violet' },
-    { label: 'Orgs',            value: stats.orgs?.total ?? '—',          sub: 'school organizations', color: 'green' },
-  ];
-
-  return (
-    <div className="admin-stats-grid">
-      {cards.map((c, i) => (
-        <div className="admin-stat-card" key={i}>
-          <div className="admin-stat-value" style={{ color: c.color === 'green' ? 'var(--green-light)' : c.color === 'violet' ? 'var(--violet-light)' : c.color === 'amber' ? '#fcd34d' : 'var(--text-primary)' }}>
-            {c.value}
-          </div>
-          <div className="admin-stat-label">{c.label}</div>
-          <div className="admin-stat-sub">{c.sub}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-// ── REVIEW PROGRESS BAR ───────────────────────────────────────────────────────
-
-function ReviewProgressPanel({ examFilter }) {
+function ReviewProgressPanel({ examFilter, refreshKey }) {
   const [data, setData] = useState(null);
-  const [expanded, setExpanded] = useState(false);
+  const [showWorlds, setShowWorlds] = useState(false);
 
   useEffect(() => {
     adminApi.reviewProgress(examFilter || '').then(setData).catch(() => {});
-  }, [examFilter]);
+  }, [examFilter, refreshKey]);
 
   if (!data) return null;
-
   const { summary, progress } = data;
   const pct = summary.total > 0 ? Math.round((summary.reviewed / summary.total) * 100) : 0;
 
   return (
     <div className="review-progress-panel">
       <div className="review-progress-header">
-        <div className="review-progress-summary">
-          <span className="review-progress-title">Review Progress</span>
-          <span className="review-progress-numbers">
-            <strong style={{ color: 'var(--green-light)' }}>{summary.reviewed}</strong>
-            <span style={{ color: 'var(--text-muted)' }}> / {summary.total}</span>
-            <span style={{ color: pct === 100 ? 'var(--green-light)' : pct > 50 ? 'var(--violet-light)' : 'var(--amber)', marginLeft: 8, fontWeight: 700 }}>{pct}%</span>
-          </span>
+        <div>
+          <span className="review-progress-count">{summary.reviewed} / {summary.total} reviewed</span>
+          <span className="review-progress-pct"> — {pct}%</span>
         </div>
-        {progress.length > 1 && (
-          <button className="review-progress-toggle" onClick={() => setExpanded(!expanded)}>
-            {expanded ? 'Hide worlds ▲' : 'Show worlds ▼'}
-          </button>
-        )}
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowWorlds(!showWorlds)}>
+          {showWorlds ? 'Hide worlds' : 'Show worlds'}
+        </button>
       </div>
-      <div className="review-bar">
-        <div className="review-bar-fill" style={{ width: `${pct}%`, background: pct === 100 ? 'var(--green-light)' : 'var(--violet)' }} />
+      <div className="review-progress-bar-bg">
+        <div className="review-progress-bar-fill" style={{ width: `${pct}%` }} />
       </div>
-      {expanded && (
-        <div className="review-worlds-grid">
-          {progress.map((w) => {
-            const wp = w.total > 0 ? Math.round((w.reviewed / w.total) * 100) : 0;
+      {showWorlds && (
+        <div className="review-progress-worlds">
+          {progress.map((p) => {
+            const wpct = p.total > 0 ? Math.round((p.reviewed / p.total) * 100) : 0;
             return (
-              <div key={`${w.exam}-${w.world_key}`} className="review-world-item">
-                <div className="review-world-label">
-                  <span className="review-world-exam">{w.exam}</span>
-                  <span className="review-world-key">{w.world_key}</span>
-                  <span className="review-world-count">{w.reviewed}/{w.total}</span>
+              <div key={`${p.exam}-${p.world_key}`} className="review-world-row">
+                <span className="review-world-label">{p.exam} / {p.world_key}</span>
+                <div className="review-world-bar-bg">
+                  <div className="review-world-bar-fill" style={{ width: `${wpct}%` }} />
                 </div>
-                <div className="review-bar review-bar-sm">
-                  <div className="review-bar-fill" style={{ width: `${wp}%`, background: wp === 100 ? 'var(--green-light)' : wp > 50 ? 'var(--violet)' : 'var(--amber)' }} />
-                </div>
+                <span className="review-world-count">{p.reviewed}/{p.total}</span>
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── TOPIC COVERAGE PANEL ──────────────────────────────────────────────────────
+
+function TopicCoveragePanel({ examFilter, refreshKey }) {
+  const [data, setData] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    adminApi.topicCoverage({ exam: examFilter || '' }).then(setData).catch(() => {});
+  }, [examFilter, refreshKey]);
+
+  if (!data) return null;
+  const { summary, coverage } = data;
+  const taggedPct = summary.total > 0 ? Math.round((summary.tagged / summary.total) * 100) : 0;
+
+  // Group by section
+  const bySection = {};
+  coverage.forEach((c) => {
+    const sec = c.section || 'other';
+    if (!bySection[sec]) bySection[sec] = [];
+    bySection[sec].push(c);
+  });
+
+  return (
+    <div className="topic-coverage-panel">
+      <div className="topic-coverage-header">
+        <div>
+          <span className="topic-coverage-title">Topic Coverage</span>
+          <span className="topic-coverage-stats">
+            {summary.tagged} tagged · {summary.untagged} untagged · {taggedPct}%
+          </span>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Collapse' : 'Details'}
+        </button>
+      </div>
+      <div className="review-progress-bar-bg" style={{ marginTop: 6 }}>
+        <div className="review-progress-bar-fill" style={{ width: `${taggedPct}%`, background: 'var(--cyan, #22d3ee)' }} />
+      </div>
+      {expanded && (
+        <div className="topic-coverage-details">
+          {Object.entries(bySection).map(([section, topics]) => (
+            <div key={section} className="topic-section-group">
+              <div className="topic-section-label">{section}</div>
+              <div className="topic-section-items">
+                {topics.map((t) => (
+                  <div key={t.topic} className="topic-item">
+                    <Pill color="cyan">{t.label}</Pill>
+                    <span className="topic-item-count">{t.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {summary.untagged > 0 && (
+            <div className="topic-section-group">
+              <div className="topic-section-label" style={{ color: 'var(--amber, #fbbf24)' }}>Untagged</div>
+              <span className="topic-item-count">{summary.untagged} questions</span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -186,11 +206,11 @@ function InlineAnswerPicker({ question, onSaved }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const handlePick = async (answer) => {
-    if (answer === question.correct_answer) { setOpen(false); return; }
+  const handlePick = async (ans) => {
+    if (ans === question.correct_answer) { setOpen(false); return; }
     setSaving(true);
     try {
-      const result = await adminApi.quickUpdate(question.id, 'correct_answer', answer, question.version);
+      const result = await adminApi.quickUpdate(question.id, 'correct_answer', ans, question.version);
       onSaved(result.question);
       setOpen(false);
     } catch (e) { alert(e?.error?.message || 'Failed to save. Refresh and try again.'); }
@@ -252,7 +272,7 @@ function InlineDifficultyPicker({ question, onSaved }) {
     return (
       <span onClick={() => setOpen(true)} title="Click to tag difficulty"
         style={{ color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, border: '1px dashed rgba(255,255,255,0.1)' }}>
-        + tag
+        —
       </span>
     );
   }
@@ -271,9 +291,86 @@ function InlineDifficultyPicker({ question, onSaved }) {
 }
 
 
-// ── EXPANDED QUESTION ROW (with MathText + image) ─────────────────────────────
+// ── INLINE TOPIC PICKER ───────────────────────────────────────────────────────
 
-function ExpandedQuestionRow({ question, colSpan }) {
+function InlineTopicPicker({ question, taxonomy, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const section = getSectionFromWorldKey(question.world_key);
+  const topics = (taxonomy && section && taxonomy[section]) || [];
+
+  const handlePick = async (topicKey) => {
+    if (topicKey === (question.topic || '')) { setOpen(false); return; }
+    setSaving(true);
+    try {
+      const result = await adminApi.quickUpdate(question.id, 'topic', topicKey || null, question.version);
+      onSaved(result.question);
+      setOpen(false);
+    } catch (e) { alert(e?.error?.message || 'Failed to save topic.'); }
+    finally { setSaving(false); }
+  };
+
+  if (!open) {
+    if (question.topic) {
+      const topicLabel = topics.find(t => t.key === question.topic)?.label || question.topic;
+      return (
+        <Pill color="cyan" onClick={() => setOpen(true)} title="Click to change topic" style={{ cursor: 'pointer', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {topicLabel}
+        </Pill>
+      );
+    }
+    return (
+      <span onClick={() => setOpen(true)} title="Click to tag topic"
+        style={{ color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, border: '1px dashed rgba(255,255,255,0.1)' }}>
+        —
+      </span>
+    );
+  }
+
+  return (
+    <div ref={ref} className="inline-topic-picker">
+      {saving ? <span className="inline-answer-saving">…</span> : (
+        <div className="inline-topic-dropdown">
+          {topics.length === 0 && (
+            <div className="inline-topic-empty">No topics for this section</div>
+          )}
+          {topics.map((t) => (
+            <button key={t.key}
+              className={`inline-topic-btn ${t.key === question.topic ? 'active' : ''}`}
+              onClick={() => handlePick(t.key)}>
+              {t.label}
+            </button>
+          ))}
+          {question.topic && (
+            <button className="inline-topic-btn clear" onClick={() => handlePick('')}>
+              ✕ Clear topic
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── EXPANDED QUESTION ROW ─────────────────────────────────────────────────────
+
+function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
+  const section = getSectionFromWorldKey(question.world_key);
+  const topics = (taxonomy && section && taxonomy[section]) || [];
+  const topicLabel = question.topic
+    ? (topics.find(t => t.key === question.topic)?.label || question.topic)
+    : null;
+
   return (
     <tr className="expanded-row">
       <td colSpan={colSpan}>
@@ -282,7 +379,6 @@ function ExpandedQuestionRow({ question, colSpan }) {
             <MathText text={question.question_text} />
           </div>
 
-          {/* Supporting image */}
           {question.image_url && (
             <div className="expanded-image">
               <img src={question.image_url} alt="Question diagram" />
@@ -303,12 +399,29 @@ function ExpandedQuestionRow({ question, colSpan }) {
               );
             })}
           </div>
-          {question.topic && (
-            <div className="expanded-meta">
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Topic: </span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{question.topic}</span>
-            </div>
-          )}
+
+          <div className="expanded-meta-row">
+            {topicLabel && (
+              <span className="expanded-meta-item">
+                <span style={{ color: 'var(--text-muted)' }}>Topic:</span>{' '}
+                <Pill color="cyan">{topicLabel}</Pill>
+              </span>
+            )}
+            {question.difficulty && (
+              <span className="expanded-meta-item">
+                <span style={{ color: 'var(--text-muted)' }}>Difficulty:</span>{' '}
+                <Pill color={question.difficulty === 'easy' ? 'green' : 'amber'}>{question.difficulty}</Pill>
+              </span>
+            )}
+            <span className="expanded-meta-item">
+              <span style={{ color: 'var(--text-muted)' }}>ID:</span>{' '}
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{question.id}</span>
+            </span>
+            <span className="expanded-meta-item">
+              <span style={{ color: 'var(--text-muted)' }}>Version:</span>{' '}
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>v{question.version}</span>
+            </span>
+          </div>
         </div>
       </td>
     </tr>
@@ -325,12 +438,27 @@ function QuestionsTab() {
   const [loading,   setLoading]     = useState(false);
   const [editing,   setEditing]     = useState(null);
   const [flash,     showFlash]      = useFlash();
-  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '', difficulty: '', search: '' });
+  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '', difficulty: '', topic: '', search: '' });
   const [creating,  setCreating]    = useState(false);
   const [expanded,  setExpanded]    = useState(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
+  const [taxonomy,  setTaxonomy]    = useState(null);
+  const [bulkTopicOpen, setBulkTopicOpen] = useState(false);
+
+  // Load taxonomy on mount
+  useEffect(() => {
+    adminApi.getTopics().then((d) => setTaxonomy(d.taxonomy)).catch(() => {});
+  }, []);
 
   const worldOptions = filters.exam ? WORLD_KEYS[filters.exam] || [] : [];
+
+  // Build topic options based on current filter context
+  const currentSection = filters.world_key
+    ? getSectionFromWorldKey(filters.world_key)
+    : (filters.exam ? null : null);
+  const topicOptions = currentSection && taxonomy && taxonomy[currentSection]
+    ? taxonomy[currentSection]
+    : (taxonomy ? Object.entries(taxonomy).flatMap(([, topics]) => topics) : []);
 
   // Debounced search
   const searchTimeout = useRef(null);
@@ -356,7 +484,10 @@ function QuestionsTab() {
   useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
   const handleFilterChange = (k, v) => {
-    setFilters((f) => ({ ...f, [k]: v, ...(k === 'exam' ? { world_key: '' } : {}) }));
+    const updates = { [k]: v };
+    if (k === 'exam') { updates.world_key = ''; updates.topic = ''; }
+    if (k === 'world_key') { updates.topic = ''; }
+    setFilters((f) => ({ ...f, ...updates }));
     setPage(1);
     setExpanded(new Set());
   };
@@ -422,13 +553,34 @@ function QuestionsTab() {
     finally { setBulkLoading(false); }
   };
 
+  const handleBulkTopic = async (topicKey) => {
+    const scope = filters.exam
+      ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`)
+      : 'ALL questions';
+    const label = topicKey
+      ? (topicOptions.find(t => t.key === topicKey)?.label || topicKey)
+      : 'none';
+    if (!window.confirm(`Set topic to "${label}" for all ${scope}? (${total} questions)`)) return;
+    setBulkLoading(true);
+    try {
+      const result = await adminApi.bulkTopic({ topic: topicKey || null, exam: filters.exam || undefined, world_key: filters.world_key || undefined });
+      showFlash(`${result.affected} question(s) topic set to ${label}.`);
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
+      setBulkTopicOpen(false);
+    } catch (e) { showFlash(e?.error?.message || 'Bulk topic failed.', 'error'); }
+    finally { setBulkLoading(false); }
+  };
+
   const totalPages = Math.ceil(total / 50);
+  const TABLE_COLS = 10;
 
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
 
-      <ReviewProgressPanel examFilter={filters.exam} key={`rp-${refreshKey}-${filters.exam}`} />
+      <ReviewProgressPanel examFilter={filters.exam} refreshKey={refreshKey} />
+      <TopicCoveragePanel examFilter={filters.exam} refreshKey={refreshKey} />
 
       {/* Filters */}
       <div className="admin-filter-row">
@@ -452,6 +604,11 @@ function QuestionsTab() {
           <option value="easy">Easy</option>
           <option value="hard">Hard</option>
         </select>
+        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.topic} onChange={(e) => handleFilterChange('topic', e.target.value)}>
+          <option value="">All topics</option>
+          <option value="_untagged">⚠ Untagged</option>
+          {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ Add Question</button>
       </div>
@@ -464,26 +621,47 @@ function QuestionsTab() {
           {!filters.exam && <strong style={{ color: 'var(--amber)' }}> · ALL exams</strong>}
           {' '}({total} questions)
         </span>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>
-            {bulkLoading ? '…' : '🟢 Activate all'}
+            {bulkLoading ? '…' : 'Activate all'}
           </button>
           <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#fca5a5' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>
-            {bulkLoading ? '…' : '🔴 Deactivate all'}
+            {bulkLoading ? '…' : 'Deactivate all'}
+          </button>
+          <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.3)' }}
+            onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total === 0}>
+            Bulk topic
           </button>
         </div>
       </div>
+
+      {/* Bulk topic selector */}
+      {bulkTopicOpen && (
+        <div className="bulk-topic-panel">
+          <div className="bulk-topic-label">Set topic for all {total} matching questions:</div>
+          <div className="bulk-topic-grid">
+            {topicOptions.map((t) => (
+              <button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>
+                {t.label}
+              </button>
+            ))}
+            <button className="bulk-topic-btn clear" onClick={() => handleBulkTopic('')} disabled={bulkLoading}>
+              ✕ Clear all topics
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
-              <tr><th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Difficulty</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Topic</th><th>Diff</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {questions.length === 0 && (
-                <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>No questions found.</td></tr>
+                <tr><td colSpan={TABLE_COLS} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>No questions found.</td></tr>
               )}
               {questions.map((q) => (
                 <React.Fragment key={q.id}>
@@ -494,10 +672,11 @@ function QuestionsTab() {
                     <td style={{ color: 'var(--text-muted)' }}>{q.index}</td>
                     <td className="admin-question-cell clickable-cell" onClick={() => toggleExpanded(q.id)} title="Click to expand/collapse">
                       <span className="expand-icon">{expanded.has(q.id) ? '▼' : '▶'}</span>
-                      {q.question_text.slice(0, 80)}{q.question_text.length > 80 ? '…' : ''}
-                      {q.image_url && <span className="has-image-badge">🖼️ img</span>}
+                      {q.question_text.slice(0, 70)}{q.question_text.length > 70 ? '…' : ''}
+                      {q.image_url && <span className="has-image-badge">🖼️</span>}
                     </td>
                     <td><InlineAnswerPicker question={q} onSaved={handleInlineSaved} /></td>
+                    <td><InlineTopicPicker question={q} taxonomy={taxonomy} onSaved={handleInlineSaved} /></td>
                     <td><InlineDifficultyPicker question={q} onSaved={handleInlineSaved} /></td>
                     <td>{q.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}</td>
                     <td>
@@ -508,7 +687,7 @@ function QuestionsTab() {
                       </div>
                     </td>
                   </tr>
-                  {expanded.has(q.id) && <ExpandedQuestionRow question={q} colSpan={9} />}
+                  {expanded.has(q.id) && <ExpandedQuestionRow question={q} colSpan={TABLE_COLS} taxonomy={taxonomy} />}
                 </React.Fragment>
               ))}
             </tbody>
@@ -524,16 +703,16 @@ function QuestionsTab() {
         </div>
       )}
 
-      {editing && <QuestionEditModal question={editing} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
-      {creating && <CreateQuestionModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); setRefreshKey((k) => k + 1); showFlash('Question created.'); }} />}
+      {editing && <QuestionEditModal question={editing} taxonomy={taxonomy} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
+      {creating && <CreateQuestionModal taxonomy={taxonomy} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); setRefreshKey((k) => k + 1); showFlash('Question created.'); }} />}
     </div>
   );
 }
 
 
-// ── QUESTION EDIT MODAL (with image upload + LaTeX cheatsheet) ─────────────
+// ── QUESTION EDIT MODAL ───────────────────────────────────────────────────────
 
-function QuestionEditModal({ question, onSave, onClose }) {
+function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
   const [form, setForm] = useState({
     question_text: question.question_text, option_a: question.option_a,
     option_b: question.option_b, option_c: question.option_c, option_d: question.option_d,
@@ -542,97 +721,91 @@ function QuestionEditModal({ question, onSave, onClose }) {
     is_active: question.is_active, version: question.version,
   });
   const [saving, setSaving] = useState(false);
+  const [showMathPreview, setShowMathPreview] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+
+  const section = getSectionFromWorldKey(question.world_key);
+  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setSaving(true);
-    onSave({ ...form, difficulty: form.difficulty || null });
+    const payload = { ...form };
+    if (!payload.topic) payload.topic = null;
+    if (!payload.difficulty) payload.difficulty = null;
+    onSave(payload);
+    setSaving(false);
   };
 
-  // Live preview toggle
-  const [showPreview, setShowPreview] = useState(false);
-
   return (
-    <Modal title={`Edit Question #${question.id}`} onClose={onClose} width={700}>
+    <Modal title={`Edit Question #${question.id}`} onClose={onClose} width="720px">
       <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label className="form-label">Question Text (supports LaTeX: $...$)</label>
+          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
+        </div>
 
-        {/* LaTeX cheatsheet */}
-        <div style={{ marginBottom: 14 }}>
+        {showMathPreview && (
+          <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, marginBottom: 12 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview:</div>
+            <MathText text={form.question_text} />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowMathPreview(!showMathPreview)}>
+            {showMathPreview ? 'Hide Preview' : 'Preview Math'}
+          </button>
           <LaTeXCheatsheet />
         </div>
 
-        {/* Question text */}
-        <div className="form-group">
-          <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            Question Text
-            <button type="button" onClick={() => setShowPreview(!showPreview)}
-              style={{ fontSize: '0.75rem', color: 'var(--violet-light)', background: 'none', border: '1px solid rgba(124,58,237,0.2)', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
-              {showPreview ? 'Hide Preview' : 'Preview Math'}
-            </button>
-          </label>
-          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required
-            placeholder="Use $...$ for inline math, $$...$$ for display math" />
-          {showPreview && form.question_text && (
-            <div style={{ padding: '12px 16px', marginTop: 6, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8, fontSize: '1rem', lineHeight: 1.7 }}>
-              <MathText text={form.question_text} />
+        <ImageUpload
+          value={form.image_url}
+          onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+        />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+          {['a', 'b', 'c', 'd'].map((opt) => (
+            <div key={opt} className="form-group">
+              <label className="form-label">Option {opt.toUpperCase()}</label>
+              <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required />
             </div>
-          )}
+          ))}
         </div>
 
-        {/* Supporting image */}
-        <div className="form-group">
-          <label className="form-label">Supporting Image (optional)</label>
-          <ImageUpload value={form.image_url} onChange={(v) => setForm((f) => ({ ...f, image_url: v }))} />
-        </div>
-
-        {/* Options */}
-        {['a','b','c','d'].map(opt => (
-          <div className="form-group" key={opt}>
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Option {opt.toUpperCase()}
-              {form.correct_answer === opt && <Pill color="green">✓ Correct</Pill>}
-            </label>
-            <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required
-              placeholder="Supports $...$ math notation" />
-            {showPreview && form[`option_${opt}`]?.includes('$') && (
-              <div style={{ padding: '6px 12px', marginTop: 4, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.9rem' }}>
-                <MathText text={form[`option_${opt}`]} />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Correct answer + difficulty */}
-        <div style={{ display: 'flex', gap: 14 }}>
-          <div className="form-group" style={{ flex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+          <div className="form-group">
             <label className="form-label">Correct Answer</label>
             <select className="form-input" value={form.correct_answer} onChange={set('correct_answer')}>
-              {['a','b','c','d'].map(o => <option key={o} value={o}>{o.toUpperCase()} — {(form[`option_${o}`] || '').slice(0, 40)}</option>)}
+              {['a','b','c','d'].map((o) => <option key={o} value={o}>{o.toUpperCase()}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
+          <div className="form-group">
+            <label className="form-label">Topic</label>
+            <select className="form-input" value={form.topic} onChange={set('topic')}>
+              <option value="">— None —</option>
+              {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
             <label className="form-label">Difficulty</label>
             <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-              <option value="">Untagged</option>
+              <option value="">— None —</option>
               <option value="easy">Easy</option>
               <option value="hard">Hard</option>
             </select>
           </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">Topic (optional)</label>
-          <input className="form-input" value={form.topic} onChange={set('topic')} />
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
+            <span className="form-label" style={{ margin: 0 }}>Active</span>
+          </label>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <input type="checkbox" id="eq-active" checked={form.is_active} onChange={set('is_active')} />
-          <label htmlFor="eq-active" style={{ fontSize: '1rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>Active</label>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button type="submit" className="btn btn-violet" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </form>
@@ -641,160 +814,148 @@ function QuestionEditModal({ question, onSave, onClose }) {
 }
 
 
-// ── CREATE QUESTION MODAL (with image upload + LaTeX cheatsheet) ──────────
+// ── CREATE QUESTION MODAL ─────────────────────────────────────────────────────
 
-function CreateQuestionModal({ onClose, onCreated }) {
+function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
   const [form, setForm] = useState({
-    pool: '', world_key: '', question_text: '',
-    option_a: '', option_b: '', option_c: '', option_d: '',
-    correct_answer: 'a', difficulty: '', topic: '', image_url: null, is_active: true,
+    exam: 'qudurat', world_key: 'math_100',
+    question_text: '', option_a: '', option_b: '', option_c: '', option_d: '',
+    correct_answer: 'a', topic: '', difficulty: '', is_active: false, image_url: null,
   });
   const [saving, setSaving] = useState(false);
-  const [nextIdx, setNextIdx] = useState(null);
-  const [loadingIdx, setLoadingIdx] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
-  const selectedPool = SUBJECT_POOLS.find(p => p.label === form.pool);
-  const poolWorlds = selectedPool ? WORLD_KEYS[selectedPool.exam].filter(w => w.startsWith(selectedPool.prefix)) : [];
-
-  useEffect(() => {
-    if (!selectedPool || !form.world_key) { setNextIdx(null); return; }
-    setLoadingIdx(true);
-    adminApi.nextIndex(selectedPool.exam, form.world_key)
-      .then((d) => setNextIdx(d.next_index))
-      .catch(() => setNextIdx(null))
-      .finally(() => setLoadingIdx(false));
-  }, [form.world_key, selectedPool]);
+  const worldOptions = WORLD_KEYS[form.exam] || [];
+  const section = getSectionFromWorldKey(form.world_key);
+  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedPool || !form.world_key || !nextIdx) return;
     setSaving(true);
     try {
-      await adminApi.importQuestions([{
-        exam: selectedPool.exam, world_key: form.world_key, index: nextIdx,
-        question_text: form.question_text,
-        option_a: form.option_a, option_b: form.option_b,
-        option_c: form.option_c, option_d: form.option_d,
-        correct_answer: form.correct_answer,
-        difficulty: form.difficulty || null, topic: form.topic || null,
-        image_url: form.image_url || null,
-        is_active: form.is_active,
-      }]);
+      const nextIdx = await adminApi.nextIndex(form.exam, form.world_key);
+      const payload = [{
+        ...form,
+        index: nextIdx.next_index,
+        topic: form.topic || null,
+        difficulty: form.difficulty || null,
+      }];
+      await adminApi.importQuestions(payload);
       onCreated();
-    } catch (err) { alert(err?.error?.message || 'Failed to create question.'); }
-    finally { setSaving(false); }
+    } catch (err) {
+      alert(err?.error?.message || 'Failed to create question.');
+    } finally { setSaving(false); }
   };
 
   return (
-    <Modal title="Create New Question" onClose={onClose} width={700}>
+    <Modal title="Create New Question" onClose={onClose} width="720px">
       <form onSubmit={handleSubmit}>
-
-        {/* LaTeX cheatsheet */}
-        <div style={{ marginBottom: 14 }}>
-          <LaTeXCheatsheet />
-        </div>
-
-        {/* Pool + World + Index */}
-        <div style={{ display: 'flex', gap: 14 }}>
-          <div className="form-group" style={{ flex: 2 }}>
-            <label className="form-label">Subject Pool *</label>
-            <select className="form-input" value={form.pool} onChange={(e) => { setForm(f => ({ ...f, pool: e.target.value, world_key: '' })); setNextIdx(null); }}>
-              <option value="">Select pool…</option>
-              {SUBJECT_POOLS.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Exam</label>
+            <select className="form-input" value={form.exam} onChange={(e) => setForm((f) => ({ ...f, exam: e.target.value, world_key: WORLD_KEYS[e.target.value]?.[0] || '', topic: '' }))}>
+              {EXAMS.map((ex) => <option key={ex} value={ex}>{ex}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">World *</label>
-            <select className="form-input" value={form.world_key} onChange={set('world_key')} disabled={!selectedPool}>
-              <option value="">Select…</option>
-              {poolWorlds.map(w => <option key={w} value={w}>{w}</option>)}
+          <div className="form-group">
+            <label className="form-label">World</label>
+            <select className="form-input" value={form.world_key} onChange={(e) => setForm((f) => ({ ...f, world_key: e.target.value, topic: '' }))}>
+              {worldOptions.map((w) => <option key={w} value={w}>{w}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ flex: 0, minWidth: 80 }}>
-            <label className="form-label">Index</label>
-            <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontWeight: 700, fontSize: '1rem',
-              color: nextIdx ? 'var(--green-light)' : 'var(--text-muted)', minHeight: 42, display: 'flex', alignItems: 'center' }}>
-              {loadingIdx ? '…' : nextIdx ? `#${nextIdx}` : '—'}
+        </div>
+
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label className="form-label">Question Text (supports LaTeX: $...$)</label>
+          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
+        </div>
+
+        <LaTeXCheatsheet />
+
+        <ImageUpload
+          value={form.image_url}
+          onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+        />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+          {['a', 'b', 'c', 'd'].map((opt) => (
+            <div key={opt} className="form-group">
+              <label className="form-label">Option {opt.toUpperCase()}</label>
+              <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required />
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>Auto-detected</div>
-          </div>
+          ))}
         </div>
 
-        {/* Question text with preview */}
-        <div className="form-group">
-          <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            Question Text *
-            <button type="button" onClick={() => setShowPreview(!showPreview)}
-              style={{ fontSize: '0.75rem', color: 'var(--violet-light)', background: 'none', border: '1px solid rgba(124,58,237,0.2)', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
-              {showPreview ? 'Hide Preview' : 'Preview Math'}
-            </button>
-          </label>
-          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required
-            placeholder="Use $\frac{1}{2}$ for inline math, $$...$$ for display" />
-          {showPreview && form.question_text && (
-            <div style={{ padding: '12px 16px', marginTop: 6, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8, fontSize: '1rem', lineHeight: 1.7 }}>
-              <MathText text={form.question_text} />
-            </div>
-          )}
-        </div>
-
-        {/* Supporting image */}
-        <div className="form-group">
-          <label className="form-label">Supporting Image (optional)</label>
-          <ImageUpload value={form.image_url} onChange={(v) => setForm((f) => ({ ...f, image_url: v }))} />
-        </div>
-
-        {/* Options */}
-        {['a','b','c','d'].map(opt => (
-          <div className="form-group" key={opt}>
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Option {opt.toUpperCase()}
-              {form.correct_answer === opt && <Pill color="green">✓ Correct</Pill>}
-            </label>
-            <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required
-              placeholder="Supports $...$ math notation" />
-          </div>
-        ))}
-
-        {/* Correct answer + difficulty */}
-        <div style={{ display: 'flex', gap: 14 }}>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Correct Answer *</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Correct Answer</label>
             <select className="form-input" value={form.correct_answer} onChange={set('correct_answer')}>
-              {['a','b','c','d'].map(o => <option key={o} value={o}>{o.toUpperCase()} — {(form[`option_${o}`] || '').slice(0, 40)}</option>)}
+              {['a','b','c','d'].map((o) => <option key={o} value={o}>{o.toUpperCase()}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
+          <div className="form-group">
+            <label className="form-label">Topic</label>
+            <select className="form-input" value={form.topic} onChange={set('topic')}>
+              <option value="">— None —</option>
+              {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
             <label className="form-label">Difficulty</label>
             <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-              <option value="">Untagged</option>
+              <option value="">— None —</option>
               <option value="easy">Easy</option>
               <option value="hard">Hard</option>
             </select>
           </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">Topic (optional)</label>
-          <input className="form-input" value={form.topic} onChange={set('topic')} />
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
+            <span className="form-label" style={{ margin: 0 }}>Active immediately</span>
+          </label>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input type="checkbox" id="cq-active" checked={form.is_active} onChange={set('is_active')} />
-          <label htmlFor="cq-active" style={{ fontSize: '1rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>Active immediately</label>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-          <button type="submit" className="btn btn-green" disabled={saving || !nextIdx || !form.world_key}>
-            {saving ? 'Creating…' : 'Create Question'}
-          </button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Question'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </form>
     </Modal>
+  );
+}
+
+
+// ── STATS TAB ─────────────────────────────────────────────────────────────────
+
+function StatsTab() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => { adminApi.getStats().then(setStats).catch(() => {}); }, []);
+
+  if (!stats) return <div className="admin-loading"><div className="spinner" /></div>;
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      {[
+        { label: 'Total Questions', val: stats.questions?.total || 0 },
+        { label: 'Active Questions', val: stats.questions?.active || 0 },
+        { label: 'Students', val: stats.users?.students || 0 },
+        { label: 'Organisations', val: stats.orgs?.total || 0 },
+        { label: 'Active Entitlements', val: stats.entitlements?.active || 0 },
+      ].map((s) => (
+        <div key={s.label} className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.val}</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s.label}</div>
+        </div>
+      ))}
+      {stats.questions?.per_exam && Object.entries(stats.questions.per_exam).map(([exam, count]) => (
+        <div key={exam} className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>{count}</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{exam} Questions</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -802,147 +963,128 @@ function CreateQuestionModal({ onClose, onCreated }) {
 // ── ORGS TAB ──────────────────────────────────────────────────────────────────
 
 function OrgsTab() {
-  const [orgs, setOrgs]           = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [creating, setCreating]   = useState(false);
-  const [detail, setDetail]       = useState(null);
-  const [flash, showFlash]        = useFlash();
+  const [orgs, setOrgs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [flash, showFlash] = useFlash();
+  const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   const fetchOrgs = useCallback(() => {
     setLoading(true);
-    adminApi.listOrgs().then((d) => setOrgs(d.orgs || [])).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    adminApi.listOrgs({ per_page: 100 })
+      .then((d) => setOrgs(d.orgs))
+      .catch(() => showFlash('Failed to load orgs.', 'error'))
+      .finally(() => setLoading(false));
+  }, [showFlash]);
+
   useEffect(() => { fetchOrgs(); }, [fetchOrgs]);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    try {
-      await adminApi.createOrg({ name: fd.get('name'), slug: fd.get('slug') });
-      showFlash('Org created.'); setCreating(false); fetchOrgs();
-    } catch (err) { showFlash(err?.error?.message || 'Failed.', 'error'); }
-  };
+  if (loading) return <div className="admin-loading"><div className="spinner" /></div>;
 
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{orgs.length} organization{orgs.length !== 1 ? 's' : ''}</span>
-        <button className="btn btn-violet btn-sm" onClick={() => setCreating(true)}>+ New Org</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New Org</button>
       </div>
-      {creating && (
-        <div className="admin-stat-card" style={{ marginBottom: 16 }}>
-          <form onSubmit={handleCreate} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label className="form-label">Org Name</label><input className="form-input" name="name" required placeholder="Riyadh Academy" /></div>
-            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label className="form-label">Slug</label><input className="form-input" name="slug" required placeholder="riyadh-academy" /></div>
-            <button className="btn btn-green btn-sm" type="submit">Create</button>
-            <button className="btn btn-ghost btn-sm" type="button" onClick={() => setCreating(false)}>Cancel</button>
-          </form>
-        </div>
-      )}
-      {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
+
+      {orgs.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>No organisations yet.</p>
+      ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Actions</th></tr></thead>
+            <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Students</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
-              {orgs.map(o => (
+              {orgs.map((o) => (
                 <tr key={o.id}>
-                  <td style={{ color: 'var(--text-muted)' }}>{o.id}</td><td>{o.name}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>{o.slug}</td>
-                  <td><button className="admin-action-btn" onClick={() => setDetail(o)}>Manage →</button></td>
+                  <td>{o.id}</td>
+                  <td>{o.name}</td>
+                  <td><code>{o.slug}</code></td>
+                  <td>{o.estimated_student_count || '—'}</td>
+                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(o.created_at).toLocaleDateString()}</td>
+                  <td><button className="admin-action-btn" onClick={() => setSelected(o)}>View</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {detail && <OrgDetailModal org={detail} onClose={() => { setDetail(null); fetchOrgs(); }} />}
+
+      {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchOrgs(); showFlash('Org created.'); }} />}
+      {selected && <OrgDetailModal org={selected} onClose={() => setSelected(null)} onRefresh={fetchOrgs} />}
     </div>
   );
 }
 
-
-function OrgDetailModal({ org, onClose }) {
-  const [flash, showFlash] = useFlash();
-  const [tab, setTab] = useState('info');
-  const [leaderForm, setLeaderForm] = useState({ username: '', email: '', password: '' });
-  const [genCount, setGenCount] = useState(10);
-  const [genExam, setGenExam] = useState('qudurat');
-  const [generatedCSV, setGeneratedCSV] = useState(null);
-  const [entForm, setEntForm] = useState({ exam: 'qudurat', plan_id: 'basic', duration_days: 365 });
+function CreateOrgModal({ onClose, onCreated }) {
+  const [form, setForm] = useState({ name: '', slug: '', estimated_student_count: '' });
   const [saving, setSaving] = useState(false);
 
-  const handleCreateLeader = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try { await adminApi.createOrgLeader(org.id, leaderForm); showFlash('Leader created.'); }
-    catch (err) { showFlash(err?.error?.message || 'Failed.', 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const handleGenerate = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setSaving(true);
     try {
-      const result = await adminApi.generateStudents(org.id, { count: genCount, exam: genExam });
-      const csv = 'username,password,exam\n' + result.students.map(s => `${s.username},${s.password},${genExam}`).join('\n');
-      setGeneratedCSV(csv);
-      showFlash(`${result.students.length} students generated.`);
-    } catch (err) { showFlash(err?.error?.message || 'Failed.', 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const handleDownloadCSV = () => {
-    const blob = new Blob([generatedCSV], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a');
-    a.href = url; a.download = `${org.slug}_students.csv`; a.click(); URL.revokeObjectURL(url);
-  };
-
-  const handleGrantEntitlement = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try { await adminApi.grantOrgEntitlement(org.id, entForm); showFlash('Entitlement granted.'); }
-    catch (err) { showFlash(err?.error?.message || 'Failed.', 'error'); }
+      await adminApi.createOrg({ ...form, estimated_student_count: form.estimated_student_count ? parseInt(form.estimated_student_count) : null });
+      onCreated();
+    } catch (err) { alert(err?.error?.message || 'Failed.'); }
     finally { setSaving(false); }
   };
 
   return (
-    <Modal title={`Org: ${org.name}`} onClose={onClose} width={640}>
-      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {['info', 'leader', 'students', 'entitlement'].map(t => (
-          <button key={t} className={`btn btn-sm ${tab === t ? 'btn-violet' : 'btn-ghost'}`} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
-        ))}
-      </div>
-      {tab === 'info' && <div><p><strong>ID:</strong> {org.id}</p><p><strong>Name:</strong> {org.name}</p><p><strong>Slug:</strong> {org.slug}</p></div>}
-      {tab === 'leader' && (
-        <form onSubmit={handleCreateLeader}>
-          <div className="form-group"><label className="form-label">Username</label><input className="form-input" value={leaderForm.username} onChange={e => setLeaderForm(f => ({...f, username: e.target.value}))} required /></div>
-          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={leaderForm.email} onChange={e => setLeaderForm(f => ({...f, email: e.target.value}))} required /></div>
-          <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" value={leaderForm.password} onChange={e => setLeaderForm(f => ({...f, password: e.target.value}))} required /></div>
-          <button className="btn btn-violet" disabled={saving}>{saving ? 'Creating…' : 'Create Leader'}</button>
-        </form>
-      )}
-      {tab === 'students' && (
-        <div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Count</label><input className="form-input" type="number" min={1} max={500} value={genCount} onChange={e => setGenCount(+e.target.value)} style={{ width: 80 }} /></div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Exam</label><select className="form-input" value={genExam} onChange={e => setGenExam(e.target.value)}>{EXAMS.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
-            <button className="btn btn-green btn-sm" onClick={handleGenerate} disabled={saving}>{saving ? 'Generating…' : 'Generate Students'}</button>
-          </div>
-          {generatedCSV && (
-            <div className="admin-stat-card" style={{ marginTop: 12 }}>
-              <p style={{ color: 'var(--green-light)', fontWeight: 600, marginBottom: 8 }}>Students generated — download CSV now:</p>
-              <button className="btn btn-green btn-sm" onClick={handleDownloadCSV}>Download CSV</button>
-            </div>
-          )}
+    <Modal title="Create Organisation" onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
+        <div className="form-group"><label className="form-label">Slug</label><input className="form-input" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} required placeholder="e.g. riyadh-prep-school" /></div>
+        <div className="form-group"><label className="form-label">Est. Students (optional)</label><input className="form-input" type="number" value={form.estimated_student_count} onChange={(e) => setForm((f) => ({ ...f, estimated_student_count: e.target.value }))} /></div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Org'}</button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
+      </form>
+    </Modal>
+  );
+}
+
+function OrgDetailModal({ org, onClose, onRefresh }) {
+  const [detail, setDetail] = useState(null);
+  const [flash, showFlash] = useFlash();
+
+  useEffect(() => { adminApi.getOrg(org.id).then(setDetail).catch(() => {}); }, [org.id]);
+
+  if (!detail) return <Modal title={org.name} onClose={onClose}><div className="spinner" /></Modal>;
+
+  return (
+    <Modal title={org.name} onClose={onClose} width="700px">
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 12 }}>{flash.msg}</div>}
+      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>Slug: <code>{org.slug}</code></p>
+
+      <h4 style={{ marginBottom: 8 }}>Leader</h4>
+      {detail.leader ? (
+        <p>{detail.leader.username} (ID: {detail.leader.id})</p>
+      ) : (
+        <p style={{ color: 'var(--text-muted)' }}>No leader assigned yet.</p>
       )}
-      {tab === 'entitlement' && (
-        <form onSubmit={handleGrantEntitlement}>
-          <div className="form-group"><label className="form-label">Exam</label><select className="form-input" value={entForm.exam} onChange={e => setEntForm(f => ({...f, exam: e.target.value}))}>{EXAMS.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
-          <div className="form-group"><label className="form-label">Plan</label><select className="form-input" value={entForm.plan_id} onChange={e => setEntForm(f => ({...f, plan_id: e.target.value}))}><option value="basic">Basic</option><option value="premium">Premium</option></select></div>
-          <div className="form-group"><label className="form-label">Duration (days)</label><input className="form-input" type="number" min={1} value={entForm.duration_days} onChange={e => setEntForm(f => ({...f, duration_days: +e.target.value}))} /></div>
-          <button className="btn btn-violet" disabled={saving}>{saving ? 'Granting…' : 'Grant Entitlement'}</button>
-        </form>
-      )}
+
+      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Students ({detail.students?.length || 0})</h4>
+      {detail.students?.length > 0 ? (
+        <div style={{ maxHeight: 200, overflow: 'auto' }}>
+          {detail.students.map((s) => <div key={s.id} style={{ fontSize: '0.85rem', padding: '2px 0' }}>{s.username}</div>)}
+        </div>
+      ) : <p style={{ color: 'var(--text-muted)' }}>No students yet.</p>}
+
+      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Entitlements</h4>
+      {detail.entitlements?.length > 0 ? (
+        detail.entitlements.map((e) => (
+          <div key={e.id} className="card" style={{ marginBottom: 8 }}>
+            <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{e.exam} — {e.plan_id}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Expires: {new Date(e.entitlement_expires_at).toLocaleDateString()}</div>
+          </div>
+        ))
+      ) : <p style={{ color: 'var(--text-muted)' }}>No entitlements.</p>}
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+        <button className="btn btn-ghost" onClick={onClose}>Close</button>
+      </div>
     </Modal>
   );
 }
@@ -954,65 +1096,78 @@ function UsersTab() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [flash, showFlash] = useFlash();
+  const [creating, setCreating] = useState(false);
   const [roleFilter, setRoleFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [flash, showFlash] = useFlash();
+  const searchTimeout = useRef(null);
+  const [searchInput, setSearchInput] = useState('');
 
   const fetchUsers = useCallback(() => {
     setLoading(true);
-    adminApi.listUsers({ role: roleFilter, q: search, page, per_page: 50 })
+    adminApi.listUsers({ page, per_page: 50, role: roleFilter, search })
       .then((d) => { setUsers(d.users); setTotal(d.total); })
       .catch(() => showFlash('Failed to load users.', 'error'))
       .finally(() => setLoading(false));
-  }, [roleFilter, search, page, showFlash]);
+  }, [page, roleFilter, search, showFlash]);
+
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  const handleToggleActive = async (user) => {
+  const handleSearchChange = (val) => {
+    setSearchInput(val);
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => { setSearch(val); setPage(1); }, 400);
+  };
+
+  const handleToggleActive = async (u) => {
     try {
-      if (user.is_active) await adminApi.deactivateUser(user.id);
-      else await adminApi.activateUser(user.id);
-      showFlash(`${user.username} ${user.is_active ? 'deactivated' : 'activated'}.`);
+      if (u.is_active) await adminApi.deactivateUser(u.id);
+      else await adminApi.activateUser(u.id);
+      showFlash(`User ${u.username} ${u.is_active ? 'deactivated' : 'activated'}.`);
       fetchUsers();
     } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
   };
 
-  const handleResetPassword = async (user) => {
-    if (!window.confirm(`Reset password for ${user.username}?`)) return;
+  const handleResetPassword = async (u) => {
+    const newPass = window.prompt(`New password for ${u.username}:`);
+    if (!newPass) return;
     try {
-      const result = await adminApi.resetPassword(user.id, {});
-      showFlash(`New password for ${user.username}: ${result.new_password}`);
+      const result = await adminApi.resetPassword(u.id, { password: newPass });
+      showFlash(`Password reset for ${u.username}. New: ${result.password}`);
     } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
   };
 
-  const roleColors = { student: 'gray', school_leader: 'amber', drfahm_admin: 'violet' };
   const totalPages = Math.ceil(total / 50);
 
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+
       <div className="admin-filter-row">
-        <input className="form-input" style={{ width: 'auto', minWidth: 200 }} placeholder="Search username / email…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}>
-          <option value="">All roles</option><option value="student">Student</option>
-          <option value="school_leader">School Leader</option><option value="drfahm_admin">DrFahm Admin</option>
+        <input className="form-input" style={{ width: 'auto', minWidth: 200 }} placeholder="Search username…" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
+        <select className="form-input" style={{ width: 'auto' }} value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}>
+          <option value="">All roles</option>
+          <option value="student">Student</option>
+          <option value="school_leader">School Leader</option>
+          <option value="drfahm_admin">Admin</option>
         </select>
-        <button className="btn btn-violet btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setShowCreate(true)}>+ New Admin</button>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{total} user{total !== 1 ? 's' : ''}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} user{total !== 1 ? 's' : ''}</span>
+        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ New Admin</button>
       </div>
+
       {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+            <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
-              {users.map(u => (
+              {users.map((u) => (
                 <tr key={u.id}>
-                  <td style={{ color: 'var(--text-muted)' }}>{u.id}</td>
+                  <td>{u.id}</td>
                   <td>{u.username}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.email}</td>
-                  <td><Pill color={roleColors[u.role] || 'gray'}>{u.role}</Pill></td>
-                  <td>{u.is_active ? <Pill color="green">Yes</Pill> : <Pill color="red">No</Pill>}</td>
+                  <td><Pill color={u.role === 'drfahm_admin' ? 'violet' : u.role === 'school_leader' ? 'blue' : 'gray'}>{u.role}</Pill></td>
+                  <td>{u.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}</td>
+                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(u.created_at).toLocaleDateString()}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="admin-action-btn" onClick={() => handleToggleActive(u)}>{u.is_active ? '🔴' : '🟢'}</button>
@@ -1025,6 +1180,7 @@ function UsersTab() {
           </table>
         </div>
       )}
+
       {totalPages > 1 && (
         <div className="admin-pagination">
           <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
@@ -1032,29 +1188,34 @@ function UsersTab() {
           <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>
       )}
-      {showCreate && <CreateAdminModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchUsers(); showFlash('Admin created.'); }} />}
+
+      {creating && <CreateAdminModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchUsers(); showFlash('Admin created.'); }} />}
     </div>
   );
 }
 
 function CreateAdminModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [form, setForm] = useState({ username: '', password: '' });
   const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try { await adminApi.createUser({ ...form, role: 'drfahm_admin' }); onCreated(); }
-    catch (err) { alert(err?.error?.message || 'Failed.'); }
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const result = await adminApi.createUser(form);
+      alert(`Admin created!\nUsername: ${result.user.username}\nPassword: ${result.password}\n\nSave this password — it cannot be retrieved later.`);
+      onCreated();
+    } catch (err) { alert(err?.error?.message || 'Failed.'); }
     finally { setSaving(false); }
   };
+
   return (
-    <Modal title="Create DrFahm Admin" onClose={onClose}>
+    <Modal title="Create Admin" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <div className="form-group"><label className="form-label">Username</label><input className="form-input" value={form.username} onChange={set('username')} required /></div>
-        <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={form.email} onChange={set('email')} required /></div>
-        <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" value={form.password} onChange={set('password')} required minLength={8} /></div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button type="submit" className="btn btn-violet" disabled={saving}>{saving ? 'Creating…' : 'Create Admin'}</button>
+        <div className="form-group"><label className="form-label">Username</label><input className="form-input" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} required minLength={3} /></div>
+        <div className="form-group"><label className="form-label">Password (leave blank for random)</label><input className="form-input" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} /></div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Admin'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </form>

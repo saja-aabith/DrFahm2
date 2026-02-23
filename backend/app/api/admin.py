@@ -7,13 +7,18 @@ Endpoints:
   Questions
     POST   /api/admin/questions/import
     GET    /api/admin/questions/next-index
-    GET    /api/admin/questions/review-progress   ← NEW
-    GET    /api/admin/questions                    (+ search param) ← UPDATED
+    GET    /api/admin/questions/review-progress
+    GET    /api/admin/questions/topic-coverage        ← NEW
+    GET    /api/admin/questions                        (+ search, topic params)
     GET    /api/admin/questions/:id
     PUT    /api/admin/questions/:id          (optimistic lock on version)
     DELETE /api/admin/questions/:id          (soft delete)
     PATCH  /api/admin/questions/:id/activate
     POST   /api/admin/questions/bulk-activate
+    POST   /api/admin/questions/bulk-topic             ← NEW
+
+  Topics
+    GET    /api/admin/topics                           ← NEW
 
   Orgs
     POST   /api/admin/orgs
@@ -56,6 +61,11 @@ from ..utils.world_config import (
     VALID_EXAMS, VALID_WORLD_KEYS, EXAM_WORLD_ORDER,
     get_total_questions, validate_exam, validate_world_key, PLAN_WORLD_LIMIT,
 )
+from ..utils.topic_config import (
+    TOPIC_TAXONOMY, ALL_TOPIC_KEYS, TOPIC_KEY_TO_LABEL,
+    get_section_from_world_key, get_topics_for_world_key,
+    validate_topic, get_api_taxonomy,
+)
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -80,6 +90,41 @@ def _paginate(query, page: int, per_page: int):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# TOPICS
+# ═════════════════════════════════════════════════════════════════════════════
+
+@admin_bp.route("/topics", methods=["GET"])
+@roles_required(*_ADMIN_ROLE)
+def get_topics():
+    """
+    Returns the full topic taxonomy.
+
+    Optional filter: ?section=math (only return topics for that section)
+
+    Response:
+    {
+        "taxonomy": {
+            "math": [{"key": "algebra", "label": "Algebra"}, ...],
+            "verbal": [{"key": "synonyms", "label": "Synonyms"}, ...],
+            ...
+        }
+    }
+    """
+    section = request.args.get("section", "").strip().lower() or None
+
+    taxonomy = get_api_taxonomy()
+
+    if section:
+        if section not in taxonomy:
+            return bad_request("invalid_section",
+                               f"Invalid section: {section!r}. "
+                               f"Valid: {sorted(taxonomy.keys())}")
+        taxonomy = {section: taxonomy[section]}
+
+    return jsonify({"taxonomy": taxonomy}), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # QUESTIONS
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -90,159 +135,102 @@ def import_questions():
     Bulk import / upsert questions.
 
     Body: JSON array of question objects.
-    Upsert key: (exam, world_key, index).
-    Setting allow_partial=true skips the "must equal total_questions" check.
+    Upsert key: (exam, world_key, index) — UNIQUE constraint.
 
-    Validation:
-    - exam must be valid
-    - world_key must belong to exam
-    - index must be 1-based integer
-    - correct_answer must be a/b/c/d (or absent — defaults to 'a' placeholder)
-    - No duplicate (exam, world_key, index) within the payload
+    Each item must have:
+      exam, world_key, index, question_text, option_a..d, correct_answer
+
+    Optional:
+      topic, difficulty, is_active (default false), image_url
     """
     admin = _get_current_user()
     data  = request.get_json(silent=True)
 
-    if not isinstance(data, list):
-        return bad_request("validation_error", "Request body must be a JSON array of question objects.")
+    if not isinstance(data, list) or len(data) == 0:
+        return bad_request("validation_error",
+                           "Body must be a non-empty JSON array of question objects.")
+    if len(data) > 5000:
+        return bad_request("validation_error",
+                           "Maximum 5,000 questions per import call.")
 
-    if len(data) == 0:
-        return bad_request("validation_error", "Question array is empty.")
+    required_fields = {"exam", "world_key", "index", "question_text",
+                       "option_a", "option_b", "option_c", "option_d",
+                       "correct_answer"}
+    valid_answers   = {"a", "b", "c", "d"}
+    now             = datetime.now(timezone.utc)
+    upserted        = 0
 
-    if len(data) > 2000:
-        return bad_request("validation_error", "Maximum 2,000 questions per import call.")
+    for i, item in enumerate(data):
+        missing = required_fields - set(item.keys())
+        if missing:
+            return bad_request("validation_error",
+                               f"Item {i}: missing fields: {sorted(missing)}")
 
-    allow_partial = request.args.get("allow_partial", "false").lower() == "true"
-    valid_answers = {"a", "b", "c", "d"}
-
-    # ── Validate each record ──
-    seen_keys = set()
-    errors    = []
-
-    for i, q in enumerate(data):
-        if not isinstance(q, dict):
-            errors.append(f"[{i}] Must be an object.")
-            continue
-
-        exam      = (q.get("exam") or "").strip().lower()
-        world_key = (q.get("world_key") or "").strip().lower()
-        index     = q.get("index")
+        exam      = str(item["exam"]).strip().lower()
+        world_key = str(item["world_key"]).strip().lower()
+        idx       = int(item["index"])
+        answer    = str(item["correct_answer"]).strip().lower()
 
         if exam not in VALID_EXAMS:
-            errors.append(f"[{i}] Invalid exam: {exam!r}.")
-            continue
-
+            return bad_request("invalid_exam", f"Item {i}: invalid exam {exam!r}.")
         if world_key not in VALID_WORLD_KEYS:
-            errors.append(f"[{i}] Invalid world_key: {world_key!r}.")
-            continue
+            return bad_request("invalid_world_key", f"Item {i}: invalid world_key {world_key!r}.")
+        if answer not in valid_answers:
+            return bad_request("validation_error",
+                               f"Item {i}: correct_answer must be a/b/c/d.")
 
-        if world_key not in EXAM_WORLD_ORDER.get(exam, []):
-            errors.append(f"[{i}] world_key {world_key!r} does not belong to exam {exam!r}.")
-            continue
-
-        if not isinstance(index, int) or index < 1:
-            errors.append(f"[{i}] index must be a positive integer, got {index!r}.")
-            continue
-
-        if not allow_partial:
-            max_db_index = db.session.query(func.max(Question.index)).filter(
-                Question.exam      == exam,
-                Question.world_key == world_key,
-                Question.deleted_at.is_(None),
-            ).scalar() or 0
-            # Allow existing index (upsert) or exactly max+1 (append)
-            if index > max_db_index + 1:
-                errors.append(
-                    f"[{i}] index {index} would create a gap "
-                    f"(current max is {max_db_index}, next allowed is {max_db_index + 1})."
-                )
-                continue
-
-        key = (exam, world_key, index)
-        if key in seen_keys:
-            errors.append(f"[{i}] Duplicate (exam, world_key, index) = {key} in payload.")
-            continue
-        seen_keys.add(key)
-
-        question_text = (q.get("question_text") or "").strip()
-        if not question_text:
-            errors.append(f"[{i}] question_text is required.")
-            continue
-
-        for opt in ("option_a", "option_b", "option_c", "option_d"):
-            if not (q.get(opt) or "").strip():
-                errors.append(f"[{i}] {opt} is required.")
-                break
-
-        correct = (q.get("correct_answer") or "a").strip().lower()
-        if correct not in valid_answers:
-            errors.append(f"[{i}] correct_answer must be a/b/c/d, got {correct!r}.")
-
-    if errors:
-        return bad_request("validation_error",
-                           f"{len(errors)} validation error(s).",
-                           {"errors": errors})
-
-    # ── Upsert all records ──
-    upserted = 0
-    now      = datetime.now(timezone.utc)
-
-    for q in data:
-        exam      = q["exam"].strip().lower()
-        world_key = q["world_key"].strip().lower()
-        index     = q["index"]
+        # Validate topic if provided
+        topic = (item.get("topic") or "").strip() or None
+        if topic and not validate_topic(topic, world_key):
+            return bad_request("invalid_topic",
+                               f"Item {i}: invalid topic {topic!r} for section "
+                               f"{get_section_from_world_key(world_key)!r}.")
 
         existing = Question.query.filter_by(
-            exam=exam, world_key=world_key, index=index
-        ).filter(Question.deleted_at.is_(None)).first()
-
-        correct = (q.get("correct_answer") or "a").strip().lower()
-        diff_str = (q.get("difficulty") or "").strip().lower() or None
+            exam=exam, world_key=world_key, index=idx
+        ).first()
 
         if existing:
-            existing.question_text    = q["question_text"].strip()
-            existing.option_a         = q["option_a"].strip()
-            existing.option_b         = q["option_b"].strip()
-            existing.option_c         = q["option_c"].strip()
-            existing.option_d         = q["option_d"].strip()
-            existing.correct_answer   = correct
-            existing.topic            = (q.get("topic") or "").strip() or None
-            if "image_url" in q:
-                existing.image_url = q.get("image_url") or None
-            if diff_str and diff_str in {d.value for d in Difficulty}:
-                existing.difficulty = Difficulty(diff_str)
-            if "is_active" in q:
-                existing.is_active = bool(q["is_active"])
-            existing.version            += 1
+            existing.question_text = item["question_text"]
+            existing.option_a      = item["option_a"]
+            existing.option_b      = item["option_b"]
+            existing.option_c      = item["option_c"]
+            existing.option_d      = item["option_d"]
+            existing.correct_answer = answer
+            existing.topic         = topic
+            existing.image_url     = item.get("image_url") or existing.image_url
+            diff = (item.get("difficulty") or "").strip().lower()
+            if diff and diff in {d.value for d in Difficulty}:
+                existing.difficulty = Difficulty(diff)
+            if "is_active" in item:
+                existing.is_active = bool(item["is_active"])
             existing.updated_by_admin_id = admin.id
             existing.updated_at          = now
+            existing.version            += 1
         else:
-            new_q = Question(
-                exam=exam,
-                world_key=world_key,
-                index=index,
-                question_text=q["question_text"].strip(),
-                option_a=q["option_a"].strip(),
-                option_b=q["option_b"].strip(),
-                option_c=q["option_c"].strip(),
-                option_d=q["option_d"].strip(),
-                correct_answer=correct,
-                topic=(q.get("topic") or "").strip() or None,
-                image_url=q.get("image_url") or None,
-                difficulty=Difficulty(diff_str) if diff_str and diff_str in {d.value for d in Difficulty} else None,
-                is_active=bool(q.get("is_active", False)),
+            diff = (item.get("difficulty") or "").strip().lower()
+            q = Question(
+                exam=exam, world_key=world_key, index=idx,
+                question_text=item["question_text"],
+                option_a=item["option_a"], option_b=item["option_b"],
+                option_c=item["option_c"], option_d=item["option_d"],
+                correct_answer=answer,
+                topic=topic,
+                image_url=item.get("image_url"),
+                difficulty=Difficulty(diff) if diff and diff in {d.value for d in Difficulty} else None,
+                is_active=bool(item.get("is_active", False)),
                 created_by_admin_id=admin.id,
+                updated_by_admin_id=admin.id,
             )
-            db.session.add(new_q)
-
+            db.session.add(q)
         upserted += 1
 
     try:
         db.session.commit()
     except IntegrityError as e:
         db.session.rollback()
-        return bad_request("import_error",
-                           "Database integrity error during import.",
+        return bad_request("import_conflict",
+                           "Duplicate or constraint violation during import.",
                            {"detail": str(e.orig)})
 
     return jsonify({
@@ -352,17 +340,108 @@ def review_progress():
     }), 200
 
 
+@admin_bp.route("/questions/topic-coverage", methods=["GET"])
+@roles_required(*_ADMIN_ROLE)
+def topic_coverage():
+    """
+    Returns topic coverage stats — how many questions are tagged per topic.
+
+    Optional filters: ?exam=qudurat&section=math
+
+    Response: {
+        "coverage": [
+            { "topic": "algebra", "label": "Algebra", "section": "math", "count": 142 },
+            { "topic": "geometry", "label": "Geometry", "section": "math", "count": 87 },
+            ...
+        ],
+        "summary": {
+            "total": 2100,
+            "tagged": 860,
+            "untagged": 1240
+        }
+    }
+    """
+    exam_filter    = request.args.get("exam", "").strip().lower() or None
+    section_filter = request.args.get("section", "").strip().lower() or None
+
+    # Total + untagged count
+    base_q = Question.query.filter(Question.deleted_at.is_(None))
+    if exam_filter:
+        if exam_filter not in VALID_EXAMS:
+            return bad_request("invalid_exam", f"Invalid exam: {exam_filter!r}.")
+        base_q = base_q.filter(Question.exam == exam_filter)
+
+    total = base_q.count()
+    untagged = base_q.filter(
+        (Question.topic.is_(None)) | (Question.topic == "")
+    ).count()
+
+    # Per-topic counts
+    topic_q = db.session.query(
+        Question.topic,
+        func.count(Question.id).label("count"),
+    ).filter(
+        Question.deleted_at.is_(None),
+        Question.topic.isnot(None),
+        Question.topic != "",
+    )
+
+    if exam_filter:
+        topic_q = topic_q.filter(Question.exam == exam_filter)
+
+    if section_filter:
+        # Filter to world_keys that match the section prefix
+        if section_filter not in TOPIC_TAXONOMY:
+            return bad_request("invalid_section",
+                               f"Invalid section: {section_filter!r}.")
+        matching_worlds = [
+            wk for wk in VALID_WORLD_KEYS
+            if get_section_from_world_key(wk) == section_filter
+        ]
+        topic_q = topic_q.filter(Question.world_key.in_(matching_worlds))
+
+    topic_q = topic_q.group_by(Question.topic).order_by(func.count(Question.id).desc())
+    rows = topic_q.all()
+
+    coverage = []
+    for row in rows:
+        topic_key = row.topic
+        # Determine section from topic key
+        section = None
+        for sec, topics in TOPIC_TAXONOMY.items():
+            if topic_key in {k for k, _ in topics}:
+                section = sec
+                break
+        coverage.append({
+            "topic": topic_key,
+            "label": TOPIC_KEY_TO_LABEL.get(topic_key, topic_key),
+            "section": section,
+            "count": int(row.count),
+        })
+
+    return jsonify({
+        "coverage": coverage,
+        "summary": {
+            "total": total,
+            "tagged": total - untagged,
+            "untagged": untagged,
+        },
+    }), 200
+
+
 @admin_bp.route("/questions", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def list_questions():
     """
     List questions with filters.
-    Query params: exam, world_key, is_active, difficulty, search, page (default 1), per_page (default 50, max 200)
+    Query params: exam, world_key, is_active, difficulty, topic, search,
+                  page (default 1), per_page (default 50, max 200)
     """
     exam       = request.args.get("exam", "").strip().lower() or None
     world_key  = request.args.get("world_key", "").strip().lower() or None
     is_active  = request.args.get("is_active")
     difficulty = request.args.get("difficulty", "").strip().lower() or None
+    topic      = request.args.get("topic", "").strip().lower() or None
     search     = request.args.get("search", "").strip() or None
     page       = max(1, int(request.args.get("page", 1) or 1))
     per_page   = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
@@ -385,6 +464,14 @@ def list_questions():
     if difficulty:
         if difficulty in {d.value for d in Difficulty}:
             q = q.filter(Question.difficulty == Difficulty(difficulty))
+
+    if topic:
+        if topic == "_untagged":
+            q = q.filter((Question.topic.is_(None)) | (Question.topic == ""))
+        elif topic in ALL_TOPIC_KEYS:
+            q = q.filter(Question.topic == topic)
+        else:
+            return bad_request("invalid_topic", f"Invalid topic filter: {topic!r}.")
 
     if search:
         q = q.filter(Question.question_text.ilike(f"%{search}%"))
@@ -445,14 +532,24 @@ def update_question(question_id: int):
     if "option_b"      in data: q.option_b      = data["option_b"]
     if "option_c"      in data: q.option_c      = data["option_c"]
     if "option_d"      in data: q.option_d      = data["option_d"]
-    if "topic"         in data: q.topic         = data["topic"]
     if "is_active"     in data: q.is_active     = bool(data["is_active"])
+
+    if "topic" in data:
+        topic_val = (data["topic"] or "").strip() or None
+        if topic_val and not validate_topic(topic_val, q.world_key):
+            section = get_section_from_world_key(q.world_key)
+            valid_topics = [k for k, _ in TOPIC_TAXONOMY.get(section, [])]
+            return bad_request(
+                "invalid_topic",
+                f"Topic {topic_val!r} is not valid for section {section!r}. "
+                f"Valid topics: {valid_topics}"
+            )
+        q.topic = topic_val
 
     if "image_url" in data:
         img = data["image_url"]
         if img:
-            # Validate base64 data URL size (~500KB max encoded)
-            if len(img) > 700_000:  # ~500KB file = ~666KB base64
+            if len(img) > 700_000:
                 return bad_request("image_too_large",
                                    "Image must be under 500KB.")
             if not (img.startswith("data:image/") or img.startswith("http")):
@@ -592,6 +689,74 @@ def bulk_activate_questions():
     }), 200
 
 
+@admin_bp.route("/questions/bulk-topic", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def bulk_assign_topic():
+    """
+    Bulk assign a topic to questions matching filters or explicit IDs.
+
+    Body:
+    {
+      "topic": "algebra",              -- required: topic key (or null to clear)
+      "exam": "qudurat"|"tahsili",     -- optional filter
+      "world_key": "math_100",         -- optional filter
+      "ids": [1,2,3]                   -- optional: explicit list of question IDs
+    }
+
+    Returns count of affected rows.
+    """
+    admin = _get_current_user()
+    data  = request.get_json(silent=True) or {}
+
+    topic_val = (data.get("topic") or "").strip() or None
+    exam      = (data.get("exam") or "").strip().lower() or None
+    world_key = (data.get("world_key") or "").strip().lower() or None
+    ids       = data.get("ids")
+
+    # Validate topic exists in taxonomy (unless clearing)
+    if topic_val and topic_val not in ALL_TOPIC_KEYS:
+        return bad_request("invalid_topic",
+                           f"Invalid topic: {topic_val!r}. "
+                           f"Must be a valid topic key from the taxonomy.")
+
+    now = datetime.now(timezone.utc)
+
+    q = Question.query.filter(Question.deleted_at.is_(None))
+
+    if ids:
+        if not isinstance(ids, list) or len(ids) == 0:
+            return bad_request("validation_error", "ids must be a non-empty array.")
+        if len(ids) > 2000:
+            return bad_request("validation_error", "Maximum 2,000 IDs per bulk call.")
+        q = q.filter(Question.id.in_(ids))
+    else:
+        if exam:
+            if exam not in VALID_EXAMS:
+                return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
+            q = q.filter(Question.exam == exam)
+        if world_key:
+            if world_key not in VALID_WORLD_KEYS:
+                return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
+            q = q.filter(Question.world_key == world_key)
+
+    affected = q.update(
+        {
+            "topic":                topic_val,
+            "updated_by_admin_id":  admin.id,
+            "updated_at":           now,
+        },
+        synchronize_session=False,
+    )
+    db.session.commit()
+
+    label = TOPIC_KEY_TO_LABEL.get(topic_val, topic_val) if topic_val else "none"
+    return jsonify({
+        "affected": affected,
+        "topic": topic_val,
+        "message": f"{affected} question(s) topic set to {label}.",
+    }), 200
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # ORGS
 # ═════════════════════════════════════════════════════════════════════════════
@@ -612,17 +777,15 @@ def create_org():
         return bad_request("validation_error", "slug is required.")
     if len(slug) < 3 or len(slug) > 50:
         return bad_request("validation_error", "slug must be 3–50 characters.")
-    if not slug.replace("-", "").replace("_", "").isalnum():
-        return bad_request("validation_error",
-                           "slug may only contain letters, numbers, hyphens, and underscores.")
 
-    if Org.query.filter_by(slug=slug).first():
-        return bad_request("slug_taken", f"Slug {slug!r} is already in use.")
+    existing = Org.query.filter_by(slug=slug).first()
+    if existing:
+        return conflict(f"An org with slug {slug!r} already exists.")
 
     org = Org(
         name=name,
         slug=slug,
-        estimated_student_count=int(count) if count else None,
+        estimated_student_count=count,
         created_by_admin_id=admin.id,
     )
     db.session.add(org)
@@ -635,22 +798,18 @@ def create_org():
 def list_orgs():
     page     = max(1, int(request.args.get("page", 1) or 1))
     per_page = min(100, max(1, int(request.args.get("per_page", 20) or 20)))
+    search   = request.args.get("search", "").strip()
 
-    q              = Org.query.order_by(Org.created_at.desc())
-    items, total   = _paginate(q, page, per_page)
+    q = Org.query
+    if search:
+        q = q.filter(Org.name.ilike(f"%{search}%") | Org.slug.ilike(f"%{search}%"))
+    q = q.order_by(Org.created_at.desc())
 
-    result = []
-    for org in items:
-        d = org.to_dict()
-        d["student_count"] = User.query.filter_by(
-            org_id=org.id, role=UserRole.STUDENT
-        ).count()
-        result.append(d)
-
+    items, total = _paginate(q, page, per_page)
     return jsonify({
-        "orgs":     result,
-        "total":    total,
-        "page":     page,
+        "orgs": [o.to_dict() for o in items],
+        "total": total,
+        "page": page,
         "per_page": per_page,
     }), 200
 
@@ -658,222 +817,167 @@ def list_orgs():
 @admin_bp.route("/orgs/<int:org_id>", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def get_org(org_id: int):
-    org = db.session.get(Org, org_id)
+    org = Org.query.get(org_id)
     if not org:
         return error_response("not_found", "Org not found.", 404)
 
-    d = org.to_dict()
-    d["leader"] = None
+    leader = User.query.filter_by(org_id=org.id, role=UserRole.SCHOOL_LEADER).first()
+    students = User.query.filter_by(org_id=org.id, role=UserRole.STUDENT).all()
+    entitlements = Entitlement.query.filter_by(org_id=org.id).order_by(Entitlement.created_at.desc()).all()
 
-    leader = User.query.filter_by(
-        org_id=org_id, role=UserRole.SCHOOL_LEADER
-    ).first()
-    if leader:
-        d["leader"] = leader.to_dict()
-
-    d["student_count"] = User.query.filter_by(
-        org_id=org_id, role=UserRole.STUDENT
-    ).count()
-
-    entitlements = Entitlement.query.filter_by(org_id=org_id).all()
-    d["entitlements"] = [e.to_dict() for e in entitlements]
-
-    return jsonify({"org": d}), 200
+    return jsonify({
+        "org": org.to_dict(),
+        "leader": leader.to_dict() if leader else None,
+        "students": [s.to_dict() for s in students],
+        "entitlements": [e.to_dict() for e in entitlements],
+    }), 200
 
 
 @admin_bp.route("/orgs/<int:org_id>/leader", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
-def create_leader(org_id: int):
-    """Create one school_leader for this org. Only one leader per org."""
+def create_org_leader(org_id: int):
     admin = _get_current_user()
-    org   = db.session.get(Org, org_id)
+    org   = Org.query.get(org_id)
     if not org:
         return error_response("not_found", "Org not found.", 404)
 
-    existing = User.query.filter_by(
-        org_id=org_id, role=UserRole.SCHOOL_LEADER
-    ).first()
-    if existing:
-        return bad_request("leader_exists",
-                           f"Org {org.name} already has a school leader: {existing.username}.")
+    existing_leader = User.query.filter_by(org_id=org.id, role=UserRole.SCHOOL_LEADER).first()
+    if existing_leader:
+        return conflict("This org already has a leader.")
 
     data     = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
-    email    = (data.get("email") or "").strip() or None
-    password = data.get("password") or _random_password(12)
+    password = data.get("password") or _random_password()
 
     if not username:
         return bad_request("validation_error", "username is required.")
-    if len(username) < 3 or len(username) > 80:
-        return bad_request("validation_error", "username must be 3–80 characters.")
+    if len(username) < 3:
+        return bad_request("validation_error", "username must be at least 3 characters.")
 
-    if User.query.filter_by(username=username).first():
-        return bad_request("username_taken", f"Username {username!r} is taken.")
-    if email and User.query.filter_by(email=email).first():
-        return bad_request("email_taken", "That email is already registered.")
+    dup = User.query.filter_by(username=username).first()
+    if dup:
+        return conflict(f"Username {username!r} already taken.")
 
-    leader = User(
-        username=username,
-        email=email,
-        role=UserRole.SCHOOL_LEADER,
-        org_id=org_id,
-        created_by_admin_id=admin.id,
-    )
+    leader = User(username=username, role=UserRole.SCHOOL_LEADER, org_id=org.id)
     leader.set_password(password)
     db.session.add(leader)
     db.session.commit()
 
-    result = leader.to_dict()
-    result["generated_password"] = password  # Only returned once
-    return jsonify({"leader": result}), 201
+    return jsonify({
+        "user": leader.to_dict(),
+        "password": password,
+        "message": "Leader created. Save the password — it cannot be retrieved later.",
+    }), 201
 
 
 @admin_bp.route("/orgs/<int:org_id>/students/generate", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def generate_students(org_id: int):
-    """
-    Bulk-generate student accounts for an org.
-
-    Body: { "count": int (1–500) }
-
-    Returns the full list of { username, password } pairs.
-    Passwords are returned ONCE and are NOT stored in plaintext.
-    Frontend must trigger immediate CSV download from this response.
-    """
     admin = _get_current_user()
-    org   = db.session.get(Org, org_id)
+    org   = Org.query.get(org_id)
     if not org:
         return error_response("not_found", "Org not found.", 404)
 
     data  = request.get_json(silent=True) or {}
-    count = data.get("count")
-
+    count = data.get("count", 10)
     if not isinstance(count, int) or count < 1 or count > 500:
-        return bad_request("validation_error",
-                           "count must be an integer between 1 and 500.")
+        return bad_request("validation_error", "count must be 1–500.")
 
-    # Determine next student number for this org
-    existing_count = User.query.filter_by(
-        org_id=org_id, role=UserRole.STUDENT
-    ).count()
+    prefix = org.slug[:8]
+    created = []
 
-    generated = []
+    for _ in range(count):
+        attempts = 0
+        while attempts < 10:
+            suffix   = _random_username_suffix()
+            username = f"{prefix}_{suffix}"
+            if not User.query.filter_by(username=username).first():
+                break
+            attempts += 1
+        else:
+            continue
 
-    for i in range(count):
-        num      = existing_count + i + 1
-        username = f"{org.slug}_s{num:04d}"
-        password = _random_password(10)
-
-        # Ensure username uniqueness (rare collision safety)
-        while User.query.filter_by(username=username).first():
-            username = f"{org.slug}_s{num:04d}_{_random_username_suffix(3)}"
-
-        student = User(
-            username=username,
-            email=None,
-            role=UserRole.STUDENT,
-            org_id=org_id,
-            created_by_admin_id=admin.id,
-        )
+        password = _random_password()
+        student  = User(username=username, role=UserRole.STUDENT, org_id=org.id)
         student.set_password(password)
         db.session.add(student)
-        generated.append({"username": username, "password": password})
+        created.append({"username": username, "password": password})
 
     db.session.commit()
-
     return jsonify({
-        "generated": len(generated),
-        "org_id":    org_id,
-        "org_name":  org.name,
-        "students":  generated,
-        "warning":   "Passwords are shown once and not stored in plaintext. Download CSV immediately.",
+        "created": len(created),
+        "students": created,
+        "message": f"{len(created)} student accounts created for {org.name}.",
     }), 201
 
 
 @admin_bp.route("/orgs/<int:org_id>/students/export", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
-def export_students(org_id: int):
-    """
-    Export student account list as CSV.
-    Passwords are NOT included (one-time only at generation).
-    """
-    org = db.session.get(Org, org_id)
+def export_students_csv(org_id: int):
+    org = Org.query.get(org_id)
     if not org:
         return error_response("not_found", "Org not found.", 404)
 
-    students = (
-        User.query
-        .filter_by(org_id=org_id, role=UserRole.STUDENT)
-        .order_by(User.created_at.asc())
-        .all()
-    )
+    students = User.query.filter_by(org_id=org.id, role=UserRole.STUDENT).order_by(User.username).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["username", "email", "is_active", "org", "created_at"])
+    writer.writerow(["username", "role", "is_active", "created_at"])
     for s in students:
-        writer.writerow([
-            s.username,
-            s.email or "",
-            "yes" if s.is_active else "no",
-            org.name,
-            s.created_at.strftime("%Y-%m-%d %H:%M UTC"),
-        ])
+        writer.writerow([s.username, s.role.value, s.is_active, s.created_at.isoformat()])
 
-    output.seek(0)
     return Response(
         output.getvalue(),
         mimetype="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{org.slug}_students.csv"'
-        },
+        headers={"Content-Disposition": f"attachment; filename={org.slug}_students.csv"},
     )
 
 
 @admin_bp.route("/orgs/<int:org_id>/entitlement", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def grant_org_entitlement(org_id: int):
-    """
-    Grant an org-level entitlement (manual, after school deal signed).
-    Body: { exam, plan_id: basic|premium, duration_days: int }
-    """
     admin = _get_current_user()
-    org   = db.session.get(Org, org_id)
+    org   = Org.query.get(org_id)
     if not org:
         return error_response("not_found", "Org not found.", 404)
 
-    data         = request.get_json(silent=True) or {}
-    exam         = (data.get("exam") or "").strip().lower()
-    plan_id_str  = (data.get("plan_id") or "").strip().lower()
-    duration_days = data.get("duration_days")
+    data = request.get_json(silent=True) or {}
+    exam        = (data.get("exam") or "").strip().lower()
+    plan_id     = (data.get("plan_id") or "").strip().lower()
+    days        = data.get("duration_days", 365)
 
     if exam not in VALID_EXAMS:
-        return bad_request("invalid_exam", f"exam must be one of {sorted(VALID_EXAMS)}.")
-
-    if plan_id_str not in ("basic", "premium"):
-        return bad_request("invalid_plan_id", "plan_id must be basic or premium.")
-
-    if not isinstance(duration_days, int) or duration_days < 1:
+        return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
+    if plan_id not in ("basic", "premium"):
+        return bad_request("validation_error", "plan_id must be 'basic' or 'premium'.")
+    if not isinstance(days, int) or days < 1:
         return bad_request("validation_error", "duration_days must be a positive integer.")
 
-    plan_id       = PlanId(plan_id_str)
-    max_world_idx = PLAN_WORLD_LIMIT[plan_id_str]
-    now           = datetime.now(timezone.utc)
-    expiry        = now + timedelta(days=duration_days)
+    now     = datetime.now(timezone.utc)
+    expires = now + timedelta(days=days)
+
+    plan_type_map = {
+        "basic":   PlanType.ORG_BASIC,
+        "premium": PlanType.ORG_PREMIUM,
+    }
 
     ent = Entitlement(
-        org_id=org_id,
-        user_id=None,
+        org_id=org.id,
         exam=exam,
-        plan_id=plan_id,
-        plan_type=PlanType.SCHOOL_PREMIUM_1Y,
-        max_world_index=max_world_idx,
+        plan_id=PlanId(plan_id),
+        plan_type=plan_type_map[plan_id],
+        max_world_index=PLAN_WORLD_LIMIT[plan_id],
         entitlement_starts_at=now,
-        entitlement_expires_at=expiry,
+        entitlement_expires_at=expires,
+        granted_by_admin_id=admin.id,
     )
     db.session.add(ent)
     db.session.commit()
-    return jsonify({"entitlement": ent.to_dict()}), 201
+
+    return jsonify({
+        "entitlement": ent.to_dict(),
+        "message": f"Org {org.name!r} granted {plan_id} plan for {exam} ({days} days).",
+    }), 201
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -883,32 +987,26 @@ def grant_org_entitlement(org_id: int):
 @admin_bp.route("/users", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def list_users():
-    role     = request.args.get("role", "").strip().lower() or None
     page     = max(1, int(request.args.get("page", 1) or 1))
-    per_page = min(100, max(1, int(request.args.get("per_page", 50) or 50)))
-    search   = request.args.get("q", "").strip() or None
+    per_page = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
+    role     = request.args.get("role", "").strip().lower()
+    search   = request.args.get("search", "").strip()
 
     q = User.query
-
     if role:
         try:
             q = q.filter(User.role == UserRole(role))
         except ValueError:
             return bad_request("invalid_role", f"Invalid role: {role!r}.")
-
     if search:
-        q = q.filter(
-            (User.username.ilike(f"%{search}%")) |
-            (User.email.ilike(f"%{search}%"))
-        )
-
+        q = q.filter(User.username.ilike(f"%{search}%"))
     q = q.order_by(User.created_at.desc())
-    items, total = _paginate(q, page, per_page)
 
+    items, total = _paginate(q, page, per_page)
     return jsonify({
-        "users":    [u.to_dict() for u in items],
-        "total":    total,
-        "page":     page,
+        "users": [u.to_dict() for u in items],
+        "total": total,
+        "page": page,
         "per_page": per_page,
     }), 200
 
@@ -916,60 +1014,45 @@ def list_users():
 @admin_bp.route("/users", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def create_admin_user():
-    """
-    Create a new drfahm_admin account.
-    Enforces MAX_DRFAHM_ADMINS cap.
-    """
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
 
     username = (data.get("username") or "").strip()
-    email    = (data.get("email") or "").strip() or None
-    password = (data.get("password") or "").strip()
+    password = data.get("password") or _random_password()
 
-    if not username or len(username) < 3:
+    if not username:
+        return bad_request("validation_error", "username is required.")
+    if len(username) < 3:
         return bad_request("validation_error", "username must be at least 3 characters.")
-    if not password or len(password) < 8:
-        return bad_request("validation_error", "password must be at least 8 characters.")
 
-    # Enforce admin cap
-    current_admin_count = User.query.filter_by(
-        role=UserRole.DRFAHM_ADMIN, is_active=True
-    ).count()
-    max_admins = current_app.config["MAX_DRFAHM_ADMINS"]
+    max_admins = current_app.config.get("MAX_DRFAHM_ADMINS", 5)
+    current_count = User.query.filter_by(role=UserRole.DRFAHM_ADMIN).count()
+    if current_count >= max_admins:
+        return forbidden(f"Maximum {max_admins} admin accounts allowed.")
 
-    if current_admin_count >= max_admins:
-        return forbidden(
-            "admin_cap_reached",
-            f"Maximum of {max_admins} DrFahm admin accounts allowed. "
-            f"Deactivate an existing admin first."
-        )
+    dup = User.query.filter_by(username=username).first()
+    if dup:
+        return conflict(f"Username {username!r} already taken.")
 
-    if User.query.filter_by(username=username).first():
-        return bad_request("username_taken", "That username is already taken.")
-    if email and User.query.filter_by(email=email).first():
-        return bad_request("email_taken", "That email is already registered.")
-
-    new_admin = User(
-        username=username,
-        email=email,
-        role=UserRole.DRFAHM_ADMIN,
-        created_by_admin_id=admin.id,
-    )
+    new_admin = User(username=username, role=UserRole.DRFAHM_ADMIN)
     new_admin.set_password(password)
     db.session.add(new_admin)
     db.session.commit()
-    return jsonify({"user": new_admin.to_dict()}), 201
+
+    return jsonify({
+        "user": new_admin.to_dict(),
+        "password": password,
+        "message": "Admin created. Save the password — it cannot be retrieved later.",
+    }), 201
 
 
 @admin_bp.route("/users/<int:user_id>/activate", methods=["PATCH"])
 @roles_required(*_ADMIN_ROLE)
 def activate_user(user_id: int):
-    user = db.session.get(User, user_id)
+    user = User.query.get(user_id)
     if not user:
         return error_response("not_found", "User not found.", 404)
-    user.is_active  = True
-    user.updated_at = datetime.now(timezone.utc)
+    user.is_active = True
     db.session.commit()
     return jsonify({"user": user.to_dict()}), 200
 
@@ -977,15 +1060,10 @@ def activate_user(user_id: int):
 @admin_bp.route("/users/<int:user_id>/deactivate", methods=["PATCH"])
 @roles_required(*_ADMIN_ROLE)
 def deactivate_user(user_id: int):
-    admin = _get_current_user()
-    user  = db.session.get(User, user_id)
+    user = User.query.get(user_id)
     if not user:
         return error_response("not_found", "User not found.", 404)
-    if user.id == admin.id:
-        return bad_request("cannot_deactivate_self",
-                           "You cannot deactivate your own account.")
-    user.is_active  = False
-    user.updated_at = datetime.now(timezone.utc)
+    user.is_active = False
     db.session.commit()
     return jsonify({"user": user.to_dict()}), 200
 
@@ -993,66 +1071,63 @@ def deactivate_user(user_id: int):
 @admin_bp.route("/users/<int:user_id>/reset-password", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def reset_user_password(user_id: int):
-    """
-    Reset a user's password.
-    Body: { "new_password": str } — or omit to auto-generate.
-    Returns the new password in the response (one-time only).
-    """
-    data  = request.get_json(silent=True) or {}
-    user  = db.session.get(User, user_id)
+    data = request.get_json(silent=True) or {}
+    user = User.query.get(user_id)
     if not user:
         return error_response("not_found", "User not found.", 404)
 
-    new_password = (data.get("new_password") or "").strip() or _random_password(12)
-
-    if len(new_password) < 8:
-        return bad_request("validation_error",
-                           "new_password must be at least 8 characters.")
-
+    new_password = data.get("password") or _random_password()
     user.set_password(new_password)
-    user.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({
-        "message":      "Password reset successfully.",
-        "new_password": new_password,
-        "warning":      "This password is shown once and not stored in plaintext.",
+        "user": user.to_dict(),
+        "password": new_password,
+        "message": "Password reset. Save it — it cannot be retrieved later.",
     }), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STATS (lightweight dashboard numbers)
+# STATS
 # ═════════════════════════════════════════════════════════════════════════════
 
 @admin_bp.route("/stats", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def get_stats():
-    from ..models.billing import StripeEvent
-    from ..models.entitlement import ExamTrial, Entitlement
+    now = datetime.now(timezone.utc)
 
-    total_students    = User.query.filter_by(role=UserRole.STUDENT).count()
-    active_students   = User.query.filter_by(role=UserRole.STUDENT, is_active=True).count()
-    total_orgs        = Org.query.count()
-    total_questions   = Question.query.filter(Question.deleted_at.is_(None)).count()
-    active_questions  = Question.query.filter(
+    total_questions = Question.query.filter(Question.deleted_at.is_(None)).count()
+    active_questions = Question.query.filter(
         Question.deleted_at.is_(None), Question.is_active == True
     ).count()
-    now               = datetime.now(timezone.utc)
-    active_ents       = Entitlement.query.filter(
+
+    total_users = User.query.filter_by(role=UserRole.STUDENT).count()
+    total_orgs  = Org.query.count()
+
+    active_entitlements = Entitlement.query.filter(
         Entitlement.entitlement_expires_at > now
     ).count()
-    active_trials     = ExamTrial.query.filter(
-        ExamTrial.trial_expires_at > now
-    ).count()
-    stripe_revenue_events = StripeEvent.query.filter_by(
-        event_type="checkout.session.completed", status="processed"
-    ).count()
+
+    questions_per_exam = dict(
+        db.session.query(Question.exam, func.count(Question.id))
+        .filter(Question.deleted_at.is_(None))
+        .group_by(Question.exam)
+        .all()
+    )
 
     return jsonify({
-        "students":        {"total": total_students, "active": active_students},
-        "orgs":            {"total": total_orgs},
-        "questions":       {"total": total_questions, "active": active_questions},
-        "entitlements":    {"active": active_ents},
-        "trials":          {"active": active_trials},
-        "stripe_payments": stripe_revenue_events,
+        "questions": {
+            "total": total_questions,
+            "active": active_questions,
+            "per_exam": questions_per_exam,
+        },
+        "users": {
+            "students": total_users,
+        },
+        "orgs": {
+            "total": total_orgs,
+        },
+        "entitlements": {
+            "active": active_entitlements,
+        },
     }), 200
