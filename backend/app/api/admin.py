@@ -6,11 +6,14 @@ All routes require role=drfahm_admin (enforced by @roles_required decorator).
 Endpoints:
   Questions
     POST   /api/admin/questions/import
-    GET    /api/admin/questions
+    GET    /api/admin/questions/next-index
+    GET    /api/admin/questions/review-progress   ← NEW
+    GET    /api/admin/questions                    (+ search param) ← UPDATED
     GET    /api/admin/questions/:id
     PUT    /api/admin/questions/:id          (optimistic lock on version)
     DELETE /api/admin/questions/:id          (soft delete)
     PATCH  /api/admin/questions/:id/activate
+    POST   /api/admin/questions/bulk-activate
 
   Orgs
     POST   /api/admin/orgs
@@ -27,6 +30,9 @@ Endpoints:
     PATCH  /api/admin/users/:user_id/activate
     PATCH  /api/admin/users/:user_id/deactivate
     POST   /api/admin/users/:user_id/reset-password
+
+  Stats
+    GET    /api/admin/stats
 """
 
 import csv
@@ -36,6 +42,7 @@ import string
 from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, request, jsonify, current_app, Response
+from sqlalchemy import func, case
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
@@ -138,8 +145,7 @@ def import_questions():
             continue
 
         if not allow_partial:
-            from sqlalchemy import func as sqlfunc
-            max_db_index = db.session.query(sqlfunc.max(Question.index)).filter(
+            max_db_index = db.session.query(func.max(Question.index)).filter(
                 Question.exam      == exam,
                 Question.world_key == world_key,
                 Question.deleted_at.is_(None),
@@ -158,9 +164,14 @@ def import_questions():
             continue
         seen_keys.add(key)
 
-        for field in ("question_text", "option_a", "option_b", "option_c", "option_d"):
-            if not q.get(field):
-                errors.append(f"[{i}] Missing required field: {field!r}.")
+        question_text = (q.get("question_text") or "").strip()
+        if not question_text:
+            errors.append(f"[{i}] question_text is required.")
+            continue
+
+        for opt in ("option_a", "option_b", "option_c", "option_d"):
+            if not (q.get(opt) or "").strip():
+                errors.append(f"[{i}] {opt} is required.")
                 break
 
         correct = (q.get("correct_answer") or "a").strip().lower()
@@ -168,44 +179,40 @@ def import_questions():
             errors.append(f"[{i}] correct_answer must be a/b/c/d, got {correct!r}.")
 
     if errors:
-        return bad_request("import_validation_failed",
+        return bad_request("validation_error",
                            f"{len(errors)} validation error(s).",
-                           {"errors": errors[:50]})  # cap at 50 to avoid giant response
+                           {"errors": errors})
 
-    # ── Upsert ──
+    # ── Upsert all records ──
     upserted = 0
-    now = datetime.now(timezone.utc)
+    now      = datetime.now(timezone.utc)
 
     for q in data:
         exam      = q["exam"].strip().lower()
         world_key = q["world_key"].strip().lower()
-        index     = int(q["index"])
+        index     = q["index"]
 
         existing = Question.query.filter_by(
             exam=exam, world_key=world_key, index=index
-        ).first()
+        ).filter(Question.deleted_at.is_(None)).first()
 
-        correct_answer = (q.get("correct_answer") or "a").strip().lower()
-
-        difficulty_raw = q.get("difficulty")
-        difficulty     = None
-        if difficulty_raw and difficulty_raw in {d.value for d in Difficulty}:
-            difficulty = Difficulty(difficulty_raw)
+        correct = (q.get("correct_answer") or "a").strip().lower()
+        diff_str = (q.get("difficulty") or "").strip().lower() or None
 
         if existing:
-            # Only update content fields — never overwrite a reviewed answer
-            # unless the incoming record has a non-placeholder answer
-            existing.question_text = q["question_text"]
-            existing.option_a      = q["option_a"]
-            existing.option_b      = q["option_b"]
-            existing.option_c      = q["option_c"]
-            existing.option_d      = q["option_d"]
-            existing.topic         = q.get("topic") or existing.topic
-            if difficulty:
-                existing.difficulty = difficulty
-            # Only update correct_answer if it's non-placeholder or existing is 'a' placeholder
-            if correct_answer != "a" or existing.correct_answer == "a":
-                existing.correct_answer = correct_answer
+            existing.question_text    = q["question_text"].strip()
+            existing.option_a         = q["option_a"].strip()
+            existing.option_b         = q["option_b"].strip()
+            existing.option_c         = q["option_c"].strip()
+            existing.option_d         = q["option_d"].strip()
+            existing.correct_answer   = correct
+            existing.topic            = (q.get("topic") or "").strip() or None
+            if "image_url" in q:
+                existing.image_url = q.get("image_url") or None
+            if diff_str and diff_str in {d.value for d in Difficulty}:
+                existing.difficulty = Difficulty(diff_str)
+            if "is_active" in q:
+                existing.is_active = bool(q["is_active"])
             existing.version            += 1
             existing.updated_by_admin_id = admin.id
             existing.updated_at          = now
@@ -214,15 +221,16 @@ def import_questions():
                 exam=exam,
                 world_key=world_key,
                 index=index,
-                question_text=q["question_text"],
-                option_a=q["option_a"],
-                option_b=q["option_b"],
-                option_c=q["option_c"],
-                option_d=q["option_d"],
-                correct_answer=correct_answer,
-                topic=q.get("topic"),
-                difficulty=difficulty,
-                is_active=False,   # requires admin review before going live
+                question_text=q["question_text"].strip(),
+                option_a=q["option_a"].strip(),
+                option_b=q["option_b"].strip(),
+                option_c=q["option_c"].strip(),
+                option_d=q["option_d"].strip(),
+                correct_answer=correct,
+                topic=(q.get("topic") or "").strip() or None,
+                image_url=q.get("image_url") or None,
+                difficulty=Difficulty(diff_str) if diff_str and diff_str in {d.value for d in Difficulty} else None,
+                is_active=bool(q.get("is_active", False)),
                 created_by_admin_id=admin.id,
             )
             db.session.add(new_q)
@@ -233,8 +241,8 @@ def import_questions():
         db.session.commit()
     except IntegrityError as e:
         db.session.rollback()
-        return bad_request("import_integrity_error",
-                           "Database constraint violated during import.",
+        return bad_request("import_error",
+                           "Database integrity error during import.",
                            {"detail": str(e.orig)})
 
     return jsonify({
@@ -260,7 +268,6 @@ def get_next_index():
     if world_key not in VALID_WORLD_KEYS:
         return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
 
-    from sqlalchemy import func
     max_idx = db.session.query(func.max(Question.index)).filter(
         Question.exam      == exam,
         Question.world_key == world_key,
@@ -271,17 +278,92 @@ def get_next_index():
     return jsonify({"exam": exam, "world_key": world_key, "next_index": next_index}), 200
 
 
+@admin_bp.route("/questions/review-progress", methods=["GET"])
+@roles_required(*_ADMIN_ROLE)
+def review_progress():
+    """
+    Returns review progress per exam/world.
+    A question is considered 'reviewed' if correct_answer != 'a'
+    (since all placeholder answers default to 'a').
+
+    Optional filter: ?exam=qudurat
+
+    Response: {
+      "progress": [
+        { "exam": "qudurat", "world_key": "math_100", "total": 100, "reviewed": 47, "unreviewed": 53 },
+        ...
+      ],
+      "summary": { "total": 2100, "reviewed": 320, "unreviewed": 1780 }
+    }
+    """
+    exam_filter = request.args.get("exam", "").strip().lower() or None
+
+    q = db.session.query(
+        Question.exam,
+        Question.world_key,
+        func.count(Question.id).label("total"),
+        func.sum(
+            case(
+                (Question.correct_answer != "a", 1),
+                else_=0,
+            )
+        ).label("reviewed"),
+    ).filter(
+        Question.deleted_at.is_(None),
+    ).group_by(
+        Question.exam,
+        Question.world_key,
+    ).order_by(
+        Question.exam,
+        Question.world_key,
+    )
+
+    if exam_filter:
+        if exam_filter not in VALID_EXAMS:
+            return bad_request("invalid_exam", f"Invalid exam: {exam_filter!r}.")
+        q = q.filter(Question.exam == exam_filter)
+
+    rows = q.all()
+
+    progress = []
+    total_all = 0
+    reviewed_all = 0
+
+    for row in rows:
+        reviewed = int(row.reviewed or 0)
+        total = int(row.total or 0)
+        progress.append({
+            "exam": row.exam,
+            "world_key": row.world_key,
+            "total": total,
+            "reviewed": reviewed,
+            "unreviewed": total - reviewed,
+        })
+        total_all += total
+        reviewed_all += reviewed
+
+    return jsonify({
+        "progress": progress,
+        "summary": {
+            "total": total_all,
+            "reviewed": reviewed_all,
+            "unreviewed": total_all - reviewed_all,
+        },
+    }), 200
+
+
 @admin_bp.route("/questions", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def list_questions():
     """
     List questions with filters.
-    Query params: exam, world_key, is_active, difficulty, page (default 1), per_page (default 50, max 200)
+    Query params: exam, world_key, is_active, difficulty, search, page (default 1), per_page (default 50, max 200)
     """
     exam       = request.args.get("exam", "").strip().lower() or None
     world_key  = request.args.get("world_key", "").strip().lower() or None
     is_active  = request.args.get("is_active")
     difficulty = request.args.get("difficulty", "").strip().lower() or None
+    search     = request.args.get("search", "").strip() or None
     page       = max(1, int(request.args.get("page", 1) or 1))
     per_page   = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
 
@@ -303,6 +385,9 @@ def list_questions():
     if difficulty:
         if difficulty in {d.value for d in Difficulty}:
             q = q.filter(Question.difficulty == Difficulty(difficulty))
+
+    if search:
+        q = q.filter(Question.question_text.ilike(f"%{search}%"))
 
     q = q.order_by(Question.exam, Question.world_key, Question.index)
 
@@ -363,6 +448,18 @@ def update_question(question_id: int):
     if "topic"         in data: q.topic         = data["topic"]
     if "is_active"     in data: q.is_active     = bool(data["is_active"])
 
+    if "image_url" in data:
+        img = data["image_url"]
+        if img:
+            # Validate base64 data URL size (~500KB max encoded)
+            if len(img) > 700_000:  # ~500KB file = ~666KB base64
+                return bad_request("image_too_large",
+                                   "Image must be under 500KB.")
+            if not (img.startswith("data:image/") or img.startswith("http")):
+                return bad_request("invalid_image",
+                                   "image_url must be a data URL or HTTP URL.")
+        q.image_url = img or None
+
     if "correct_answer" in data:
         ans = (data["correct_answer"] or "").strip().lower()
         if ans not in valid_answers:
@@ -377,7 +474,7 @@ def update_question(question_id: int):
         diff = data["difficulty"]
         if diff and diff not in {d.value for d in Difficulty}:
             return bad_request("validation_error",
-                               f"difficulty must be easy/medium/hard.")
+                               f"difficulty must be easy/hard.")
         q.difficulty = Difficulty(diff) if diff else None
 
     q.version            += 1
@@ -423,6 +520,76 @@ def toggle_question_active(question_id: int):
     q.version             += 1
     db.session.commit()
     return jsonify({"question": q.to_dict(include_answer=True)}), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BULK QUESTION ACTIONS
+# ═════════════════════════════════════════════════════════════════════════════
+
+@admin_bp.route("/questions/bulk-activate", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def bulk_activate_questions():
+    """
+    Bulk activate or deactivate questions matching filters.
+
+    Body:
+    {
+      "is_active": true|false,     -- required: target state
+      "exam": "qudurat"|"tahsili", -- optional filter
+      "world_key": "math_100",     -- optional filter
+      "ids": [1,2,3]               -- optional: explicit list of question IDs
+                                      (if provided, exam/world_key filters ignored)
+    }
+
+    Returns count of affected rows.
+    """
+    admin = _get_current_user()
+    data  = request.get_json(silent=True) or {}
+
+    if "is_active" not in data:
+        return bad_request("validation_error", "is_active (boolean) is required.")
+
+    is_active  = bool(data["is_active"])
+    exam       = (data.get("exam") or "").strip().lower() or None
+    world_key  = (data.get("world_key") or "").strip().lower() or None
+    ids        = data.get("ids")  # optional explicit list
+
+    now = datetime.now(timezone.utc)
+
+    q = Question.query.filter(Question.deleted_at.is_(None))
+
+    if ids:
+        if not isinstance(ids, list) or len(ids) == 0:
+            return bad_request("validation_error", "ids must be a non-empty array.")
+        if len(ids) > 2000:
+            return bad_request("validation_error", "Maximum 2,000 IDs per bulk call.")
+        q = q.filter(Question.id.in_(ids))
+    else:
+        if exam:
+            if exam not in VALID_EXAMS:
+                return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
+            q = q.filter(Question.exam == exam)
+        if world_key:
+            if world_key not in VALID_WORLD_KEYS:
+                return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
+            q = q.filter(Question.world_key == world_key)
+
+    affected = q.update(
+        {
+            "is_active":            is_active,
+            "updated_by_admin_id":  admin.id,
+            "updated_at":           now,
+        },
+        synchronize_session=False,
+    )
+    db.session.commit()
+
+    action = "activated" if is_active else "deactivated"
+    return jsonify({
+        "affected": affected,
+        "message":  f"{affected} question(s) {action}.",
+        "is_active": is_active,
+    }), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -557,7 +724,7 @@ def create_leader(org_id: int):
     db.session.commit()
 
     result = leader.to_dict()
-    result["generated_password"] = password  # Only returned once — log or store securely
+    result["generated_password"] = password  # Only returned once
     return jsonify({"leader": result}), 201
 
 
@@ -888,74 +1055,4 @@ def get_stats():
         "entitlements":    {"active": active_ents},
         "trials":          {"active": active_trials},
         "stripe_payments": stripe_revenue_events,
-    }), 200
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# BULK QUESTION ACTIONS
-# ═════════════════════════════════════════════════════════════════════════════
-
-@admin_bp.route("/questions/bulk-activate", methods=["POST"])
-@roles_required(*_ADMIN_ROLE)
-def bulk_activate_questions():
-    """
-    Bulk activate or deactivate questions matching filters.
-
-    Body:
-    {
-      "is_active": true|false,     -- required: target state
-      "exam": "qudurat"|"tahsili", -- optional filter
-      "world_key": "math_100",     -- optional filter
-      "ids": [1,2,3]               -- optional: explicit list of question IDs
-                                      (if provided, exam/world_key filters ignored)
-    }
-
-    Returns count of affected rows.
-    """
-    admin = _get_current_user()
-    data  = request.get_json(silent=True) or {}
-
-    if "is_active" not in data:
-        return bad_request("validation_error", "is_active (boolean) is required.")
-
-    is_active  = bool(data["is_active"])
-    exam       = (data.get("exam") or "").strip().lower() or None
-    world_key  = (data.get("world_key") or "").strip().lower() or None
-    ids        = data.get("ids")  # optional explicit list
-
-    now = datetime.now(timezone.utc)
-
-    q = Question.query.filter(Question.deleted_at.is_(None))
-
-    if ids:
-        if not isinstance(ids, list) or len(ids) == 0:
-            return bad_request("validation_error", "ids must be a non-empty array.")
-        if len(ids) > 2000:
-            return bad_request("validation_error", "Maximum 2,000 IDs per bulk call.")
-        q = q.filter(Question.id.in_(ids))
-    else:
-        if exam:
-            if exam not in VALID_EXAMS:
-                return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
-            q = q.filter(Question.exam == exam)
-        if world_key:
-            if world_key not in VALID_WORLD_KEYS:
-                return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
-            q = q.filter(Question.world_key == world_key)
-
-    affected = q.update(
-        {
-            "is_active":            is_active,
-            "updated_by_admin_id":  admin.id,
-            "updated_at":           now,
-        },
-        synchronize_session=False,
-    )
-    db.session.commit()
-
-    action = "activated" if is_active else "deactivated"
-    return jsonify({
-        "affected": affected,
-        "message":  f"{affected} question(s) {action}.",
-        "is_active": is_active,
     }), 200

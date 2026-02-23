@@ -1713,3 +1713,692 @@ body {
   color: var(--text-secondary);
   line-height: 1.6;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN QUESTIONS UPGRADE — Review Progress, Inline Pickers, Expanded Rows
+   APPEND this entire block to the END of your existing global.css
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Review Progress Panel ───────────────────────────────────────────────── */
+.review-progress-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.review-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.review-progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.review-progress-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.review-progress-numbers {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.review-progress-toggle {
+  background: none;
+  border: none;
+  color: var(--violet-light);
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.review-progress-toggle:hover {
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.review-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.review-bar-sm {
+  height: 5px;
+}
+
+.review-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+  min-width: 0;
+}
+
+.review-worlds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.review-world-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.review-world-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.review-world-exam {
+  color: var(--violet-light);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.review-world-key {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.review-world-count {
+  color: var(--text-muted);
+  margin-left: auto;
+  font-weight: 600;
+}
+
+
+/* ── Inline Answer Picker ────────────────────────────────────────────────── */
+.inline-answer-picker {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.inline-answer-btn {
+  width: 32px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inline-answer-btn:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: var(--violet);
+  color: var(--violet-light);
+  transform: scale(1.08);
+}
+
+.inline-answer-btn.active {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(22, 163, 74, 0.4);
+  color: var(--green-light);
+}
+
+.inline-answer-saving {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  animation: pulse 1s ease infinite;
+}
+
+
+/* ── Inline Difficulty Picker ────────────────────────────────────────────── */
+.inline-difficulty-picker {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.inline-diff-btn {
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.inline-diff-btn.easy {
+  color: var(--green-light);
+}
+.inline-diff-btn.easy:hover,
+.inline-diff-btn.easy.active {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.inline-diff-btn.hard {
+  color: #fcd34d;
+}
+.inline-diff-btn.hard:hover,
+.inline-diff-btn.hard.active {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: rgba(217, 119, 6, 0.4);
+}
+
+.inline-diff-btn.none {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  width: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.inline-diff-btn.none:hover {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.25);
+  color: #fca5a5;
+}
+
+
+/* ── Expandable Question Rows ────────────────────────────────────────────── */
+.question-row {
+  transition: background 0.15s ease;
+}
+.question-row.expanded-active {
+  background: rgba(124, 58, 237, 0.04) !important;
+}
+
+.clickable-cell {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s ease;
+}
+.clickable-cell:hover {
+  color: var(--violet-light);
+}
+
+.expand-icon {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 12px;
+  transition: color 0.15s ease;
+}
+.clickable-cell:hover .expand-icon {
+  color: var(--violet-light);
+}
+
+.expanded-row td {
+  padding: 0 !important;
+  border-top: none !important;
+}
+
+.expanded-content {
+  padding: 16px 20px 20px 52px;
+  background: rgba(124, 58, 237, 0.03);
+  border-bottom: 1px solid var(--border);
+  animation: expandIn 0.2s ease;
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+    padding-top: 16px;
+    padding-bottom: 20px;
+  }
+}
+
+.expanded-question-text {
+  font-size: 1rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.expanded-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.expanded-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.expanded-option.correct {
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.25);
+}
+
+.expanded-option-letter {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.expanded-option.correct .expanded-option-letter {
+  background: rgba(22, 163, 74, 0.2);
+  color: var(--green-light);
+}
+
+.expanded-option-text {
+  flex: 1;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.expanded-correct-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--green-light);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.expanded-meta {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATH RENDERING + QUESTION IMAGES
+   APPEND this entire block to the END of your existing global.css
+   (after the admin_upgrade.css block if you already added that)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── KaTeX Math Overrides ────────────────────────────────────────────────── */
+
+/* Ensure math text inherits our color scheme */
+.math-text .katex {
+  color: inherit;
+  font-size: 1.05em;
+}
+
+/* Display math: centered block with breathing room */
+.math-display {
+  display: block;
+  text-align: center;
+  margin: 14px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+.math-display .katex {
+  font-size: 1.2em;
+}
+
+/* Inline math: sits naturally in text flow */
+.math-inline .katex {
+  font-size: 1.05em;
+}
+
+/* Error fallback for broken LaTeX */
+.math-error {
+  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px dashed rgba(220, 38, 38, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.85em;
+}
+
+/* Ensure question text wraps math properly */
+.qcard-text .math-text {
+  display: inline;
+  line-height: 1.8;
+}
+.qcard-text .math-display {
+  margin: 16px 0;
+}
+
+/* Math in answer options — keep compact */
+.qcard-option-text .math-text {
+  display: inline;
+}
+.qcard-option-text .katex {
+  font-size: 1em;
+}
+.qcard-option-text .math-display {
+  margin: 6px 0;
+  text-align: left;
+}
+
+
+/* ── Question Image (student-facing) ─────────────────────────────────────── */
+
+.qcard-image-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 24px;
+  position: relative;
+  min-height: 60px;
+}
+
+.qcard-image-skeleton {
+  width: 100%;
+  max-width: 400px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  animation: skeleton-pulse 1.5s ease infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.8; }
+}
+
+.qcard-image {
+  max-width: 100%;
+  max-height: 360px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.qcard-image.loaded {
+  opacity: 1;
+}
+
+/* On smaller screens, constrain image width */
+@media (max-width: 600px) {
+  .qcard-image {
+    max-height: 240px;
+    padding: 8px;
+  }
+}
+
+
+/* ── Admin Panel: Image Upload ───────────────────────────────────────────── */
+
+.admin-image-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-image-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 100px;
+}
+.admin-image-dropzone:hover {
+  border-color: var(--violet);
+  background: rgba(124, 58, 237, 0.04);
+}
+.admin-image-dropzone.dragging {
+  border-color: var(--violet-light);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.admin-image-dropzone-icon {
+  font-size: 1.6rem;
+  opacity: 0.5;
+}
+
+.admin-image-dropzone-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+.admin-image-dropzone-text strong {
+  color: var(--violet-light);
+}
+
+.admin-image-preview {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  max-width: 100%;
+}
+
+.admin-image-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.admin-image-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.15);
+  color: #fca5a5;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.admin-image-remove:hover {
+  background: rgba(220, 38, 38, 0.3);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+
+/* ── Admin Panel: LaTeX Cheatsheet ───────────────────────────────────────── */
+
+.latex-cheatsheet-toggle {
+  background: none;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  color: var(--violet-light);
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.latex-cheatsheet-toggle:hover {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: var(--violet);
+}
+
+.latex-cheatsheet {
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  animation: expandIn 0.2s ease;
+}
+
+.latex-cheatsheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 6px;
+}
+
+.latex-cheatsheet-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.latex-cheatsheet-item:hover {
+  background: rgba(124, 58, 237, 0.06);
+}
+
+.latex-cheatsheet-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.latex-cheatsheet-code {
+  color: var(--violet-light);
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.78rem;
+  background: rgba(124, 58, 237, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  user-select: all;
+}
+
+
+/* ── Admin Panel: Expanded Row Math + Image ──────────────────────────────── */
+
+.expanded-question-text .math-text {
+  display: inline;
+  line-height: 1.8;
+}
+.expanded-question-text .math-display {
+  margin: 12px 0;
+}
+.expanded-question-text .katex {
+  font-size: 1.1em;
+}
+
+.expanded-image {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 16px;
+}
+.expanded-image img {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
+}
+
+.expanded-option .math-text {
+  display: inline;
+}
+.expanded-option .katex {
+  font-size: 1em;
+}
+
+
+/* ── Admin Question Table: Image Indicator ───────────────────────────────── */
+
+.has-image-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: var(--violet-light);
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+
+/* ── Math in Demo Widget (Home page) ─────────────────────────────────────── */
+
+.demo-question .math-text {
+  display: inline;
+}
+.demo-question .katex {
+  font-size: 1em;
+}
+.demo-option .math-text {
+  display: inline;
+}
+.demo-option .katex {
+  font-size: 0.95em;
+}

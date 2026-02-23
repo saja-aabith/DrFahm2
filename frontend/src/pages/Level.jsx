@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import MathText from '../components/MathText';
 
 const TIMER_SECONDS = 60;
 const ADVANCE_DELAY = 700; // ms after selecting before moving to next question
@@ -43,6 +44,28 @@ function CircularTimer({ secondsLeft, total }) {
   );
 }
 
+// ── Question image ────────────────────────────────────────────────────────────
+function QuestionImage({ src, alt }) {
+  const [loaded, setLoaded] = useState(false);
+  const [errored, setErrored] = useState(false);
+
+  if (!src || errored) return null;
+
+  return (
+    <div className="qcard-image-wrap">
+      {!loaded && <div className="qcard-image-skeleton" />}
+      <img
+        src={src}
+        alt={alt || 'Question diagram'}
+        className={`qcard-image ${loaded ? 'loaded' : ''}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 // ── Single question card ──────────────────────────────────────────────────────
 function QuestionCard({ question, qIndex, total, selectedAnswer, onSelect, locked }) {
   const opts = [
@@ -58,7 +81,16 @@ function QuestionCard({ question, qIndex, total, selectedAnswer, onSelect, locke
         <span className="qcard-num">Question {qIndex + 1} of {total}</span>
         {question.topic && <span className="qcard-topic">{question.topic}</span>}
       </div>
-      <p className="qcard-text">{question.question_text}</p>
+
+      {/* Question text with math rendering */}
+      <div className="qcard-text">
+        <MathText text={question.question_text} />
+      </div>
+
+      {/* Supporting image (diagram, graph, figure) */}
+      <QuestionImage src={question.image_url} alt={`Diagram for question ${qIndex + 1}`} />
+
+      {/* Answer options with math rendering */}
       <div className="qcard-options">
         {opts.map(({ key, text }) => {
           const isSelected = selectedAnswer === key;
@@ -70,7 +102,9 @@ function QuestionCard({ question, qIndex, total, selectedAnswer, onSelect, locke
               disabled={locked}
             >
               <span className="qcard-option-letter">{key.toUpperCase()}</span>
-              <span className="qcard-option-text">{text}</span>
+              <span className="qcard-option-text">
+                <MathText text={text} />
+              </span>
               {isSelected && <span className="qcard-option-check">✓</span>}
             </button>
           );
@@ -83,54 +117,40 @@ function QuestionCard({ question, qIndex, total, selectedAnswer, onSelect, locke
 // ── Results view ──────────────────────────────────────────────────────────────
 function ResultsView({ submission, exam, worldKey, levelNumber, onRetry }) {
   const navigate = useNavigate();
-  const { score, total, passed, pass_threshold_pct, world_completed, results } = submission;
-  const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+  const { score_pct, passed, correct_count, total_questions, results } = submission;
+
+  const isMastery = score_pct === 100;
 
   return (
     <div className="results-card">
-      <div className={`results-score-circle ${passed ? 'pass' : 'fail'}`}>{pct}%</div>
-      <h2 className="results-title">
-        {world_completed ? '🎉 World Complete!' : passed ? '✅ Level Passed!' : '❌ Not Quite'}
+      <div className="results-icon" style={{ fontSize: '3rem', marginBottom: 12 }}>
+        {isMastery ? '🏆' : passed ? '✅' : '❌'}
+      </div>
+      <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: 8 }}>
+        {isMastery ? 'Perfect Score!' : passed ? 'Level Passed!' : 'Not Quite…'}
       </h2>
-      <p className="results-subtitle">
-        {passed
-          ? world_completed
-            ? `You've mastered all 10 levels in this world!`
-            : `Score: ${score}/${total} — above the ${pass_threshold_pct}% threshold.`
-          : `Score: ${score}/${total} — need ${pass_threshold_pct}% to pass. Keep going!`
-        }
+      <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>
+        You scored <strong style={{ color: score_pct >= 70 ? 'var(--green-light)' : '#fca5a5' }}>{score_pct}%</strong>{' '}
+        ({correct_count}/{total_questions} correct)
+        {passed && !isMastery && <span> — 100% required for mastery</span>}
       </p>
-      <div className="results-breakdown">
-        <div className="results-stat">
-          <div className="results-stat-value" style={{ color: 'var(--green-light)' }}>{score}</div>
-          <div className="results-stat-label">Correct</div>
-        </div>
-        <div className="results-stat">
-          <div className="results-stat-value" style={{ color: '#fca5a5' }}>{total - score}</div>
-          <div className="results-stat-label">Incorrect</div>
-        </div>
-        <div className="results-stat">
-          <div className="results-stat-value">{pct}%</div>
-          <div className="results-stat-label">Score</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
-        {!passed && <button className="btn btn-violet" onClick={onRetry}>Try Again</button>}
-        {passed && !world_completed && (
-          <button className="btn btn-primary"
-            onClick={() => navigate(`/exam/${exam}/world/${worldKey}/level/${levelNumber + 1}`)}>
-            Next Level →
-          </button>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        {!passed && (
+          <button className="btn btn-violet" onClick={onRetry}>Try Again</button>
         )}
-        {world_completed && <Link to={`/exam/${exam}`} className="btn btn-primary">Back to World Map 🗺️</Link>}
-        <Link to={`/exam/${exam}`} className="btn btn-ghost">World Map</Link>
+        <button className="btn btn-ghost" onClick={() => navigate(`/exam/${exam}`)}>← World Map</button>
       </div>
+
       {results && results.length > 0 && (
-        <div className="results-answers">
-          <p className="section-title" style={{ marginBottom: 12 }}>Answer Review</p>
+        <div style={{ textAlign: 'left', maxWidth: 520, margin: '0 auto' }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Answer Review</h3>
           {results.map((r, i) => (
-            <div key={r.question_id} className="results-answer-item">
-              <span className="answer-icon">{r.is_correct ? '✅' : '❌'}</span>
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
+              borderBottom: '1px solid var(--border)', fontSize: '0.9rem',
+            }}>
+              <span style={{ fontSize: '1.1rem' }}>{r.is_correct ? '✅' : '❌'}</span>
               <div style={{ flex: 1 }}>
                 <span style={{ color: 'var(--text-secondary)', marginRight: 8 }}>Q{i + 1}</span>
                 <span>
@@ -162,12 +182,12 @@ export default function Level() {
   const [error,       setError]      = useState('');
 
   // One-at-a-time state
-  const [qIndex,      setQIndex]     = useState(0);           // current question index
-  const [answers,     setAnswers]    = useState({});          // { [question_id]: key }
-  const [selected,    setSelected]   = useState(null);        // what user just tapped
-  const [locked,      setLocked]     = useState(false);       // prevent double-tap after pick
+  const [qIndex,      setQIndex]     = useState(0);
+  const [answers,     setAnswers]    = useState({});
+  const [selected,    setSelected]   = useState(null);
+  const [locked,      setLocked]     = useState(false);
   const [timeLeft,    setTimeLeft]   = useState(TIMER_SECONDS);
-  const [animDir,     setAnimDir]    = useState('enter');     // enter | exit
+  const [animDir,     setAnimDir]    = useState('enter');
 
   // Submission state
   const [submitting,  setSubmitting] = useState(false);
@@ -240,7 +260,6 @@ export default function Level() {
     clearTimeout(advanceRef.current);
 
     if (nextIndex >= totalQs) {
-      // All done — submit
       submitAnswers(finalAnswers);
     } else {
       setAnimDir('exit');
@@ -262,11 +281,10 @@ export default function Level() {
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
-          // Time's up — advance with no answer for this question
           clearInterval(timerRef.current);
           setLocked(true);
           setSelected(null);
-          const finalAnswers = { ...answers }; // no entry for current question = wrong
+          const finalAnswers = { ...answers };
           advanceRef.current = setTimeout(() => {
             advance(finalAnswers, qIndex + 1, questions.length);
           }, 500);
@@ -277,7 +295,7 @@ export default function Level() {
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [qIndex, loading, submission, submitting, questions.length, advance]);
+  }, [qIndex, loading, submission, submitting, questions.length, advance, answers]);
 
   // ── User selects an answer ──
   const handleSelect = useCallback((key) => {

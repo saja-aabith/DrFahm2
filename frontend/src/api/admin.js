@@ -44,33 +44,30 @@ export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/quest
 export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
 export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
 export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
+export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
+
+/**
+ * Quick inline update — sends only changed field + version for optimistic locking.
+ * Used by inline answer picker and inline difficulty picker.
+ */
+export const quickUpdate = (id, field, value, version) =>
+  adminRequest(`/api/admin/questions/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ [field]: value, version }),
+  });
 
 // ── Orgs ─────────────────────────────────────────────────────────────────────
 export const listOrgs          = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
 export const createOrg         = (data)        => adminRequest('/api/admin/orgs', { method: 'POST', body: JSON.stringify(data) });
 export const getOrg            = (id)          => adminRequest(`/api/admin/orgs/${id}`);
-export const createLeader      = (orgId, data) => adminRequest(`/api/admin/orgs/${orgId}/leader`, { method: 'POST', body: JSON.stringify(data) });
-export const generateStudents  = (orgId, count) => adminRequest(`/api/admin/orgs/${orgId}/students/generate`, { method: 'POST', body: JSON.stringify({ count }) });
-export const exportStudentsCSV = async (orgId) => {
-  const token = getToken();
-  const res   = await fetch(`${BASE}/api/admin/orgs/${orgId}/students/export`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error('Export failed');
-  const blob     = await res.blob();
-  const url      = window.URL.createObjectURL(blob);
-  const a        = document.createElement('a');
-  a.href         = url;
-  a.download     = `org_${orgId}_students.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
-};
-export const grantOrgEntitlement = (orgId, data) =>
-  adminRequest(`/api/admin/orgs/${orgId}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
+export const createOrgLeader   = (id, data)    => adminRequest(`/api/admin/orgs/${id}/leader`, { method: 'POST', body: JSON.stringify(data) });
+export const generateStudents  = (id, data)    => adminRequest(`/api/admin/orgs/${id}/students/generate`, { method: 'POST', body: JSON.stringify(data) });
+export const exportStudentsCsv = (id)          => adminRequest(`/api/admin/orgs/${id}/students/export`, { _raw: true });
+export const grantOrgEntitlement = (id, data)  => adminRequest(`/api/admin/orgs/${id}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
 
-// ── Users ─────────────────────────────────────────────────────────────────────
-export const listUsers       = (params = {}) => adminRequest('/api/admin/users?' + new URLSearchParams(params));
-export const createAdminUser = (data)        => adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
-export const activateUser    = (id)          => adminRequest(`/api/admin/users/${id}/activate`,   { method: 'PATCH' });
+// ── Users ────────────────────────────────────────────────────────────────────
+export const listUsers       = (params = {}) => adminRequest('/api/admin/users?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))));
+export const createUser      = (data)        => adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
+export const activateUser    = (id)          => adminRequest(`/api/admin/users/${id}/activate`, { method: 'PATCH' });
 export const deactivateUser  = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`, { method: 'PATCH' });
 export const resetPassword   = (id, data)    => adminRequest(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify(data) });

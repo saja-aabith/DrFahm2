@@ -34,6 +34,11 @@ class Question(db.Model):
     option_d      = db.Column(db.Text, nullable=False)
     correct_answer = db.Column(db.String(1), nullable=False)   # 'a' | 'b' | 'c' | 'd'
 
+    # Supporting image (base64 data URL or external URL)
+    # Stored as data:image/png;base64,... for uploaded images
+    # Max ~500KB encoded. POST-MVP: migrate to S3/Cloudinary.
+    image_url     = db.Column(db.Text, nullable=True)
+
     # Metadata
     topic       = db.Column(db.String(100), nullable=True)
     difficulty  = db.Column(db.Enum(Difficulty), nullable=True)
@@ -81,6 +86,7 @@ class Question(db.Model):
             "option_b":      self.option_b,
             "option_c":      self.option_c,
             "option_d":      self.option_d,
+            "image_url":     self.image_url,
             "topic":         self.topic,
             "difficulty":    self.difficulty.value if self.difficulty else None,
             "is_active":     self.is_active,
