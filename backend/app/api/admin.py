@@ -138,9 +138,18 @@ def import_questions():
             continue
 
         if not allow_partial:
-            max_index = get_total_questions(world_key)
-            if index > max_index:
-                errors.append(f"[{i}] index {index} exceeds max {max_index} for world_key {world_key!r}.")
+            from sqlalchemy import func as sqlfunc
+            max_db_index = db.session.query(sqlfunc.max(Question.index)).filter(
+                Question.exam      == exam,
+                Question.world_key == world_key,
+                Question.deleted_at.is_(None),
+            ).scalar() or 0
+            # Allow existing index (upsert) or exactly max+1 (append)
+            if index > max_db_index + 1:
+                errors.append(
+                    f"[{i}] index {index} would create a gap "
+                    f"(current max is {max_db_index}, next allowed is {max_db_index + 1})."
+                )
                 continue
 
         key = (exam, world_key, index)
@@ -235,18 +244,46 @@ def import_questions():
     }), 200
 
 
+@admin_bp.route("/questions/next-index", methods=["GET"])
+@roles_required(*_ADMIN_ROLE)
+def get_next_index():
+    """
+    Returns the next available index for a given exam + world_key.
+    GET /api/admin/questions/next-index?exam=qudurat&world_key=math_100
+    Response: { "next_index": 101 }
+    """
+    exam      = (request.args.get("exam") or "").strip().lower()
+    world_key = (request.args.get("world_key") or "").strip().lower()
+
+    if exam not in VALID_EXAMS:
+        return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
+    if world_key not in VALID_WORLD_KEYS:
+        return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
+
+    from sqlalchemy import func
+    max_idx = db.session.query(func.max(Question.index)).filter(
+        Question.exam      == exam,
+        Question.world_key == world_key,
+        Question.deleted_at.is_(None),
+    ).scalar()
+
+    next_index = (max_idx or 0) + 1
+    return jsonify({"exam": exam, "world_key": world_key, "next_index": next_index}), 200
+
+
 @admin_bp.route("/questions", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def list_questions():
     """
     List questions with filters.
-    Query params: exam, world_key, is_active, page (default 1), per_page (default 50, max 200)
+    Query params: exam, world_key, is_active, difficulty, page (default 1), per_page (default 50, max 200)
     """
-    exam      = request.args.get("exam", "").strip().lower() or None
-    world_key = request.args.get("world_key", "").strip().lower() or None
-    is_active = request.args.get("is_active")
-    page      = max(1, int(request.args.get("page", 1) or 1))
-    per_page  = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
+    exam       = request.args.get("exam", "").strip().lower() or None
+    world_key  = request.args.get("world_key", "").strip().lower() or None
+    is_active  = request.args.get("is_active")
+    difficulty = request.args.get("difficulty", "").strip().lower() or None
+    page       = max(1, int(request.args.get("page", 1) or 1))
+    per_page   = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
 
     q = Question.query.filter(Question.deleted_at.is_(None))
 
@@ -262,6 +299,10 @@ def list_questions():
 
     if is_active is not None:
         q = q.filter(Question.is_active == (is_active.lower() == "true"))
+
+    if difficulty:
+        if difficulty in {d.value for d in Difficulty}:
+            q = q.filter(Question.difficulty == Difficulty(difficulty))
 
     q = q.order_by(Question.exam, Question.world_key, Question.index)
 
@@ -847,4 +888,74 @@ def get_stats():
         "entitlements":    {"active": active_ents},
         "trials":          {"active": active_trials},
         "stripe_payments": stripe_revenue_events,
+    }), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BULK QUESTION ACTIONS
+# ═════════════════════════════════════════════════════════════════════════════
+
+@admin_bp.route("/questions/bulk-activate", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def bulk_activate_questions():
+    """
+    Bulk activate or deactivate questions matching filters.
+
+    Body:
+    {
+      "is_active": true|false,     -- required: target state
+      "exam": "qudurat"|"tahsili", -- optional filter
+      "world_key": "math_100",     -- optional filter
+      "ids": [1,2,3]               -- optional: explicit list of question IDs
+                                      (if provided, exam/world_key filters ignored)
+    }
+
+    Returns count of affected rows.
+    """
+    admin = _get_current_user()
+    data  = request.get_json(silent=True) or {}
+
+    if "is_active" not in data:
+        return bad_request("validation_error", "is_active (boolean) is required.")
+
+    is_active  = bool(data["is_active"])
+    exam       = (data.get("exam") or "").strip().lower() or None
+    world_key  = (data.get("world_key") or "").strip().lower() or None
+    ids        = data.get("ids")  # optional explicit list
+
+    now = datetime.now(timezone.utc)
+
+    q = Question.query.filter(Question.deleted_at.is_(None))
+
+    if ids:
+        if not isinstance(ids, list) or len(ids) == 0:
+            return bad_request("validation_error", "ids must be a non-empty array.")
+        if len(ids) > 2000:
+            return bad_request("validation_error", "Maximum 2,000 IDs per bulk call.")
+        q = q.filter(Question.id.in_(ids))
+    else:
+        if exam:
+            if exam not in VALID_EXAMS:
+                return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
+            q = q.filter(Question.exam == exam)
+        if world_key:
+            if world_key not in VALID_WORLD_KEYS:
+                return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
+            q = q.filter(Question.world_key == world_key)
+
+    affected = q.update(
+        {
+            "is_active":            is_active,
+            "updated_by_admin_id":  admin.id,
+            "updated_at":           now,
+        },
+        synchronize_session=False,
+    )
+    db.session.commit()
+
+    action = "activated" if is_active else "deactivated"
+    return jsonify({
+        "affected": affected,
+        "message":  f"{affected} question(s) {action}.",
+        "is_active": is_active,
     }), 200

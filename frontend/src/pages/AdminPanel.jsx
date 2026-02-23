@@ -120,7 +120,9 @@ function QuestionsTab() {
   const [loading,   setLoading]     = useState(false);
   const [editing,   setEditing]     = useState(null);
   const [flash,     showFlash]      = useFlash();
-  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '' });
+  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '', difficulty: '' });
+
+  const [creating,  setCreating]    = useState(false);
 
   const worldOptions = filters.exam ? WORLD_KEYS[filters.exam] || [] : [];
 
@@ -168,6 +170,30 @@ function QuestionsTab() {
     }
   };
 
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const handleBulkActivate = async (is_active) => {
+    const scope = filters.exam
+      ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`)
+      : 'ALL questions';
+    const action = is_active ? 'activate' : 'deactivate';
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} all ${scope}? This affects every matching question.`)) return;
+    setBulkLoading(true);
+    try {
+      const result = await adminApi.bulkActivate({
+        is_active,
+        exam:      filters.exam      || undefined,
+        world_key: filters.world_key || undefined,
+      });
+      showFlash(`${result.affected} question(s) ${is_active ? 'activated' : 'deactivated'}.`);
+      fetchQuestions();
+    } catch (e) {
+      showFlash(e?.error?.message || 'Bulk action failed.', 'error');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / 50);
 
   return (
@@ -188,14 +214,49 @@ function QuestionsTab() {
           <option value="true">Active</option>
           <option value="false">Inactive</option>
         </select>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
+        <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.difficulty} onChange={(e) => handleFilterChange('difficulty', e.target.value)}>
+          <option value="">All difficulty</option>
+          <option value="easy">Easy</option>
+          <option value="hard">Hard</option>
+        </select>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
+        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>
+          + Add Question
+        </button>
+      </div>
+
+      {/* Bulk actions */}
+      <div className="admin-bulk-bar">
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Bulk actions
+          {filters.exam && <strong style={{ color: 'var(--text-secondary)' }}> · {filters.exam}{filters.world_key ? ` / ${filters.world_key}` : ' (all worlds)'}</strong>}
+          {!filters.exam && <strong style={{ color: 'var(--amber)' }}> · ALL exams</strong>}
+          {' '}({total} questions)
+        </span>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <button
+            className="btn btn-sm btn-green"
+            onClick={() => handleBulkActivate(true)}
+            disabled={bulkLoading || total === 0}
+          >
+            {bulkLoading ? '…' : '🟢 Activate all'}
+          </button>
+          <button
+            className="btn btn-sm btn-ghost"
+            style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#fca5a5' }}
+            onClick={() => handleBulkActivate(false)}
+            disabled={bulkLoading || total === 0}
+          >
+            {bulkLoading ? '…' : '🔴 Deactivate all'}
+          </button>
+        </div>
       </div>
 
       {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
-              <tr><th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Difficulty</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {questions.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>No questions found.</td></tr>}
@@ -207,6 +268,11 @@ function QuestionsTab() {
                   <td style={{ color: 'var(--text-muted)' }}>{q.index}</td>
                   <td className="admin-question-cell">{q.question_text.slice(0, 80)}{q.question_text.length > 80 ? '…' : ''}</td>
                   <td><Pill color={q.correct_answer === 'a' ? 'amber' : 'green'}>{q.correct_answer?.toUpperCase() || '?'}</Pill></td>
+                  <td>
+                    {q.difficulty
+                      ? <Pill color={q.difficulty === 'easy' ? 'green' : 'amber'}>{q.difficulty}</Pill>
+                      : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>}
+                  </td>
                   <td>{q.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -231,6 +297,7 @@ function QuestionsTab() {
       )}
 
       {editing && <QuestionEditModal question={editing} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
+      {creating && <CreateQuestionModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); showFlash('Question created.'); }} />}
     </div>
   );
 }
@@ -240,6 +307,7 @@ function QuestionEditModal({ question, onSave, onClose }) {
     question_text: question.question_text, option_a: question.option_a,
     option_b: question.option_b, option_c: question.option_c, option_d: question.option_d,
     correct_answer: question.correct_answer || 'a', topic: question.topic || '',
+    difficulty: question.difficulty || '',
     is_active: question.is_active, version: question.version,
   });
   const [saving, setSaving] = useState(false);
@@ -275,16 +343,218 @@ function QuestionEditModal({ question, onSave, onClose }) {
             ))}
           </select>
         </div>
+        <div style={{ display: 'flex', gap: 14 }}>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Difficulty</label>
+            <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
+              <option value="">Untagged</option>
+              <option value="easy">Easy</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Topic (optional)</label>
+            <input className="form-input" value={form.topic} onChange={set('topic')} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input type="checkbox" id="qa-active" checked={form.is_active} onChange={set('is_active')} />
+          <label htmlFor="qa-active" style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>Active (visible to students)</label>
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Question'}</button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ── CREATE QUESTION MODAL ─────────────────────────────────────────────────────
+
+// Subject pools: each pool maps to an exam + world_key prefix
+const SUBJECT_POOLS = [
+  { label: 'Qudurat — Math',          exam: 'qudurat', prefix: 'math_' },
+  { label: 'Qudurat — Verbal',         exam: 'qudurat', prefix: 'verbal_' },
+  { label: 'Tahsili — Math',           exam: 'tahsili', prefix: 'math_' },
+  { label: 'Tahsili — Biology',        exam: 'tahsili', prefix: 'biology_' },
+  { label: 'Tahsili — Chemistry',      exam: 'tahsili', prefix: 'chemistry_' },
+  { label: 'Tahsili — Physics',        exam: 'tahsili', prefix: 'physics_' },
+];
+
+function getWorldsForPool(pool) {
+  if (!pool) return [];
+  return (WORLD_KEYS[pool.exam] || []).filter(w => w.startsWith(pool.prefix));
+}
+
+function CreateQuestionModal({ onClose, onCreated }) {
+  const BLANK = {
+    poolIndex: 0,          // index into SUBJECT_POOLS
+    world_key: '',
+    question_text: '',
+    option_a: '', option_b: '', option_c: '', option_d: '',
+    correct_answer: 'a',
+    difficulty: '',
+    topic: '',
+    is_active: false,
+  };
+  const [form,         setForm]         = useState(BLANK);
+  const [nextIdx,      setNextIdx]      = useState(null);   // fetched from backend
+  const [loadingIdx,   setLoadingIdx]   = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
+
+  const pool         = SUBJECT_POOLS[form.poolIndex];
+  const worldOptions = getWorldsForPool(pool);
+
+  // When world changes, fetch next index automatically
+  useEffect(() => {
+    if (!form.world_key || !pool) { setNextIdx(null); return; }
+    setLoadingIdx(true);
+    setNextIdx(null);
+    adminApi.nextIndex(pool.exam, form.world_key)
+      .then(d => setNextIdx(d.next_index))
+      .catch(() => setNextIdx(null))
+      .finally(() => setLoadingIdx(false));
+  }, [form.world_key, form.poolIndex]);
+
+  const set = (k) => (e) => {
+    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm(f => ({
+      ...f,
+      [k]: val,
+      // Reset world when pool changes
+      ...(k === 'poolIndex' ? { world_key: '' } : {}),
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.world_key) { setError('Please select a world.'); return; }
+    if (!nextIdx)        { setError('Could not determine next index. Try again.'); return; }
+    setSaving(true);
+    try {
+      await adminApi.importQuestions([{
+        exam:           pool.exam,
+        world_key:      form.world_key,
+        index:          nextIdx,
+        question_text:  form.question_text,
+        option_a:       form.option_a,
+        option_b:       form.option_b,
+        option_c:       form.option_c,
+        option_d:       form.option_d,
+        correct_answer: form.correct_answer,
+        difficulty:     form.difficulty || null,
+        topic:          form.topic      || null,
+        is_active:      form.is_active,
+      }]);
+      onCreated();
+    } catch (err) {
+      setError(err?.error?.message || 'Failed to create question.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Add New Question" onClose={onClose}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {error && <div className="alert alert-error">{error}</div>}
+
+        {/* Pool + World + Auto-index row */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ flex: 2, minWidth: 200 }}>
+            <label className="form-label">Subject Pool *</label>
+            <select className="form-input" value={form.poolIndex} onChange={set('poolIndex')}>
+              {SUBJECT_POOLS.map((p, i) => (
+                <option key={i} value={i}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ flex: 2, minWidth: 160 }}>
+            <label className="form-label">World *</label>
+            <select className="form-input" value={form.world_key} onChange={set('world_key')}>
+              <option value="">Select world…</option>
+              {worldOptions.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{ flex: 1, minWidth: 100 }}>
+            <label className="form-label">Index</label>
+            <div style={{
+              background: 'var(--bg-card-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '11px 14px',
+              fontSize: '1rem',
+              fontWeight: 700,
+              color: nextIdx ? 'var(--green-light)' : 'var(--text-muted)',
+              minHeight: 46,
+              display: 'flex',
+              alignItems: 'center',
+            }}>
+              {loadingIdx ? '…' : nextIdx ? `#${nextIdx}` : '—'}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              Auto-detected
+            </div>
+          </div>
+        </div>
+
+        {/* Question */}
+        <div className="form-group">
+          <label className="form-label">Question Text *</label>
+          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
+        </div>
+
+        {/* Options */}
+        {['a','b','c','d'].map(opt => (
+          <div className="form-group" key={opt}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Option {opt.toUpperCase()}
+              {form.correct_answer === opt && <Pill color="green">✓ Correct</Pill>}
+            </label>
+            <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required />
+          </div>
+        ))}
+
+        {/* Correct answer + difficulty */}
+        <div style={{ display: 'flex', gap: 14 }}>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Correct Answer *</label>
+            <select className="form-input" value={form.correct_answer} onChange={set('correct_answer')}>
+              {['a','b','c','d'].map(o => (
+                <option key={o} value={o}>
+                  {o.toUpperCase()} — {(form[`option_${o}`] || '').slice(0, 40)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Difficulty</label>
+            <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
+              <option value="">Untagged</option>
+              <option value="easy">Easy</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+        </div>
+
         <div className="form-group">
           <label className="form-label">Topic (optional)</label>
           <input className="form-input" value={form.topic} onChange={set('topic')} />
         </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input type="checkbox" id="qa-active" checked={form.is_active} onChange={set('is_active')} />
-          <label htmlFor="qa-active" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>Active (visible to students)</label>
+          <input type="checkbox" id="cq-active" checked={form.is_active} onChange={set('is_active')} />
+          <label htmlFor="cq-active" style={{ fontSize: '1rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+            Active immediately (visible to students)
+          </label>
         </div>
+
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Question'}</button>
+          <button type="submit" className="btn btn-green" disabled={saving || !nextIdx || !form.world_key}>
+            {saving ? 'Creating…' : `Create Question ${nextIdx ? `(#${nextIdx})` : ''}`}
+          </button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </form>

@@ -37,7 +37,7 @@ class Config:
 
     # ── Progression ───────────────────────────────────────
     # Minimum percentage of correct answers to pass a level (0–100)
-    PASS_THRESHOLD_PCT = int(os.getenv("PASS_THRESHOLD_PCT", "70"))
+    PASS_THRESHOLD_PCT = int(os.getenv("PASS_THRESHOLD_PCT", "100"))
 
     # ── Flask ─────────────────────────────────────────────
     JSON_SORT_KEYS = False

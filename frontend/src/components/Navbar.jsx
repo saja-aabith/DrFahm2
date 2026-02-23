@@ -26,14 +26,17 @@ export default function Navbar() {
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
           {!user ? (
             <>
+              <Link to="/schools" className={`nav-link ${isActive('/schools') ? 'active' : ''}`}>
+                We are a School
+              </Link>
               <Link to="/pricing" className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}>
                 Pricing
               </Link>
-              <Link to="/schools" className={`nav-link ${isActive('/schools') ? 'active' : ''}`}>
-                Schools
+              <Link to="/login" className="nav-link">Log In</Link>
+              <Link to="/register" className="nav-link">Sign Up</Link>
+              <Link to="/register" className="btn btn-green btn-sm navbar-try-btn">
+                Try Now
               </Link>
-              <Link to="/login" className="nav-link">Log in</Link>
-              <Link to="/register" className="btn btn-primary btn-sm">Start Free</Link>
             </>
           ) : (
             <>

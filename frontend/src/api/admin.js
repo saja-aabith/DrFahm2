@@ -42,6 +42,8 @@ export const updateQuestion  = (id, data) => adminRequest(`/api/admin/questions/
 export const deleteQuestion  = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
 export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
 export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
+export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
+export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
 
 // ── Orgs ─────────────────────────────────────────────────────────────────────
 export const listOrgs          = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
