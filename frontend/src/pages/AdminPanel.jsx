@@ -12,7 +12,7 @@ import * as adminApi from '../api/admin';
 const EXAMS = ['qudurat', 'tahsili'];
 const WORLD_KEYS = {
   qudurat: ['math_100','math_150','math_200','math_250','math_300','verbal_100','verbal_150','verbal_200','verbal_250','verbal_300'],
-  tahsili: ['math_100','math_150','math_200','math_250','biology_100','biology_150','chemistry_100','chemistry_150','physics_100','physics_150'],
+  tahsili: ['math_100','math_150','math_200','math_250','math_300','biology_100','biology_150','biology_200','biology_250','biology_300','chemistry_100','chemistry_150','chemistry_200','chemistry_250','chemistry_300','physics_100','physics_150','physics_200','physics_250','physics_300'],
 };
 
 function getSectionFromWorldKey(wk) {
