@@ -6,20 +6,23 @@ All routes require role=drfahm_admin (enforced by @roles_required decorator).
 Endpoints:
   Questions
     POST   /api/admin/questions/import
+    GET    /api/admin/questions/bulk-template           ← NEW (CSV download)
+    POST   /api/admin/questions/bulk-validate           ← NEW (dry-run CSV)
+    POST   /api/admin/questions/bulk-commit             ← NEW (insert from CSV)
     GET    /api/admin/questions/next-index
     GET    /api/admin/questions/review-progress
-    GET    /api/admin/questions/topic-coverage        ← NEW
+    GET    /api/admin/questions/topic-coverage
     GET    /api/admin/questions                        (+ search, topic, reviewed params)
     GET    /api/admin/questions/:id
     PUT    /api/admin/questions/:id          (optimistic lock on version)
     DELETE /api/admin/questions/:id          (soft delete)
     PATCH  /api/admin/questions/:id/activate
-    PATCH  /api/admin/questions/:id/mark-reviewed      ← NEW
+    PATCH  /api/admin/questions/:id/mark-reviewed
     POST   /api/admin/questions/bulk-activate
-    POST   /api/admin/questions/bulk-topic             ← NEW
+    POST   /api/admin/questions/bulk-topic
 
   Topics
-    GET    /api/admin/topics                           ← NEW
+    GET    /api/admin/topics
 
   Orgs
     POST   /api/admin/orgs
@@ -44,6 +47,7 @@ Endpoints:
 import csv
 import io
 import random
+import re
 import string
 from datetime import datetime, timezone, timedelta
 
@@ -241,6 +245,429 @@ def import_questions():
         "imported": upserted,
         "message":  f"Successfully upserted {upserted} question(s). "
                     "Questions are inactive by default — activate individually or in bulk.",
+    }), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BULK CSV UPLOAD
+# ═════════════════════════════════════════════════════════════════════════════
+
+_CSV_COLUMNS = [
+    "exam", "world_key", "question_text",
+    "option_a", "option_b", "option_c", "option_d",
+    "correct_answer", "explanation", "topic", "difficulty",
+]
+_CSV_REQUIRED = {"exam", "world_key", "question_text",
+                 "option_a", "option_b", "option_c", "option_d",
+                 "correct_answer"}
+
+
+def _normalize_text(text: str) -> str:
+    """Normalize question text for exact-match duplicate detection."""
+    t = (text or "").strip().lower()
+    t = re.sub(r'\s+', ' ', t)           # collapse whitespace
+    t = re.sub(r'[^\w\s]', '', t)        # strip punctuation
+    return t
+
+
+def _parse_and_validate_csv(file_storage) -> dict:
+    """
+    Shared CSV parser for bulk-validate and bulk-commit.
+
+    Returns:
+    {
+        "rows": [ {column: value, ...}, ... ],      # all parsed rows
+        "valid": [ {column: value, "_row": N}, ...], # rows that pass validation
+        "errors": [ {"row": N, "field": str, "message": str}, ... ],
+        "duplicates": [ {"row": N, "question_text": str, "existing_id": int,
+                         "existing_world": str}, ... ],
+        "stats": {"total_rows": N, "valid_count": N, "error_count": N,
+                  "duplicate_count": N},
+    }
+    """
+    # ── Read CSV ──
+    try:
+        raw = file_storage.read()
+        # Try UTF-8 first, fall back to latin-1
+        try:
+            text = raw.decode("utf-8-sig")   # handles BOM from Excel
+        except UnicodeDecodeError:
+            text = raw.decode("latin-1")
+    except Exception:
+        return {"error": "Could not read CSV file."}
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    if not reader.fieldnames:
+        return {"error": "CSV file is empty or has no header row."}
+
+    # Normalize header names (strip whitespace, lowercase)
+    clean_headers = [h.strip().lower().replace(" ", "_") for h in reader.fieldnames]
+
+    # Check required columns are present
+    missing_cols = _CSV_REQUIRED - set(clean_headers)
+    if missing_cols:
+        return {"error": f"CSV missing required columns: {sorted(missing_cols)}. "
+                         f"Expected: {', '.join(_CSV_COLUMNS)}"}
+
+    # ── Parse all rows ──
+    rows = []
+    for raw_row in reader:
+        # Re-key with clean headers
+        row = {}
+        for orig_key, clean_key in zip(reader.fieldnames, clean_headers):
+            row[clean_key] = (raw_row.get(orig_key) or "").strip()
+        rows.append(row)
+
+    if not rows:
+        return {"error": "CSV has headers but no data rows."}
+
+    if len(rows) > 5000:
+        return {"error": f"CSV has {len(rows)} rows. Maximum is 5,000 per upload."}
+
+    # ── Build duplicate detection set from existing questions ──
+    # Query all existing question texts grouped by exam
+    existing_questions = db.session.query(
+        Question.id, Question.exam, Question.world_key, Question.question_text
+    ).filter(
+        Question.deleted_at.is_(None)
+    ).all()
+
+    existing_set = {}   # normalized_text → {id, exam, world_key}
+    for eq in existing_questions:
+        key = f"{eq.exam}::{_normalize_text(eq.question_text)}"
+        existing_set[key] = {"id": eq.id, "exam": eq.exam, "world_key": eq.world_key}
+
+    # Also track duplicates within the CSV itself
+    csv_seen = {}   # normalized_text → first row number
+
+    # ── Validate each row ──
+    valid_answers = {"a", "b", "c", "d"}
+    valid_diffs   = {d.value for d in Difficulty}
+    errors     = []
+    duplicates = []
+    valid_rows = []
+
+    for i, row in enumerate(rows):
+        row_num = i + 2   # CSV row number (1-based header + 1-based data)
+        row_errors = []
+
+        # Required field checks
+        for field in _CSV_REQUIRED:
+            if not row.get(field):
+                row_errors.append({"row": row_num, "field": field,
+                                   "message": f"Required field '{field}' is empty."})
+
+        if row_errors:
+            errors.extend(row_errors)
+            continue
+
+        exam      = row["exam"].strip().lower()
+        world_key = row["world_key"].strip().lower()
+        answer    = row["correct_answer"].strip().lower()
+        topic     = row.get("topic", "").strip().lower() or None
+        diff      = row.get("difficulty", "").strip().lower() or None
+
+        if exam not in VALID_EXAMS:
+            errors.append({"row": row_num, "field": "exam",
+                           "message": f"Invalid exam '{row['exam']}'. Must be qudurat or tahsili."})
+            continue
+        if world_key not in VALID_WORLD_KEYS:
+            errors.append({"row": row_num, "field": "world_key",
+                           "message": f"Invalid world_key '{row['world_key']}'."})
+            continue
+        if answer not in valid_answers:
+            errors.append({"row": row_num, "field": "correct_answer",
+                           "message": f"Must be a/b/c/d, got '{row['correct_answer']}'."})
+            continue
+        if topic and not validate_topic(topic, world_key):
+            section = get_section_from_world_key(world_key)
+            errors.append({"row": row_num, "field": "topic",
+                           "message": f"Invalid topic '{row.get('topic')}' for section '{section}'."})
+            continue
+        if diff and diff not in valid_diffs:
+            errors.append({"row": row_num, "field": "difficulty",
+                           "message": f"Must be easy/medium/hard, got '{row.get('difficulty')}'."})
+            continue
+
+        # Duplicate check — against existing DB
+        norm_text = _normalize_text(row["question_text"])
+        dup_key = f"{exam}::{norm_text}"
+
+        if dup_key in existing_set:
+            match = existing_set[dup_key]
+            duplicates.append({
+                "row": row_num,
+                "question_text": row["question_text"][:120],
+                "existing_id": match["id"],
+                "existing_world": match["world_key"],
+            })
+            continue    # skip duplicates by default
+
+        # Duplicate check — within the CSV itself
+        if dup_key in csv_seen:
+            duplicates.append({
+                "row": row_num,
+                "question_text": row["question_text"][:120],
+                "existing_id": None,
+                "existing_world": None,
+                "duplicate_of_csv_row": csv_seen[dup_key],
+            })
+            continue
+
+        csv_seen[dup_key] = row_num
+
+        # Row is valid
+        valid_rows.append({
+            "exam": exam,
+            "world_key": world_key,
+            "question_text": row["question_text"],
+            "option_a": row["option_a"],
+            "option_b": row["option_b"],
+            "option_c": row["option_c"],
+            "option_d": row["option_d"],
+            "correct_answer": answer,
+            "explanation": row.get("explanation", "").strip() or None,
+            "topic": topic,
+            "difficulty": diff,
+            "_row": row_num,
+        })
+
+    return {
+        "valid": valid_rows,
+        "errors": errors,
+        "duplicates": duplicates,
+        "stats": {
+            "total_rows": len(rows),
+            "valid_count": len(valid_rows),
+            "error_count": len(errors),
+            "duplicate_count": len(duplicates),
+        },
+    }
+
+
+@admin_bp.route("/questions/bulk-template", methods=["GET"])
+@roles_required(*_ADMIN_ROLE)
+def bulk_template():
+    """
+    Download a CSV template for bulk question upload.
+    Includes header row + 2 example rows.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(_CSV_COLUMNS)
+    writer.writerow([
+        "qudurat", "math_100", "What is 2 + 2?",
+        "3", "4", "5", "6", "b",
+        "2 + 2 = 4 by basic arithmetic", "arithmetic", "easy",
+    ])
+    writer.writerow([
+        "qudurat", "verbal_100", "The synonym of 'happy' is:",
+        "Sad", "Joyful", "Angry", "Tired", "b",
+        "'Joyful' means feeling or expressing great happiness",
+        "synonyms", "",
+    ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=drfahm_bulk_template.csv"},
+    )
+
+
+@admin_bp.route("/questions/bulk-validate", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def bulk_validate():
+    """
+    Dry-run validation of a CSV file for bulk question upload.
+
+    Accepts: multipart/form-data with 'file' field (CSV).
+    Returns validation report without modifying the database.
+
+    Response:
+    {
+        "stats":      { "total_rows", "valid_count", "error_count", "duplicate_count" },
+        "errors":     [ { "row", "field", "message" }, ... ],
+        "duplicates": [ { "row", "question_text", "existing_id", "existing_world" }, ... ],
+        "preview":    [ first 20 valid rows ],
+    }
+    """
+    if "file" not in request.files:
+        return bad_request("no_file", "No file uploaded. Send a CSV as multipart 'file' field.")
+
+    f = request.files["file"]
+    if not f.filename:
+        return bad_request("no_file", "Empty file name.")
+
+    if not f.filename.lower().endswith(".csv"):
+        return bad_request("invalid_format", "Only .csv files are accepted.")
+
+    result = _parse_and_validate_csv(f)
+
+    # If parsing itself failed
+    if "error" in result:
+        return bad_request("csv_parse_error", result["error"])
+
+    return jsonify({
+        "stats":      result["stats"],
+        "errors":     result["errors"],
+        "duplicates": result["duplicates"],
+        "preview":    result["valid"][:20],
+    }), 200
+
+
+@admin_bp.route("/questions/bulk-commit", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def bulk_commit():
+    """
+    Parse, validate, and insert questions from a CSV file.
+
+    Accepts: multipart/form-data with 'file' field (CSV).
+    Optional query param: ?force_duplicates=true to include flagged duplicates.
+
+    All questions are inserted as is_active=false.
+    Index values are auto-assigned (next available per world_key).
+
+    Response:
+    {
+        "inserted":   N,
+        "skipped":    N,
+        "errors":     [ ... ],
+        "duplicates": [ ... ],
+        "message":    "..."
+    }
+    """
+    admin = _get_current_user()
+
+    if "file" not in request.files:
+        return bad_request("no_file", "No file uploaded. Send a CSV as multipart 'file' field.")
+
+    f = request.files["file"]
+    if not f.filename or not f.filename.lower().endswith(".csv"):
+        return bad_request("invalid_format", "Only .csv files are accepted.")
+
+    force_dupes = request.args.get("force_duplicates", "").lower() == "true"
+
+    result = _parse_and_validate_csv(f)
+    if "error" in result:
+        return bad_request("csv_parse_error", result["error"])
+
+    valid_rows = result["valid"]
+    if not valid_rows and not force_dupes:
+        return jsonify({
+            "inserted":   0,
+            "skipped":    result["stats"]["duplicate_count"],
+            "errors":     result["errors"],
+            "duplicates": result["duplicates"],
+            "message":    "No valid rows to insert.",
+        }), 200
+
+    # If force_duplicates, re-parse duplicates as valid rows too
+    rows_to_insert = list(valid_rows)
+    if force_dupes and result["duplicates"]:
+        # Re-parse the CSV to get full data for duplicate rows
+        f.seek(0)
+        reparsed = _parse_and_validate_csv(f)
+        # Extract duplicate row numbers
+        dup_row_nums = {d["row"] for d in result["duplicates"]}
+        # We need to pull from the original parsed data — re-run without dup check
+        # Simpler: just let them through by re-reading and filtering
+        f.seek(0)
+        try:
+            raw = f.read()
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1")
+        except Exception:
+            return bad_request("csv_parse_error", "Could not re-read CSV file.")
+
+        reader = csv.DictReader(io.StringIO(text))
+        clean_headers = [h.strip().lower().replace(" ", "_") for h in reader.fieldnames]
+        for i, raw_row in enumerate(reader):
+            row_num = i + 2
+            if row_num not in dup_row_nums:
+                continue
+            row = {}
+            for orig_key, clean_key in zip(reader.fieldnames, clean_headers):
+                row[clean_key] = (raw_row.get(orig_key) or "").strip()
+
+            rows_to_insert.append({
+                "exam": row["exam"].strip().lower(),
+                "world_key": row["world_key"].strip().lower(),
+                "question_text": row["question_text"],
+                "option_a": row["option_a"],
+                "option_b": row["option_b"],
+                "option_c": row["option_c"],
+                "option_d": row["option_d"],
+                "correct_answer": row["correct_answer"].strip().lower(),
+                "explanation": row.get("explanation", "").strip() or None,
+                "topic": row.get("topic", "").strip().lower() or None,
+                "difficulty": row.get("difficulty", "").strip().lower() or None,
+                "_row": row_num,
+            })
+
+    # ── Auto-assign indexes per world_key ──
+    # Get current max index for each world_key we need
+    world_keys_needed = set()
+    for row in rows_to_insert:
+        world_keys_needed.add((row["exam"], row["world_key"]))
+
+    max_indexes = {}
+    for exam, wk in world_keys_needed:
+        current_max = db.session.query(func.max(Question.index)).filter(
+            Question.exam      == exam,
+            Question.world_key == wk,
+            Question.deleted_at.is_(None),
+        ).scalar()
+        max_indexes[(exam, wk)] = current_max or 0
+
+    # ── Insert ──
+    now      = datetime.now(timezone.utc)
+    inserted = 0
+
+    for row in rows_to_insert:
+        key = (row["exam"], row["world_key"])
+        max_indexes[key] += 1
+        idx = max_indexes[key]
+
+        diff = row.get("difficulty")
+
+        q = Question(
+            exam=row["exam"],
+            world_key=row["world_key"],
+            index=idx,
+            question_text=row["question_text"],
+            option_a=row["option_a"],
+            option_b=row["option_b"],
+            option_c=row["option_c"],
+            option_d=row["option_d"],
+            correct_answer=row["correct_answer"],
+            explanation=row.get("explanation"),
+            topic=row.get("topic"),
+            difficulty=Difficulty(diff) if diff and diff in {d.value for d in Difficulty} else None,
+            is_active=False,
+            created_by_admin_id=admin.id,
+            updated_by_admin_id=admin.id,
+        )
+        db.session.add(q)
+        inserted += 1
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        db.session.rollback()
+        return bad_request("import_conflict",
+                           "Constraint violation during bulk insert.",
+                           {"detail": str(e.orig)})
+
+    return jsonify({
+        "inserted":   inserted,
+        "skipped":    result["stats"]["duplicate_count"] if not force_dupes else 0,
+        "errors":     result["errors"],
+        "duplicates": result["duplicates"],
+        "message":    f"Successfully inserted {inserted} question(s). "
+                      "All questions are inactive — activate via Question Management.",
     }), 200
 
 

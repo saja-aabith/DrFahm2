@@ -26,6 +26,25 @@ async function adminRequest(path, options = {}) {
   return body;
 }
 
+/**
+ * Multipart form upload — used for CSV bulk operations.
+ * Does NOT set Content-Type (browser sets it with boundary).
+ */
+async function adminUpload(path, formData, queryParams = '') {
+  const token = getToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const url = `${BASE}${path}${queryParams ? '?' + queryParams : ''}`;
+  const res = await fetch(url, { method: 'POST', headers, body: formData });
+
+  let body;
+  try { body = await res.json(); } catch { body = {}; }
+
+  if (!res.ok) throw { status: res.status, ...body };
+  return body;
+}
+
 // ── Stats ────────────────────────────────────────────────────────────────────
 export const getStats = () => adminRequest('/api/admin/stats');
 
@@ -66,6 +85,39 @@ export const quickUpdate = (id, field, value, version) =>
     method: 'PUT',
     body: JSON.stringify({ [field]: value, version }),
   });
+
+// ── Bulk CSV Upload ──────────────────────────────────────────────────────────
+
+/**
+ * Download the CSV template for bulk upload.
+ * Returns a raw Response — caller handles the blob/download.
+ */
+export const bulkTemplate = () =>
+  adminRequest('/api/admin/questions/bulk-template', { _raw: true });
+
+/**
+ * Validate a CSV file (dry run — no DB changes).
+ * @param {File} file — the CSV file object
+ * @returns {{ stats, errors, duplicates, preview }}
+ */
+export const bulkValidate = (file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return adminUpload('/api/admin/questions/bulk-validate', fd);
+};
+
+/**
+ * Commit a CSV file — insert all valid rows into the database.
+ * @param {File} file — the same CSV file
+ * @param {boolean} forceDuplicates — if true, also insert flagged duplicates
+ * @returns {{ inserted, skipped, errors, duplicates, message }}
+ */
+export const bulkCommit = (file, forceDuplicates = false) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  const qs = forceDuplicates ? 'force_duplicates=true' : '';
+  return adminUpload('/api/admin/questions/bulk-commit', fd, qs);
+};
 
 // ── Orgs ─────────────────────────────────────────────────────────────────────
 export const listOrgs          = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
