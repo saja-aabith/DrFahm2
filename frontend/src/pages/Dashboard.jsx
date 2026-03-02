@@ -42,7 +42,7 @@ function EntitlementBadge({ entitlement }) {
   return <span className={`plan-pill ${entitlement.plan_id}`} style={{ textTransform: 'capitalize' }}>{entitlement.plan_id}</span>;
 }
 
-function ExamCard({ examKey, entitlements, trials, progressData }) {
+function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
   const info  = EXAM_INFO[examKey];
   const trial = trials?.find((t) => t.exam === examKey);
   const ent   = entitlements?.find((e) => e.exam === examKey);
@@ -66,9 +66,10 @@ function ExamCard({ examKey, entitlements, trials, progressData }) {
       <p className="exam-card-desc">{info.description}</p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {ent  && <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>{ent.plan_id} Plan</span>}
-        {!ent && <TrialBadge trial={trial} />}
-        {!ent && !trial && <span className="plan-pill trial">7-day trial available</span>}
+        {isAdmin && <span className="plan-pill premium">Admin — Full Access</span>}
+        {!isAdmin && ent  && <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>{ent.plan_id} Plan</span>}
+        {!isAdmin && !ent && <TrialBadge trial={trial} />}
+        {!isAdmin && !ent && !trial && <span className="plan-pill trial">7-day trial available</span>}
       </div>
 
       <div className="exam-progress-bar">
@@ -81,6 +82,7 @@ function ExamCard({ examKey, entitlements, trials, progressData }) {
 
 export default function Dashboard() {
   const { user }   = useAuth();
+  const isAdmin    = user?.role === 'drfahm_admin';
   const [billingData, setBillingData]   = useState(null);
   const [progressMap, setProgressMap]   = useState({});
   const [loadingBilling, setLoadingBilling] = useState(true);
@@ -140,6 +142,7 @@ export default function Dashboard() {
                 entitlements={allEntitlements}
                 trials={trials}
                 progressData={progressMap[examKey]}
+                isAdmin={isAdmin}
               />
             ))}
           </div>
@@ -171,8 +174,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Upgrade nudge if no paid plan */}
-        {!loading && allEntitlements.length === 0 && (
+        {/* Upgrade nudge if no paid plan (hidden for admins) */}
+        {!isAdmin && !loading && allEntitlements.length === 0 && (
           <div className="paywall-banner">
             <div className="paywall-text">
               <h3>Unlock all 5 worlds per track</h3>

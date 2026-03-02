@@ -6,20 +6,20 @@ import Navbar from '../components/Navbar';
 const PLANS = [
   {
     id: 'free', name: 'Free Trial', price: 0, duration: '7 days',
-    worlds: 'Worlds 1–2', worldsNum: 2,
-    features: ['Worlds 1–2 (20 levels)', 'Full question experience', 'Progress tracking', 'No credit card'],
+    worlds: 'World 1 per track', worldsNum: 1,
+    features: ['World 1 in every track', 'Full question experience', 'Progress tracking', 'No credit card'],
     cta: 'Start free trial', highlight: false, ghost: true,
   },
   {
     id: 'basic', name: 'Basic', price: 199, duration: '3 months',
-    worlds: 'Worlds 1–5', worldsNum: 5,
-    features: ['Worlds 1–5 (50 levels)', '3 months full access', 'Progress tracking', 'Level pass certificates'],
+    worlds: 'All 5 worlds per track', worldsNum: 5,
+    features: ['All 5 worlds per track (50 levels)', '3 months full access', 'Progress tracking', 'Level pass certificates'],
     cta: 'Get Basic', highlight: false,
   },
   {
     id: 'premium', name: 'Premium', price: 299, duration: '12 months',
-    worlds: 'All 10 worlds', worldsNum: 10,
-    features: ['All 10 worlds (100 levels)', '12 months full access', 'Full exam coverage', 'Priority support', 'Level pass certificates'],
+    worlds: 'All 5 worlds per track', worldsNum: 5,
+    features: ['All 5 worlds per track (50 levels)', '12 months full access', 'Full exam coverage', 'Priority support', 'Level pass certificates'],
     cta: 'Get Premium', highlight: true,
   },
 ];
@@ -27,7 +27,7 @@ const PLANS = [
 const EXAM_LABELS = { qudurat: 'Qudurat — قدرات', tahsili: 'Tahsili — تحصيلي' };
 
 const FAQ = [
-  { q: 'What happens after my free trial ends?', a: 'You keep access to Worlds 1–2 forever. To continue beyond World 2, upgrade to Basic or Premium.' },
+  { q: 'What happens after my free trial ends?', a: 'Your progress is saved, but worlds beyond World 1 remain locked until you upgrade to Basic or Premium.' },
   { q: 'Is this a subscription? Will I be charged automatically?', a: 'No. DrFahm uses one-time payments only. No auto-renewals, no monthly charges, no surprises.' },
   { q: 'Can I get a refund?', a: "If you've completed fewer than 5 levels of paid content, contact us within 7 days for a full refund." },
   { q: 'Do I need one plan per exam?', a: 'Yes — each plan covers one exam. If preparing for both Qudurat and Tahsili, you need a plan for each.' },
@@ -78,6 +78,9 @@ export default function Pricing() {
     }
   };
 
+  // Number of worlds per track for the progress bar visual
+  const worldsPerTrack = 5;
+
   return (
     <>
       <Navbar />
@@ -115,11 +118,11 @@ export default function Pricing() {
                 ))}
               </ul>
               <div className="pricing-world-bar">
-                {Array.from({ length: 10 }).map((_, i) => (
+                {Array.from({ length: worldsPerTrack }).map((_, i) => (
                   <div key={i} className={`pricing-world-pip ${i < plan.worldsNum ? 'filled' : ''}`} />
                 ))}
               </div>
-              <div className="pricing-world-bar-label">{plan.worldsNum} of 10 worlds</div>
+              <div className="pricing-world-bar-label">{plan.worldsNum} of {worldsPerTrack} worlds per track</div>
               <button
                 className={`btn btn-full btn-lg ${plan.highlight ? 'btn-violet' : plan.ghost ? 'btn-ghost' : 'btn-green'}`}
                 onClick={() => handleCheckout(plan.id)}
@@ -146,11 +149,11 @@ export default function Pricing() {
               </thead>
               <tbody>
                 {[
-                  ['Worlds available',   '1–2',    '1–5',      '1–10'],
-                  ['Levels',            '20',     '50',       '100'],
+                  ['Worlds per track',  '1',      '5',      '5'],
+                  ['Levels per track',  '10',     '50',     '50'],
                   ['Duration',          '7 days', '3 months', '12 months'],
                   ['Progress tracking', '✓',      '✓',        '✓'],
-                  ['Full coverage',     '—',      'Partial',  '✓'],
+                  ['Full coverage',     '—',      '✓',        '✓'],
                   ['Priority support',  '—',      '—',        '✓'],
                   ['Price',             'Free',   'SAR 199',  'SAR 299'],
                 ].map(([feature, free, basic, premium]) => (

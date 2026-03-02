@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { exams as examsApi, billing } from '../api';
+import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 
 const EXAM_LABELS = {
@@ -169,6 +170,9 @@ function TrackProgressBar({ track }) {
 export default function ExamPage() {
   const { exam }   = useParams();
   const navigate   = useNavigate();
+  const { user }   = useAuth();
+
+  const isAdmin = user?.role === 'drfahm_admin';
 
   const [worldMap,      setWorldMap]      = useState(null);
   const [loading,       setLoading]       = useState(true);
@@ -264,8 +268,8 @@ export default function ExamPage() {
           </p>
         </div>
 
-        {/* Paywall nudge — trial active */}
-        {!hasPaidPlan && trialActive && (
+        {/* Paywall nudge — trial active (hidden for admins) */}
+        {!isAdmin && !hasPaidPlan && trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
               <h3>You're on the free trial — World 1 unlocked per track</h3>
@@ -288,8 +292,8 @@ export default function ExamPage() {
           </div>
         )}
 
-        {/* Paywall nudge — trial expired */}
-        {!hasPaidPlan && !trialActive && (
+        {/* Paywall nudge — trial expired (hidden for admins) */}
+        {!isAdmin && !hasPaidPlan && !trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
               <h3>Your trial has expired</h3>
