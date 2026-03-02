@@ -66,12 +66,12 @@ function useFlash() {
 
 function Pill({ color = 'gray', children, style, ...rest }) {
   const colors = {
-    green: { bg: 'rgba(34,197,94,0.15)', text: '#4ade80', border: 'rgba(34,197,94,0.3)' },
-    amber: { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
-    violet: { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa', border: 'rgba(139,92,246,0.3)' },
-    gray: { bg: 'rgba(148,163,184,0.1)', text: '#94a3b8', border: 'rgba(148,163,184,0.2)' },
-    blue: { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', border: 'rgba(59,130,246,0.3)' },
-    cyan: { bg: 'rgba(34,211,238,0.12)', text: '#22d3ee', border: 'rgba(34,211,238,0.25)' },
+    green: { bg: 'rgba(22,163,74,0.08)', text: '#15803d', border: 'rgba(22,163,74,0.2)' },
+    amber: { bg: 'rgba(217,119,6,0.08)', text: '#b45309', border: 'rgba(217,119,6,0.2)' },
+    violet: { bg: 'rgba(124,58,237,0.08)', text: '#6d28d9', border: 'rgba(124,58,237,0.2)' },
+    gray: { bg: 'rgba(100,116,139,0.08)', text: '#64748b', border: 'rgba(100,116,139,0.15)' },
+    blue: { bg: 'rgba(59,130,246,0.08)', text: '#2563eb', border: 'rgba(59,130,246,0.2)' },
+    cyan: { bg: 'rgba(6,182,212,0.08)', text: '#0891b2', border: 'rgba(6,182,212,0.2)' },
   };
   const c = colors[color] || colors.gray;
   return (
@@ -194,7 +194,7 @@ function TopicCoveragePanel({ examFilter, refreshKey }) {
         </button>
       </div>
       <div className="review-progress-bar-bg" style={{ marginTop: 6 }}>
-        <div className="review-progress-bar-fill" style={{ width: `${taggedPct}%`, background: 'var(--cyan, #22d3ee)' }} />
+        <div className="review-progress-bar-fill" style={{ width: `${taggedPct}%`, background: 'var(--cyan, #0891b2)' }} />
       </div>
       {expanded && (
         <div className="topic-coverage-details">
@@ -213,7 +213,7 @@ function TopicCoveragePanel({ examFilter, refreshKey }) {
           ))}
           {summary.untagged > 0 && (
             <div className="topic-section-group">
-              <div className="topic-section-label" style={{ color: 'var(--amber, #fbbf24)' }}>Untagged</div>
+              <div className="topic-section-label" style={{ color: 'var(--amber, #b45309)' }}>Untagged</div>
               <span className="topic-item-count">{summary.untagged} questions</span>
             </div>
           )}
@@ -267,7 +267,7 @@ function InlineAnswerPicker({ question, onSaved }) {
         <Pill color={isReviewed ? 'green' : 'amber'} onClick={() => setOpen(true)} title="Click to change correct answer" style={{ cursor: 'pointer' }}>
           {question.correct_answer?.toUpperCase() || '?'}
         </Pill>
-        {isReviewed && <span title={`Reviewed ${new Date(question.last_reviewed_at).toLocaleDateString()}`} style={{ color: '#4ade80', fontSize: '0.75rem' }}>✓</span>}
+        {isReviewed && <span title={`Reviewed ${new Date(question.last_reviewed_at).toLocaleDateString()}`} style={{ color: '#15803d', fontSize: '0.75rem' }}>✓</span>}
       </span>
     );
   }
@@ -285,7 +285,7 @@ function InlineAnswerPicker({ question, onSaved }) {
           {!isReviewed && (
             <button className="inline-answer-btn confirm" onClick={handleConfirmReview}
               title="Confirm current answer is correct (mark as reviewed)" style={{
-                marginLeft: 4, background: 'rgba(34,197,94,0.15)', color: '#4ade80',
+                marginLeft: 4, background: 'rgba(34,197,94,0.15)', color: '#15803d',
                 border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '2px 6px',
                 fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700,
               }}>
@@ -688,7 +688,7 @@ function QuestionsTab() {
               fontWeight: filters.section === secKey ? 700 : 400,
               fontSize: '0.88rem',
               padding: '6px 16px',
-              color: filters.section === secKey ? '#22d3ee' : 'var(--text-muted)',
+              color: filters.section === secKey ? '#0891b2' : 'var(--text-muted)',
               background: filters.section === secKey ? 'rgba(34,211,238,0.1)' : 'transparent',
               border: filters.section === secKey ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent',
             }}
@@ -741,10 +741,10 @@ function QuestionsTab() {
           <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>
             {bulkLoading ? '…' : 'Activate all'}
           </button>
-          <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#fca5a5' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>
+          <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#dc2626' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>
             {bulkLoading ? '…' : 'Deactivate all'}
           </button>
-          <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.3)' }}
+          <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }}
             onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total === 0}>
             Bulk topic
           </button>
