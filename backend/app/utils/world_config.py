@@ -6,13 +6,26 @@ All other modules must import from here — never hardcode world_keys elsewhere.
 
 TRACKS:
   Qudurat has two independent tracks (Math, Verbal).
-  Tahsili has one track (Science — covers math, bio, chem, physics).
+  Tahsili has four independent tracks (Math, Biology, Chemistry, Physics).
   Within a track, worlds progress linearly (must complete W1 before W2).
-  Tracks are independent (can do Math and Verbal simultaneously).
+  Tracks are independent (can do any track simultaneously).
+
+QUESTION DISTRIBUTION (per section / per track):
+  World 1 → 100 questions (10 levels × 10 new questions each)
+  World 2 → 150 questions (10 levels × 15 new questions each)
+  World 3 → 200 questions (10 levels × 20 new questions each)
+  World 4 → 250 questions (10 levels × 25 new questions each)
+  World 5 → 300 questions (10 levels × 30 new questions each)
+  Total per section = 1,000 questions
+
+TOTALS:
+  Qudurat:  2 sections × 1,000 = 2,000 questions
+  Tahsili:  4 sections × 1,000 = 4,000 questions
+  Grand total = 6,000 questions
 
 PLAN LIMITS:
   max_world_index in entitlements applies PER-TRACK.
-  free=2 means first 2 worlds in EACH track.
+  trial=1 means first world in EACH track only.
   basic=5 means first 5 worlds in each track.
   premium=10 means all worlds (any track length).
 """
@@ -35,14 +48,21 @@ EXAM_TRACKS: dict[str, OrderedDict] = {
         }),
     ]),
     "tahsili": OrderedDict([
-        ("science", {
-            "name": "Science",
-            "worlds": [
-                "math_100", "math_150", "math_200", "math_250",
-                "biology_100", "biology_150",
-                "chemistry_100", "chemistry_150",
-                "physics_100", "physics_150",
-            ],
+        ("math", {
+            "name": "Math",
+            "worlds": ["math_100", "math_150", "math_200", "math_250", "math_300"],
+        }),
+        ("biology", {
+            "name": "Biology",
+            "worlds": ["biology_100", "biology_150", "biology_200", "biology_250", "biology_300"],
+        }),
+        ("chemistry", {
+            "name": "Chemistry",
+            "worlds": ["chemistry_100", "chemistry_150", "chemistry_200", "chemistry_250", "chemistry_300"],
+        }),
+        ("physics", {
+            "name": "Physics",
+            "worlds": ["physics_100", "physics_150", "physics_200", "physics_250", "physics_300"],
         }),
     ]),
 }
@@ -68,22 +88,28 @@ for _worlds in EXAM_WORLD_ORDER.values():
 
 # ── Band number per world key ─────────────────────────────────────────────────
 WORLD_BAND: dict[str, int] = {
-    "math_100": 100,    "math_150": 150,    "math_200": 200,
-    "math_250": 250,    "math_300": 300,
-    "verbal_100": 100,  "verbal_150": 150,  "verbal_200": 200,
-    "verbal_250": 250,  "verbal_300": 300,
-    "biology_100": 100, "biology_150": 150,
-    "chemistry_100": 100, "chemistry_150": 150,
-    "physics_100": 100, "physics_150": 150,
+    "math_100": 100,       "math_150": 150,       "math_200": 200,
+    "math_250": 250,       "math_300": 300,
+    "verbal_100": 100,     "verbal_150": 150,     "verbal_200": 200,
+    "verbal_250": 250,     "verbal_300": 300,
+    "biology_100": 100,    "biology_150": 150,    "biology_200": 200,
+    "biology_250": 250,    "biology_300": 300,
+    "chemistry_100": 100,  "chemistry_150": 150,  "chemistry_200": 200,
+    "chemistry_250": 250,  "chemistry_300": 300,
+    "physics_100": 100,    "physics_150": 150,    "physics_200": 200,
+    "physics_250": 250,    "physics_300": 300,
 }
 
 LEVELS_PER_WORLD = 10
 
+# ── Trial limit (per-track, 1-based) ─────────────────────────────────────────
+# During 7-day trial, users get access to world 1 in EACH track only.
+TRIAL_WORLD_LIMIT = 1
+
 # ── Plan → max world index (1-based, inclusive, PER-TRACK) ────────────────────
 PLAN_WORLD_LIMIT: dict[str, int] = {
-    "free":    2,    # first 2 worlds in each track
-    "basic":   5,    # first 5 worlds in each track
-    "premium": 10,   # all worlds (any track length)
+    "basic":   5,    # first 5 worlds in each track (all current worlds)
+    "premium": 10,   # all worlds (future-proof for expansion)
 }
 
 
@@ -91,7 +117,7 @@ PLAN_WORLD_LIMIT: dict[str, int] = {
 class LockReason:
     NO_ENTITLEMENT         = "no_entitlement"
     TRIAL_EXPIRED          = "trial_expired"
-    BEYOND_WORLD2_TRIAL    = "beyond_world2_trial_cap"
+    BEYOND_TRIAL_CAP       = "beyond_trial_cap"
     PREREQ_INCOMPLETE      = "prereq_incomplete"
     LEVEL_LOCKED           = "level_locked"
     SEAT_NO_COVERAGE       = "seat_no_coverage"

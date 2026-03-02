@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from ..models.entitlement import Entitlement, ExamTrial
 from ..models.progress import LevelProgress, WorldProgress
 from ..utils.world_config import (
-    LockReason, LEVELS_PER_WORLD,
+    LockReason, LEVELS_PER_WORLD, TRIAL_WORLD_LIMIT,
     get_track_world_index, get_prev_world_in_track,
 )
 from ..extensions import db
@@ -155,8 +155,8 @@ def resolve_world_access(user, exam: str, world_key: str) -> dict:
     Precedence (strict):
     1. Active org entitlement covering this world  → ALLOW (then progression)
     2. Active individual entitlement covering this world → ALLOW (then progression)
-    3. Active trial + track_world_index <= 2       → ALLOW (then progression)
-    4. Active trial + track_world_index > 2        → LOCKED beyond_world2_trial_cap
+    3. Active trial + track_world_index <= TRIAL_WORLD_LIMIT → ALLOW (then progression)
+    4. Active trial + track_world_index > TRIAL_WORLD_LIMIT → LOCKED beyond_trial_cap
     5. Trial exists but expired                    → LOCKED trial_expired
     6. No org seat coverage (org user, no matching org entitlement) → seat_no_coverage
     7. No entitlement at all                       → LOCKED no_entitlement
@@ -184,12 +184,12 @@ def resolve_world_access(user, exam: str, world_key: str) -> dict:
     trial = _get_trial(user, exam)
     if trial:
         if trial.is_active():
-            if track_world_index <= 2:
+            if track_world_index <= TRIAL_WORLD_LIMIT:
                 if not _prev_world_completed(user.id, exam, world_key):
                     return {"allowed": False, "lock_reason": LockReason.PREREQ_INCOMPLETE}
                 return {"allowed": True, "lock_reason": None}
             else:
-                return {"allowed": False, "lock_reason": LockReason.BEYOND_WORLD2_TRIAL}
+                return {"allowed": False, "lock_reason": LockReason.BEYOND_TRIAL_CAP}
         else:
             return {"allowed": False, "lock_reason": LockReason.TRIAL_EXPIRED}
 
