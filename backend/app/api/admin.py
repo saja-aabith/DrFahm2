@@ -142,7 +142,7 @@ def import_questions():
       exam, world_key, index, question_text, option_a..d, correct_answer
 
     Optional:
-      topic, difficulty, is_active (default false), image_url
+      topic, difficulty, is_active (default false), image_url, explanation
     """
     admin = _get_current_user()
     data  = request.get_json(silent=True)
@@ -200,6 +200,8 @@ def import_questions():
             existing.correct_answer = answer
             existing.topic         = topic
             existing.image_url     = item.get("image_url") or existing.image_url
+            if "explanation" in item:
+                existing.explanation = (item["explanation"] or "").strip() or existing.explanation
             diff = (item.get("difficulty") or "").strip().lower()
             if diff and diff in {d.value for d in Difficulty}:
                 existing.difficulty = Difficulty(diff)
@@ -217,6 +219,7 @@ def import_questions():
                 option_c=item["option_c"], option_d=item["option_d"],
                 correct_answer=answer,
                 topic=topic,
+                explanation=(item.get("explanation") or "").strip() or None,
                 image_url=item.get("image_url"),
                 difficulty=Difficulty(diff) if diff and diff in {d.value for d in Difficulty} else None,
                 is_active=bool(item.get("is_active", False)),
@@ -569,6 +572,9 @@ def update_question(question_id: int):
                 return bad_request("invalid_image",
                                    "image_url must be a data URL or HTTP URL.")
         q.image_url = img or None
+
+    if "explanation" in data:
+        q.explanation = (data["explanation"] or "").strip() or None
 
     if "correct_answer" in data:
         ans = (data["correct_answer"] or "").strip().lower()

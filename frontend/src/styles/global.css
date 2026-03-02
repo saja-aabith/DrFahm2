@@ -2617,6 +2617,15 @@ body {
   border-top: 1px solid rgba(0, 0, 0, 0.03);
 }
 
+.expanded-explanation {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(124, 58, 237, 0.04);
+  border: 1px solid rgba(124, 58, 237, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid var(--violet);
+}
+
 .expanded-meta-item {
   display: inline-flex;
   align-items: center;

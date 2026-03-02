@@ -459,6 +459,15 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
             })}
           </div>
 
+          {question.explanation && (
+            <div className="expanded-explanation">
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Explanation</span>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginTop: 4 }}>
+                <MathText text={question.explanation} />
+              </div>
+            </div>
+          )}
+
           <div className="expanded-meta-row">
             {topicLabel && (
               <span className="expanded-meta-item">
@@ -852,6 +861,7 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
     option_b: question.option_b, option_c: question.option_c, option_d: question.option_d,
     correct_answer: question.correct_answer || 'a', topic: question.topic || '',
     difficulty: question.difficulty || '', image_url: question.image_url || null,
+    explanation: question.explanation || '',
     is_active: question.is_active, version: question.version,
   });
   const [saving, setSaving] = useState(false);
@@ -867,6 +877,7 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
     const payload = { ...form };
     if (!payload.topic) payload.topic = null;
     if (!payload.difficulty) payload.difficulty = null;
+    if (!payload.explanation) payload.explanation = null;
     onSave(payload);
     setSaving(false);
   };
@@ -880,7 +891,7 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
         </div>
 
         {showMathPreview && (
-          <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ padding: '12px 16px', background: 'var(--bg-card-2)', borderRadius: 8, marginBottom: 12, border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview:</div>
             <MathText text={form.question_text} />
           </div>
@@ -932,6 +943,11 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
         </div>
 
         <div className="form-group" style={{ marginTop: 12 }}>
+          <label className="form-label">Explanation (why the answer is correct)</label>
+          <textarea className="form-input" rows={3} value={form.explanation} onChange={set('explanation')} placeholder="Explain why the correct answer is right…" />
+        </div>
+
+        <div className="form-group" style={{ marginTop: 12 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
             <span className="form-label" style={{ margin: 0 }}>Active</span>
@@ -955,6 +971,7 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
     exam: 'qudurat', world_key: 'math_100',
     question_text: '', option_a: '', option_b: '', option_c: '', option_d: '',
     correct_answer: 'a', topic: '', difficulty: '', is_active: false, image_url: null,
+    explanation: '',
   });
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
@@ -1042,6 +1059,11 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
               <option value="hard">Hard</option>
             </select>
           </div>
+        </div>
+
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label className="form-label">Explanation (why the answer is correct)</label>
+          <textarea className="form-input" rows={3} value={form.explanation} onChange={set('explanation')} placeholder="Explain why the correct answer is right…" />
         </div>
 
         <div className="form-group" style={{ marginTop: 12 }}>

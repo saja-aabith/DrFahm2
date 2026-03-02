@@ -33,6 +33,7 @@ class Question(db.Model):
     option_c      = db.Column(db.Text, nullable=False)
     option_d      = db.Column(db.Text, nullable=False)
     correct_answer = db.Column(db.String(1), nullable=False)   # 'a' | 'b' | 'c' | 'd'
+    explanation    = db.Column(db.Text, nullable=True)          # Why the answer is correct
 
     # Supporting image (base64 data URL or external URL)
     # Stored as data:image/png;base64,... for uploaded images
@@ -97,4 +98,5 @@ class Question(db.Model):
         }
         if include_answer:
             d["correct_answer"] = self.correct_answer
+            d["explanation"]    = self.explanation
         return d
