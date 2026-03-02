@@ -2632,3 +2632,209 @@ body {
   gap: 6px;
   font-size: 0.85rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BULK UPLOAD TAB
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.bulk-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+  padding: 0 8px;
+}
+
+.bulk-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 14px 0;
+  position: relative;
+}
+
+.bulk-step:not(:last-child)::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: rgba(0,0,0,0.08);
+  margin-left: 12px;
+}
+
+.bulk-step.active:not(:last-child)::after {
+  background: var(--violet);
+}
+
+.bulk-step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: rgba(0,0,0,0.05);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.bulk-step.active .bulk-step-number {
+  background: var(--violet);
+  color: #fff;
+}
+
+.bulk-step.current .bulk-step-number {
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+}
+
+.bulk-step-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.bulk-step.active .bulk-step-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.bulk-section {
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bulk-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.bulk-dropzone {
+  border: 2px dashed rgba(0,0,0,0.12);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-card-2);
+}
+
+.bulk-dropzone:hover {
+  border-color: rgba(124,58,237,0.35);
+  background: rgba(124,58,237,0.03);
+}
+
+.bulk-dropzone.dragging {
+  border-color: var(--violet);
+  background: rgba(124,58,237,0.06);
+  box-shadow: 0 0 0 4px rgba(124,58,237,0.1);
+}
+
+.bulk-dropzone.has-file {
+  border-style: solid;
+  border-color: rgba(22,163,74,0.3);
+  background: rgba(22,163,74,0.03);
+  padding: 20px 24px;
+}
+
+.bulk-dropzone-icon {
+  font-size: 2rem;
+}
+
+.bulk-dropzone-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.bulk-dropzone-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.bulk-dropzone-size {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.bulk-dropzone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bulk-format-guide {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.bulk-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.bulk-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.bulk-summary-card.success { border-left: 4px solid #16a34a; }
+.bulk-summary-card.error   { border-left: 4px solid #dc2626; }
+.bulk-summary-card.warning { border-left: 4px solid #d97706; }
+.bulk-summary-card.neutral { border-left: 4px solid #6b7280; }
+
+.bulk-summary-number {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.bulk-summary-card.success .bulk-summary-number { color: #15803d; }
+.bulk-summary-card.error   .bulk-summary-number { color: #dc2626; }
+.bulk-summary-card.warning .bulk-summary-number { color: #b45309; }
+.bulk-summary-card.neutral .bulk-summary-number { color: var(--text-primary); }
+
+.bulk-summary-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.bulk-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.bulk-table-wrap .admin-table { margin: 0; border: none; }
+
+@media (max-width: 768px) {
+  .bulk-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bulk-steps {
+    flex-wrap: wrap;
+  }
+}

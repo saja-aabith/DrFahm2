@@ -1382,11 +1382,424 @@ function CreateAdminModal({ onClose, onCreated }) {
 
 // ── ROOT ──────────────────────────────────────────────────────────────────────
 
+// ── BULK UPLOAD TAB ───────────────────────────────────────────────────────────
+
+function BulkUploadTab() {
+  const [step, setStep]             = useState(1);      // 1=upload, 2=review, 3=result
+  const [file, setFile]             = useState(null);
+  const [dragging, setDragging]     = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [report, setReport]         = useState(null);    // from bulk-validate
+  const [result, setResult]         = useState(null);    // from bulk-commit
+  const [forceDupes, setForceDupes] = useState(false);
+  const [flash, showFlash]          = useFlash();
+  const fileInputRef                = useRef(null);
+
+  // ── Template download ──
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await adminApi.bulkTemplate();
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'drfahm_bulk_template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showFlash('Failed to download template.', 'error');
+    }
+  };
+
+  // ── File selection ──
+  const handleFile = (f) => {
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith('.csv')) {
+      showFlash('Only .csv files are accepted.', 'error');
+      return;
+    }
+    if (f.size > 10 * 1024 * 1024) {
+      showFlash('File too large. Maximum 10 MB.', 'error');
+      return;
+    }
+    setFile(f);
+    setReport(null);
+    setResult(null);
+    setStep(1);
+    setForceDupes(false);
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer?.files?.[0];
+    handleFile(f);
+  };
+
+  const onDragOver = (e) => { e.preventDefault(); setDragging(true); };
+  const onDragLeave = () => setDragging(false);
+
+  // ── Step 1 → 2: Validate ──
+  const handleValidate = async () => {
+    if (!file) return;
+    setValidating(true);
+    try {
+      const data = await adminApi.bulkValidate(file);
+      setReport(data);
+      setStep(2);
+    } catch (e) {
+      showFlash(e?.error?.message || 'Validation failed.', 'error');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  // ── Step 2 → 3: Commit ──
+  const handleCommit = async () => {
+    if (!file) return;
+    setCommitting(true);
+    try {
+      const data = await adminApi.bulkCommit(file, forceDupes);
+      setResult(data);
+      setStep(3);
+    } catch (e) {
+      showFlash(e?.error?.message || 'Import failed.', 'error');
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  // ── Reset ──
+  const handleReset = () => {
+    setStep(1);
+    setFile(null);
+    setReport(null);
+    setResult(null);
+    setForceDupes(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <div>
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+
+      {/* ── Step Indicator ── */}
+      <div className="bulk-steps">
+        {[
+          { n: 1, label: 'Upload CSV' },
+          { n: 2, label: 'Review' },
+          { n: 3, label: 'Done' },
+        ].map(({ n, label }) => (
+          <div key={n} className={`bulk-step ${step >= n ? 'active' : ''} ${step === n ? 'current' : ''}`}>
+            <div className="bulk-step-number">{step > n ? '✓' : n}</div>
+            <span className="bulk-step-label">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ══════════ STEP 1: Upload ══════════ */}
+      {step === 1 && (
+        <div className="bulk-section">
+          <div className="bulk-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Upload Questions CSV</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Fill in the template, save as CSV, then upload here.
+                </p>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>
+                ⬇ Download Template
+              </button>
+            </div>
+
+            {/* Drop zone */}
+            <div
+              className={`bulk-dropzone ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                style={{ display: 'none' }}
+                onChange={(e) => handleFile(e.target.files?.[0])}
+              />
+              {file ? (
+                <div className="bulk-dropzone-file">
+                  <span className="bulk-dropzone-icon">📄</span>
+                  <span className="bulk-dropzone-name">{file.name}</span>
+                  <span className="bulk-dropzone-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                  <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }}
+                    onClick={(e) => { e.stopPropagation(); handleReset(); }}>
+                    ✕ Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="bulk-dropzone-empty">
+                  <span className="bulk-dropzone-icon">📁</span>
+                  <p style={{ margin: '8px 0 4px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Drag & drop CSV file here
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    or click to browse
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* CSV format guide */}
+            <div className="bulk-format-guide">
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>
+                Required Columns
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {['exam', 'world_key', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer'].map(c => (
+                  <Pill key={c} color="violet">{c}</Pill>
+                ))}
+              </div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', margin: '12px 0 8px' }}>
+                Optional Columns
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {['explanation', 'topic', 'difficulty'].map(c => (
+                  <Pill key={c} color="gray">{c}</Pill>
+                ))}
+              </div>
+              <p style={{ margin: '12px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                <strong>No index column needed</strong> — auto-assigned. All questions are imported as <strong>inactive</strong> by default.
+                Duplicates (same question text in same exam) are detected and skipped automatically.
+              </p>
+            </div>
+
+            {file && (
+              <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+                <button className="btn btn-violet" onClick={handleValidate} disabled={validating}>
+                  {validating ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} /> Validating…</> : 'Validate CSV'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ STEP 2: Review ══════════ */}
+      {step === 2 && report && (
+        <div className="bulk-section">
+          {/* Summary cards */}
+          <div className="bulk-summary-grid">
+            <div className="bulk-summary-card success">
+              <div className="bulk-summary-number">{report.stats.valid_count}</div>
+              <div className="bulk-summary-label">Valid</div>
+            </div>
+            <div className="bulk-summary-card error">
+              <div className="bulk-summary-number">{report.stats.error_count}</div>
+              <div className="bulk-summary-label">Errors</div>
+            </div>
+            <div className="bulk-summary-card warning">
+              <div className="bulk-summary-number">{report.stats.duplicate_count}</div>
+              <div className="bulk-summary-label">Duplicates</div>
+            </div>
+            <div className="bulk-summary-card neutral">
+              <div className="bulk-summary-number">{report.stats.total_rows}</div>
+              <div className="bulk-summary-label">Total Rows</div>
+            </div>
+          </div>
+
+          {/* Errors */}
+          {report.errors.length > 0 && (
+            <div className="bulk-card" style={{ marginTop: 16 }}>
+              <h4 style={{ margin: '0 0 12px', color: '#dc2626', fontSize: '0.95rem' }}>
+                ✗ {report.errors.length} Error{report.errors.length !== 1 ? 's' : ''} Found
+              </h4>
+              <div className="bulk-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 70 }}>Row</th>
+                      <th style={{ width: 130 }}>Field</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.errors.slice(0, 50).map((err, i) => (
+                      <tr key={i}>
+                        <td><Pill color="gray">{err.row}</Pill></td>
+                        <td><code style={{ fontSize: '0.82rem', color: '#dc2626' }}>{err.field}</code></td>
+                        <td style={{ fontSize: '0.85rem' }}>{err.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {report.errors.length > 50 && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 8 }}>
+                    Showing first 50 of {report.errors.length} errors. Fix the CSV and re-upload.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Duplicates */}
+          {report.duplicates.length > 0 && (
+            <div className="bulk-card" style={{ marginTop: 16 }}>
+              <h4 style={{ margin: '0 0 12px', color: '#b45309', fontSize: '0.95rem' }}>
+                ⚠ {report.duplicates.length} Duplicate{report.duplicates.length !== 1 ? 's' : ''} Detected
+              </h4>
+              <div className="bulk-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 70 }}>Row</th>
+                      <th>Question Text (preview)</th>
+                      <th style={{ width: 110 }}>Existing ID</th>
+                      <th style={{ width: 130 }}>Existing World</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.duplicates.slice(0, 30).map((dup, i) => (
+                      <tr key={i}>
+                        <td><Pill color="gray">{dup.row}</Pill></td>
+                        <td style={{ fontSize: '0.85rem', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {dup.question_text}
+                        </td>
+                        <td>
+                          {dup.existing_id
+                            ? <Pill color="amber">#{dup.existing_id}</Pill>
+                            : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>
+                          }
+                        </td>
+                        <td style={{ fontSize: '0.85rem' }}>{dup.existing_world || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={forceDupes} onChange={(e) => setForceDupes(e.target.checked)} />
+                Include duplicates in import anyway
+              </label>
+            </div>
+          )}
+
+          {/* Preview of valid rows */}
+          {report.preview && report.preview.length > 0 && (
+            <div className="bulk-card" style={{ marginTop: 16 }}>
+              <h4 style={{ margin: '0 0 12px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                Preview ({Math.min(report.preview.length, 20)} of {report.stats.valid_count} valid rows)
+              </h4>
+              <div className="bulk-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 70 }}>Row</th>
+                      <th style={{ width: 90 }}>Exam</th>
+                      <th style={{ width: 110 }}>World</th>
+                      <th>Question</th>
+                      <th style={{ width: 60 }}>Ans</th>
+                      <th style={{ width: 100 }}>Topic</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.preview.map((row, i) => (
+                      <tr key={i}>
+                        <td><Pill color="gray">{row._row}</Pill></td>
+                        <td><Pill color="violet">{row.exam}</Pill></td>
+                        <td style={{ fontSize: '0.82rem' }}>{row.world_key}</td>
+                        <td style={{ fontSize: '0.85rem', maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row.question_text}
+                        </td>
+                        <td><Pill color="green">{row.correct_answer.toUpperCase()}</Pill></td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{row.topic || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
+            {report.stats.valid_count > 0 || forceDupes ? (
+              <button className="btn btn-green" onClick={handleCommit} disabled={committing}>
+                {committing
+                  ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} /> Importing…</>
+                  : `Import ${report.stats.valid_count + (forceDupes ? report.stats.duplicate_count : 0)} Question${report.stats.valid_count !== 1 ? 's' : ''}`
+                }
+              </button>
+            ) : (
+              <button className="btn" disabled style={{ opacity: 0.5 }}>
+                No valid rows to import
+              </button>
+            )}
+            <button className="btn btn-ghost" onClick={handleReset}>← Back to Upload</button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ STEP 3: Result ══════════ */}
+      {step === 3 && result && (
+        <div className="bulk-section">
+          <div className="bulk-card" style={{ textAlign: 'center', padding: '40px 32px' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>
+              {result.inserted > 0 ? '✅' : '⚠️'}
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+              {result.inserted > 0
+                ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Imported Successfully`
+                : 'No Questions Imported'
+              }
+            </h3>
+            <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+              {result.message}
+            </p>
+
+            {(result.skipped > 0 || result.errors?.length > 0) && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24 }}>
+                {result.inserted > 0 && (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div>
+                  </div>
+                )}
+                {result.skipped > 0 && (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped (duplicates)</div>
+                  </div>
+                )}
+                {result.errors?.length > 0 && (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626' }}>{result.errors.length}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Errors</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+              <button className="btn btn-violet" onClick={handleReset}>Upload Another File</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 const TABS = [
-  { id: 'stats',     icon: '📊', label: 'Stats'    },
-  { id: 'questions', icon: '📝', label: 'Questions' },
-  { id: 'orgs',      icon: '🏫', label: 'Orgs'      },
-  { id: 'users',     icon: '👤', label: 'Users'     },
+  { id: 'stats',     icon: '📊', label: 'Stats'      },
+  { id: 'questions', icon: '📝', label: 'Questions'   },
+  { id: 'bulk',      icon: '📤', label: 'Bulk Upload' },
+  { id: 'orgs',      icon: '🏫', label: 'Orgs'        },
+  { id: 'users',     icon: '👤', label: 'Users'       },
 ];
 
 export default function AdminPanel() {
@@ -1410,6 +1823,7 @@ export default function AdminPanel() {
         <div style={{ marginTop: 24 }}>
           {tab === 'stats'     && <StatsTab />}
           {tab === 'questions' && <QuestionsTab />}
+          {tab === 'bulk'      && <BulkUploadTab />}
           {tab === 'orgs'      && <OrgsTab />}
           {tab === 'users'     && <UsersTab />}
         </div>
