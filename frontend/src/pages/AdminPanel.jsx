@@ -1559,21 +1559,14 @@ function BulkUploadTab() {
                 Required Columns
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {['exam', 'world_key', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer'].map(c => (
+                {['exam', 'world_key', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'explanation', 'topic', 'difficulty'].map(c => (
                   <Pill key={c} color="violet">{c}</Pill>
-                ))}
-              </div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', margin: '12px 0 8px' }}>
-                Optional Columns
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {['explanation', 'topic', 'difficulty'].map(c => (
-                  <Pill key={c} color="gray">{c}</Pill>
                 ))}
               </div>
               <p style={{ margin: '12px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                 <strong>No index column needed</strong> — auto-assigned. All questions are imported as <strong>inactive</strong> by default.
                 Duplicates (same question text in same exam) are detected and skipped automatically.
+                LaTeX is supported in question_text, options, and explanation — use <code style={{ fontSize: '0.8rem' }}>$...$</code> syntax.
               </p>
             </div>
 

@@ -259,7 +259,7 @@ _CSV_COLUMNS = [
 ]
 _CSV_REQUIRED = {"exam", "world_key", "question_text",
                  "option_a", "option_b", "option_c", "option_d",
-                 "correct_answer"}
+                 "correct_answer", "explanation", "topic", "difficulty"}
 
 
 def _normalize_text(text: str) -> str:
@@ -465,7 +465,7 @@ def bulk_template():
         "qudurat", "verbal_100", "The synonym of 'happy' is:",
         "Sad", "Joyful", "Angry", "Tired", "b",
         "'Joyful' means feeling or expressing great happiness",
-        "synonyms", "",
+        "synonyms", "easy",
     ])
 
     return Response(
