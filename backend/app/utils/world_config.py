@@ -217,10 +217,49 @@ def get_level_question_range(world_key: str, level_number: int) -> tuple[int, in
     return (1, level_number * qpl)
 
 
+# ── Display names ─────────────────────────────────────────────────────────────
+
+SECTION_NAMES: dict[str, dict] = {
+    "math":      {"en": "Math",      "ar": "الرياضيات"},
+    "verbal":    {"en": "Verbal",    "ar": "اللفظي"},
+    "biology":   {"en": "Biology",   "ar": "الأحياء"},
+    "chemistry": {"en": "Chemistry", "ar": "الكيمياء"},
+    "physics":   {"en": "Physics",   "ar": "الفيزياء"},
+}
+
+TIER_NAMES: dict[int, dict] = {
+    100: {"en": "Bidaya",  "ar": "البداية"},   # The Beginning
+    150: {"en": "Su'ood",  "ar": "الصعود"},    # The Ascent
+    200: {"en": "Tahadi",  "ar": "التحدي"},    # The Challenge
+    250: {"en": "Itqan",   "ar": "الإتقان"},   # The Mastery
+    300: {"en": "Qimma",   "ar": "القمة"},     # The Summit
+}
+
+
 def world_name(world_key: str) -> str:
-    """Human-readable world name, e.g. 'Math 100'."""
+    """
+    Human-readable world name with section + Arabic tier.
+    e.g. 'Math: Bidaya' / 'Biology: Qimma'
+    """
     parts = world_key.split("_")
-    return f"{parts[0].capitalize()} {parts[1]}"
+    section = parts[0]
+    band = int(parts[1])
+    sec = SECTION_NAMES.get(section, {"en": section.capitalize()})
+    tier = TIER_NAMES.get(band, {"en": str(band)})
+    return f"{sec['en']}: {tier['en']}"
+
+
+def world_name_ar(world_key: str) -> str:
+    """
+    Full Arabic world name.
+    e.g. 'الرياضيات: البداية' / 'الأحياء: القمة'
+    """
+    parts = world_key.split("_")
+    section = parts[0]
+    band = int(parts[1])
+    sec = SECTION_NAMES.get(section, {"ar": section})
+    tier = TIER_NAMES.get(band, {"ar": str(band)})
+    return f"{sec['ar']}: {tier['ar']}"
 
 
 def validate_world_key(world_key: str):

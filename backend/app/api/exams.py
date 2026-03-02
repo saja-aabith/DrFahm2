@@ -35,6 +35,7 @@ from ..utils.world_config import (
     validate_exam,
     validate_world_key,
     world_name,
+    world_name_ar,
     VALID_WORLD_KEYS,
     get_track_info,
 )
@@ -205,9 +206,10 @@ def world_map(exam: str):
                 })
 
             worlds_in_track.append({
-                "world_key":   world_key,
-                "world_name":  world_name(world_key),
-                "index":       track_world_index,
+                "world_key":    world_key,
+                "world_name":   world_name(world_key),
+                "world_name_ar": world_name_ar(world_key),
+                "index":        track_world_index,
                 "locked":      world_locked,
                 "lock_reason": world_lock_reason,
                 "levels":      levels,
@@ -521,6 +523,7 @@ def get_progress(exam: str):
         worlds_output.append({
             "world_key":       world_key,
             "world_name":      world_name(world_key),
+            "world_name_ar":   world_name_ar(world_key),
             "index":           world_index,
             "fully_completed": bool(wp and wp.fully_completed),
             "completed_at":    wp.completed_at.isoformat() if (wp and wp.completed_at) else None,
