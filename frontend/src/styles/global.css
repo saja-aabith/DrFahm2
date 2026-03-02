@@ -2623,3 +2623,118 @@ body {
   gap: 6px;
   font-size: 0.85rem;
 }
+
+/* ── Track Tabs ─────────────────────────────────────────────────────────── */
+.track-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.track-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.track-tab:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.track-tab.active {
+  background: var(--violet-dim);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: var(--violet-light);
+}
+
+.track-tab-en {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.track-tab-ar {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
+/* ── Track Progress Summary ────────────────────────────────────────────── */
+.track-progress-summary {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.track-progress-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.track-progress-bar {
+  background: var(--border);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.track-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--violet);
+  transition: width 0.6s ease;
+  min-width: 0;
+}
+
+/* ── Mobile adjustments ────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .track-tabs {
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .track-tab {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .track-tab-en {
+    font-size: 0.8rem;
+  }
+
+  .track-tab-ar {
+    font-size: 0.7rem;
+  }
+
+  .track-progress-stats {
+    font-size: 0.75rem;
+  }
+}

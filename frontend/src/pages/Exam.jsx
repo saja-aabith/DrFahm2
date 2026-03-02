@@ -8,15 +8,26 @@ const EXAM_LABELS = {
   tahsili: 'Tahsili — التحصيلي',
 };
 
+// ── Arabic section labels for track tabs ─────────────────────────────────────
+const TRACK_LABELS_AR = {
+  math:      'الرياضيات',
+  verbal:    'اللفظي',
+  biology:   'الأحياء',
+  chemistry: 'الكيمياء',
+  physics:   'الفيزياء',
+};
+
 // Human-readable lock reason messages shown to the student
 const LOCK_MESSAGES = {
-  no_entitlement:          'Start your free trial to unlock',
-  trial_expired:           'Trial expired — upgrade to continue',
-  beyond_world2_trial_cap: 'Upgrade to access this world',
-  prereq_incomplete:       'Complete the previous world first',
-  level_locked:            'Pass the previous level first',
-  seat_no_coverage:        'Your school has not unlocked this world',
+  no_entitlement:    'Start your free trial to unlock',
+  trial_expired:     'Trial expired — upgrade to continue',
+  beyond_trial_cap:  'Upgrade to access this world',
+  prereq_incomplete: 'Complete the previous world first',
+  level_locked:      'Pass the previous level first',
+  seat_no_coverage:  'Your school has not unlocked this world',
 };
+
+// ── Level Node ───────────────────────────────────────────────────────────────
 
 function LevelNode({ level, examKey, worldKey, worldLocked }) {
   const navigate = useNavigate();
@@ -47,9 +58,11 @@ function LevelNode({ level, examKey, worldKey, worldLocked }) {
   );
 }
 
+// ── World Card ───────────────────────────────────────────────────────────────
+
 function WorldCard({ world, examKey, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { world_key, world_name, index, locked, lock_reason, levels } = world;
+  const { world_key, world_name, world_name_ar, index, locked, lock_reason, levels } = world;
 
   const passedCount = levels.filter((l) => l.passed).length;
   const allPassed   = passedCount === 10;
@@ -62,7 +75,14 @@ function WorldCard({ world, examKey, defaultOpen }) {
             W{index}
           </div>
           <div>
-            <div className="world-name">{world_name}</div>
+            <div className="world-name">
+              {world_name}
+              {world_name_ar && (
+                <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', marginLeft: 8 }}>
+                  {world_name_ar}
+                </span>
+              )}
+            </div>
             <div className="world-meta">
               {locked
                 ? (LOCK_MESSAGES[lock_reason] || lock_reason)
@@ -98,14 +118,63 @@ function WorldCard({ world, examKey, defaultOpen }) {
   );
 }
 
-export default function ExamPage() {
-  const { exam }    = useParams();
-  const navigate    = useNavigate();
+// ── Track Tabs ───────────────────────────────────────────────────────────────
 
-  const [worldMap,  setWorldMap]  = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState('');
-  const [entitlements, setEntitlements] = useState(null);
+function TrackTabs({ tracks, activeTrack, onSelect }) {
+  return (
+    <div className="track-tabs">
+      {tracks.map((track) => (
+        <button
+          key={track.track_key}
+          className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`}
+          onClick={() => onSelect(track.track_key)}
+        >
+          <span className="track-tab-en">{track.track_name}</span>
+          <span className="track-tab-ar">{TRACK_LABELS_AR[track.track_key] || ''}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Track Progress Summary ───────────────────────────────────────────────────
+
+function TrackProgressBar({ track }) {
+  const totalWorlds = track.worlds.length;
+  const completedWorlds = track.worlds.filter((w) => {
+    const allLevelsPassed = w.levels.filter((l) => l.passed).length === 10;
+    return allLevelsPassed;
+  }).length;
+  const totalLevels = totalWorlds * 10;
+  const passedLevels = track.worlds.reduce(
+    (sum, w) => sum + w.levels.filter((l) => l.passed).length, 0
+  );
+  const pct = totalLevels > 0 ? Math.round((passedLevels / totalLevels) * 100) : 0;
+
+  return (
+    <div className="track-progress-summary">
+      <div className="track-progress-stats">
+        <span>{completedWorlds}/{totalWorlds} worlds complete</span>
+        <span>{passedLevels}/{totalLevels} levels passed</span>
+      </div>
+      <div className="track-progress-bar">
+        <div className="track-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Main Exam Page ───────────────────────────────────────────────────────────
+
+export default function ExamPage() {
+  const { exam }   = useParams();
+  const navigate   = useNavigate();
+
+  const [worldMap,      setWorldMap]      = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [entitlements,  setEntitlements]  = useState(null);
+  const [activeTrack,   setActiveTrack]   = useState(null);
 
   useEffect(() => {
     if (!['qudurat', 'tahsili'].includes(exam)) {
@@ -119,6 +188,10 @@ export default function ExamPage() {
     ]).then(([mapData, billingData]) => {
       setWorldMap(mapData);
       setEntitlements(billingData);
+      // Default to first track
+      if (mapData?.tracks?.length > 0) {
+        setActiveTrack(mapData.tracks[0].track_key);
+      }
     }).catch((err) => {
       setError(err?.error?.message || 'Failed to load world map.');
     }).finally(() => setLoading(false));
@@ -149,21 +222,31 @@ export default function ExamPage() {
     );
   }
 
+  const tracks = worldMap?.tracks || [];
+  const currentTrack = tracks.find((t) => t.track_key === activeTrack) || tracks[0];
+
   const allEntitlements = [
     ...(entitlements?.individual_entitlements || []),
     ...(entitlements?.org_entitlements || []),
   ];
-  const hasPaidPlan = allEntitlements.some((e) => e.exam === exam && new Date() < new Date(e.entitlement_expires_at));
+  const hasPaidPlan = allEntitlements.some(
+    (e) => e.exam === exam && new Date() < new Date(e.entitlement_expires_at)
+  );
   const trial = entitlements?.trials?.find((t) => t.exam === exam);
   const trialActive = trial && new Date() < new Date(trial.trial_expires_at);
 
-  // First unlocked world index (for defaultOpen)
-  const firstUnlockedIdx = worldMap?.worlds?.findIndex((w) => !w.locked) ?? 0;
+  // First unlocked world in current track (for defaultOpen)
+  const firstUnlockedIdx = currentTrack?.worlds?.findIndex((w) => !w.locked) ?? 0;
+
+  // Overall stats for subtitle
+  const totalTracks = tracks.length;
+  const worldsPerTrack = currentTrack?.worlds?.length || 5;
 
   return (
     <>
       <Navbar />
       <div className="page">
+        {/* Breadcrumb */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <Link to="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
             ← Dashboard
@@ -176,33 +259,36 @@ export default function ExamPage() {
 
         <div className="page-header">
           <h1 className="page-title">{EXAM_LABELS[exam] || exam}</h1>
-          <p className="page-subtitle">10 worlds · 10 levels each · Master every topic to advance</p>
+          <p className="page-subtitle">
+            {totalTracks} {totalTracks === 1 ? 'track' : 'tracks'} · {worldsPerTrack} worlds each · 10 levels per world
+          </p>
         </div>
 
-        {/* Paywall nudge — shown when on trial with no paid plan */}
+        {/* Paywall nudge — trial active */}
         {!hasPaidPlan && trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
-              <h3>You're on the free trial — Worlds 1–2 unlocked</h3>
-              <p>Upgrade to Basic (SAR 199) for Worlds 1–5, or Premium (SAR 299) for all 10 worlds.</p>
+              <h3>You're on the free trial — World 1 unlocked per track</h3>
+              <p>Upgrade to Basic for all 5 worlds, or Premium for the full experience.</p>
             </div>
             <div className="paywall-actions">
               <Link
                 to={`/pricing?exam=${exam}&plan=basic`}
                 className="btn btn-ghost btn-sm"
               >
-                Basic — SAR 199
+                Basic Plan
               </Link>
               <Link
                 to={`/pricing?exam=${exam}&plan=premium`}
                 className="btn btn-violet btn-sm"
               >
-                Premium — SAR 299
+                Premium Plan
               </Link>
             </div>
           </div>
         )}
 
+        {/* Paywall nudge — trial expired */}
         {!hasPaidPlan && !trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
@@ -217,9 +303,23 @@ export default function ExamPage() {
           </div>
         )}
 
-        {/* World map — render exactly what backend returns */}
+        {/* Track tabs — always shown when more than 1 track */}
+        {tracks.length > 1 && (
+          <TrackTabs
+            tracks={tracks}
+            activeTrack={activeTrack}
+            onSelect={setActiveTrack}
+          />
+        )}
+
+        {/* Track progress bar */}
+        {currentTrack && (
+          <TrackProgressBar track={currentTrack} />
+        )}
+
+        {/* World map — render current track's worlds */}
         <div className="world-map-grid">
-          {worldMap?.worlds?.map((world, idx) => (
+          {currentTrack?.worlds?.map((world, idx) => (
             <WorldCard
               key={world.world_key}
               world={world}

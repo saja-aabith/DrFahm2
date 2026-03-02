@@ -9,13 +9,15 @@ const EXAM_INFO = {
     label: 'Qudurat',
     arabic: 'القدرات',
     description: 'Math & Verbal aptitude — required for all Saudi university admissions.',
-    worlds: 10,
+    worlds: 10,   // 2 tracks × 5 worlds
+    tracks: 2,
   },
   tahsili: {
     label: 'Tahsili',
     arabic: 'التحصيلي',
     description: 'Science & Math achievement — required for science/medicine tracks.',
-    worlds: 10,
+    worlds: 20,   // 4 tracks × 5 worlds
+    tracks: 4,
   },
 };
 
@@ -45,7 +47,7 @@ function ExamCard({ examKey, entitlements, trials, progressData }) {
   const trial = trials?.find((t) => t.exam === examKey);
   const ent   = entitlements?.find((e) => e.exam === examKey);
 
-  // Compute progress
+  // Compute progress from flat worlds list returned by /progress endpoint
   let worldsCompleted = 0;
   let totalWorlds     = info.worlds;
   if (progressData) {
@@ -157,7 +159,7 @@ export default function Dashboard() {
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
                       Expires {new Date(ent.entitlement_expires_at).toLocaleDateString()}
                       {' · '}
-                      Worlds 1–{ent.max_world_index}
+                      Worlds 1–{ent.max_world_index} per track
                     </div>
                   </div>
                   <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>
@@ -173,8 +175,8 @@ export default function Dashboard() {
         {!loading && allEntitlements.length === 0 && (
           <div className="paywall-banner">
             <div className="paywall-text">
-              <h3>Unlock all 10 worlds</h3>
-              <p>Your free trial covers worlds 1–2. Upgrade to access the full exam journey.</p>
+              <h3>Unlock all 5 worlds per track</h3>
+              <p>Your free trial covers World 1 in each track. Upgrade to access the full exam journey.</p>
             </div>
             <div className="paywall-actions">
               <Link to="/pricing" className="btn btn-violet btn-sm">View Plans</Link>
