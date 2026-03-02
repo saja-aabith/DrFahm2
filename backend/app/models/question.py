@@ -91,6 +91,7 @@ class Question(db.Model):
             "difficulty":    self.difficulty.value if self.difficulty else None,
             "is_active":     self.is_active,
             "version":       self.version,
+            "last_reviewed_at": self.last_reviewed_at.isoformat() if self.last_reviewed_at else None,
             "created_at":    self.created_at.isoformat(),
             "updated_at":    self.updated_at.isoformat(),
         }

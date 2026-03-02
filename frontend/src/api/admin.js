@@ -55,6 +55,7 @@ export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/que
 export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
 export const bulkTopic       = (data)     => adminRequest('/api/admin/questions/bulk-topic', { method: 'POST', body: JSON.stringify(data) });
 export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
+export const markReviewed    = (id, version) => adminRequest(`/api/admin/questions/${id}/mark-reviewed`, { method: 'PATCH', body: JSON.stringify({ version }) });
 
 /**
  * Quick inline update — sends only changed field + version for optimistic locking.

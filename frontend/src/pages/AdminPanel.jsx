@@ -217,23 +217,50 @@ function InlineAnswerPicker({ question, onSaved }) {
     finally { setSaving(false); }
   };
 
+  const handleConfirmReview = async () => {
+    setSaving(true);
+    try {
+      const result = await adminApi.markReviewed(question.id, question.version);
+      onSaved(result.question);
+      setOpen(false);
+    } catch (e) { alert(e?.error?.message || 'Failed to mark reviewed.'); }
+    finally { setSaving(false); }
+  };
+
+  const isReviewed = !!question.last_reviewed_at;
+
   if (!open) {
     return (
-      <Pill color={question.correct_answer === 'a' ? 'amber' : 'green'} onClick={() => setOpen(true)} title="Click to change correct answer" style={{ cursor: 'pointer' }}>
-        {question.correct_answer?.toUpperCase() || '?'}
-      </Pill>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Pill color={isReviewed ? 'green' : 'amber'} onClick={() => setOpen(true)} title="Click to change correct answer" style={{ cursor: 'pointer' }}>
+          {question.correct_answer?.toUpperCase() || '?'}
+        </Pill>
+        {isReviewed && <span title={`Reviewed ${new Date(question.last_reviewed_at).toLocaleDateString()}`} style={{ color: '#4ade80', fontSize: '0.75rem' }}>✓</span>}
+      </span>
     );
   }
 
   return (
     <div ref={ref} className="inline-answer-picker">
       {saving ? <span className="inline-answer-saving">…</span> : (
-        ['a', 'b', 'c', 'd'].map((opt) => (
-          <button key={opt} className={`inline-answer-btn ${opt === question.correct_answer ? 'active' : ''}`}
-            onClick={() => handlePick(opt)} title={`Set correct answer to ${opt.toUpperCase()}`}>
-            {opt.toUpperCase()}
-          </button>
-        ))
+        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {['a', 'b', 'c', 'd'].map((opt) => (
+            <button key={opt} className={`inline-answer-btn ${opt === question.correct_answer ? 'active' : ''}`}
+              onClick={() => handlePick(opt)} title={`Set correct answer to ${opt.toUpperCase()}`}>
+              {opt.toUpperCase()}
+            </button>
+          ))}
+          {!isReviewed && (
+            <button className="inline-answer-btn confirm" onClick={handleConfirmReview}
+              title="Confirm current answer is correct (mark as reviewed)" style={{
+                marginLeft: 4, background: 'rgba(34,197,94,0.15)', color: '#4ade80',
+                border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '2px 6px',
+                fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700,
+              }}>
+              ✓
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -438,7 +465,7 @@ function QuestionsTab() {
   const [loading,   setLoading]     = useState(false);
   const [editing,   setEditing]     = useState(null);
   const [flash,     showFlash]      = useFlash();
-  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '', difficulty: '', topic: '', search: '' });
+  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '', difficulty: '', topic: '', reviewed: '', search: '' });
   const [creating,  setCreating]    = useState(false);
   const [expanded,  setExpanded]    = useState(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
@@ -608,6 +635,11 @@ function QuestionsTab() {
           <option value="">All topics</option>
           <option value="_untagged">⚠ Untagged</option>
           {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+        <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.reviewed} onChange={(e) => handleFilterChange('reviewed', e.target.value)}>
+          <option value="">All review</option>
+          <option value="true">✓ Reviewed</option>
+          <option value="false">⚠ Unreviewed</option>
         </select>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ Add Question</button>

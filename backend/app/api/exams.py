@@ -8,6 +8,10 @@ Key invariants enforced here:
 - Correct answers NEVER returned in questions endpoint.
 - Pass threshold from config (PASS_THRESHOLD_PCT, default 70%).
 - WorldProgress updated automatically when all 10 levels pass.
+
+TRACK-AWARE:
+  world_map returns tracks grouped structure.
+  Progression is within-track only.
 """
 
 from datetime import datetime, timezone
@@ -21,15 +25,18 @@ from ..api.auth import require_auth, _get_current_user
 from ..api.errors import bad_request, forbidden, error_response
 from ..utils.world_config import (
     EXAM_WORLD_ORDER,
+    EXAM_TRACKS,
     LEVELS_PER_WORLD,
     LockReason,
     get_world_index,
+    get_track_world_index,
     get_level_question_range,
     get_questions_per_level,
     validate_exam,
     validate_world_key,
     world_name,
     VALID_WORLD_KEYS,
+    get_track_info,
 )
 from ..utils.access import (
     get_or_create_trial,
@@ -103,30 +110,37 @@ def _preload_level_progress(user_id: int, exam: str) -> dict[tuple, LevelProgres
 @require_auth
 def world_map(exam: str):
     """
-    Returns the full world map for an exam.
+    Returns the full world map for an exam, grouped by tracks.
 
     - Starts the per-exam trial on first call (if no trial + no entitlement).
     - Frontend must render exactly what this returns.
     - All lock logic lives here — never on the client.
+    - Tracks are independent: math and verbal progress separately.
 
-    Response shape (locked API contract):
+    Response shape:
     {
         "exam": "qudurat",
-        "worlds": [
+        "tracks": [
             {
-                "world_key":  "math_100",
-                "world_name": "Math 100",
-                "index":      1,
-                "locked":     false,
-                "lock_reason": null,
-                "levels": [
+                "track_key": "math",
+                "track_name": "Math",
+                "worlds": [
                     {
-                        "level_number": 1,
-                        "locked":       false,
-                        "lock_reason":  null,
-                        "passed":       false
+                        "world_key":  "math_100",
+                        "world_name": "Math 100",
+                        "index":      1,
+                        "locked":     false,
+                        "lock_reason": null,
+                        "levels": [
+                            {"level_number": 1, "locked": false, "lock_reason": null, "passed": false}
+                        ]
                     }
                 ]
+            },
+            {
+                "track_key": "verbal",
+                "track_name": "Verbal",
+                "worlds": [...]
             }
         ]
     }
@@ -135,8 +149,8 @@ def world_map(exam: str):
     if err:
         return err
 
-    user         = _get_current_user()
-    trial_days   = current_app.config["TRIAL_DAYS"]
+    user       = _get_current_user()
+    trial_days = current_app.config["TRIAL_DAYS"]
 
     # ── Start trial on first world-map request ──
     get_or_create_trial(user, exam, trial_days)
@@ -146,57 +160,66 @@ def world_map(exam: str):
     world_progress_map = _preload_world_progress(user.id, exam)
     level_progress_map = _preload_level_progress(user.id, exam)
 
-    worlds_output = []
-    world_order   = EXAM_WORLD_ORDER[exam]
+    # ── Build track-grouped output ──
+    tracks_info = get_track_info(exam)
+    tracks_output = []
 
-    for world_key in world_order:
-        world_index   = get_world_index(exam, world_key)
-        world_result  = resolve_world_access(user, exam, world_index)
-        world_locked  = not world_result["allowed"]
-        world_lock_reason = world_result["lock_reason"]
+    for track in tracks_info:
+        worlds_in_track = []
 
-        # ── Build level states ──
-        levels = []
-        for level_number in range(1, LEVELS_PER_WORLD + 1):
-            lp = level_progress_map.get((world_key, level_number))
-            passed = bool(lp and lp.passed)
+        for world_key in track["worlds"]:
+            track_world_index = get_track_world_index(exam, world_key)
 
-            if world_locked:
-                # Whole world is locked — all levels inherit world lock reason
-                level_locked      = True
-                level_lock_reason = world_lock_reason
-            elif level_number == 1:
-                # First level always unlocked once world is accessible
-                level_locked      = False
-                level_lock_reason = None
-            else:
-                # Level N locked if level N-1 not passed
-                prev_lp  = level_progress_map.get((world_key, level_number - 1))
-                prev_passed = bool(prev_lp and prev_lp.passed)
-                if not prev_passed:
+            # ── Access check (track-aware) ──
+            world_result    = resolve_world_access(user, exam, world_key)
+            world_locked    = not world_result["allowed"]
+            world_lock_reason = world_result["lock_reason"]
+
+            # ── Build level states ──
+            levels = []
+            for level_number in range(1, LEVELS_PER_WORLD + 1):
+                lp = level_progress_map.get((world_key, level_number))
+                passed = bool(lp and lp.passed)
+
+                if world_locked:
                     level_locked      = True
-                    level_lock_reason = LockReason.LEVEL_LOCKED
-                else:
+                    level_lock_reason = world_lock_reason
+                elif level_number == 1:
                     level_locked      = False
                     level_lock_reason = None
+                else:
+                    prev_lp     = level_progress_map.get((world_key, level_number - 1))
+                    prev_passed = bool(prev_lp and prev_lp.passed)
+                    if not prev_passed:
+                        level_locked      = True
+                        level_lock_reason = LockReason.LEVEL_LOCKED
+                    else:
+                        level_locked      = False
+                        level_lock_reason = None
 
-            levels.append({
-                "level_number": level_number,
-                "locked":       level_locked,
-                "lock_reason":  level_lock_reason,
-                "passed":       passed,
+                levels.append({
+                    "level_number": level_number,
+                    "locked":       level_locked,
+                    "lock_reason":  level_lock_reason,
+                    "passed":       passed,
+                })
+
+            worlds_in_track.append({
+                "world_key":   world_key,
+                "world_name":  world_name(world_key),
+                "index":       track_world_index,
+                "locked":      world_locked,
+                "lock_reason": world_lock_reason,
+                "levels":      levels,
             })
 
-        worlds_output.append({
-            "world_key":   world_key,
-            "world_name":  world_name(world_key),
-            "index":       world_index,
-            "locked":      world_locked,
-            "lock_reason": world_lock_reason,
-            "levels":      levels,
+        tracks_output.append({
+            "track_key":  track["track_key"],
+            "track_name": track["track_name"],
+            "worlds":     worlds_in_track,
         })
 
-    return jsonify({"exam": exam, "worlds": worlds_output}), 200
+    return jsonify({"exam": exam, "tracks": tracks_output}), 200
 
 
 # ── GET /api/exams/<exam>/worlds/<world_key>/levels/<level_number>/questions ──
@@ -235,9 +258,8 @@ def get_questions(exam: str, world_key: str, level_number: str):
     get_or_create_trial(user, exam, trial_days)
     db.session.commit()
 
-    # ── Access check ──
-    world_index = get_world_index(exam, world_key)
-    access      = resolve_level_access(user, exam, world_key, level_number, world_index)
+    # ── Access check (track-aware — no world_index param needed) ──
+    access = resolve_level_access(user, exam, world_key, level_number)
 
     if not access["allowed"]:
         return forbidden(
@@ -297,34 +319,6 @@ def submit_level(exam: str, world_key: str, level_number: str):
             ...
         }
     }
-
-    Response:
-    {
-        "exam":          "qudurat",
-        "world_key":     "math_100",
-        "level_number":  1,
-        "score":         8,
-        "total":         10,
-        "passed":        true,
-        "pass_threshold_pct": 70,
-        "world_completed": false,
-        "results": [
-            {
-                "question_id":      1,
-                "your_answer":      "a",
-                "correct_answer":   "a",
-                "is_correct":       true
-            }
-        ]
-    }
-
-    Rules:
-    - Access checked before grading.
-    - Answers for unrecognised question IDs are silently ignored.
-    - Missing answers count as incorrect.
-    - LevelProgress upserted after each attempt.
-    - WorldProgress updated if all 10 levels now passed.
-    - world_completed = true triggers frontend celebration.
     """
     _, err = _validate_exam_param(exam)
     if err:
@@ -340,9 +334,8 @@ def submit_level(exam: str, world_key: str, level_number: str):
 
     user = _get_current_user()
 
-    # ── Access check ──
-    world_index = get_world_index(exam, world_key)
-    access      = resolve_level_access(user, exam, world_key, level_number, world_index)
+    # ── Access check (track-aware) ──
+    access = resolve_level_access(user, exam, world_key, level_number)
 
     if not access["allowed"]:
         return forbidden(
@@ -429,7 +422,6 @@ def submit_level(exam: str, world_key: str, level_number: str):
         lp.score            = correct_count
         lp.total_questions  = total_questions
         lp.last_attempted_at = now
-        # Once passed, stays passed — never regress
         if passed:
             lp.passed = True
     else:
@@ -459,7 +451,6 @@ def submit_level(exam: str, world_key: str, level_number: str):
         passed_levels = {lp2.level_number for lp2 in all_level_progress if lp2.passed}
 
         if len(passed_levels) == LEVELS_PER_WORLD:
-            # All 10 levels passed — mark world complete
             wp = WorldProgress.query.filter_by(
                 user_id=user.id,
                 exam=exam,
@@ -503,22 +494,8 @@ def submit_level(exam: str, world_key: str, level_number: str):
 def get_progress(exam: str):
     """
     Returns a summary of the user's progress across all worlds for an exam.
-
-    Response:
-    {
-        "exam": "qudurat",
-        "worlds": [
-            {
-                "world_key":       "math_100",
-                "world_name":      "Math 100",
-                "index":           1,
-                "fully_completed": false,
-                "completed_at":    null,
-                "levels_passed":   3,
-                "levels_total":    10
-            }
-        ]
-    }
+    Still returns a flat list (used by Dashboard) — tracks grouping is done
+    in the world-map endpoint.
     """
     _, err = _validate_exam_param(exam)
     if err:

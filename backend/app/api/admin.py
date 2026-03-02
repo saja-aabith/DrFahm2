@@ -9,11 +9,12 @@ Endpoints:
     GET    /api/admin/questions/next-index
     GET    /api/admin/questions/review-progress
     GET    /api/admin/questions/topic-coverage        ← NEW
-    GET    /api/admin/questions                        (+ search, topic params)
+    GET    /api/admin/questions                        (+ search, topic, reviewed params)
     GET    /api/admin/questions/:id
     PUT    /api/admin/questions/:id          (optimistic lock on version)
     DELETE /api/admin/questions/:id          (soft delete)
     PATCH  /api/admin/questions/:id/activate
+    PATCH  /api/admin/questions/:id/mark-reviewed      ← NEW
     POST   /api/admin/questions/bulk-activate
     POST   /api/admin/questions/bulk-topic             ← NEW
 
@@ -271,18 +272,12 @@ def get_next_index():
 def review_progress():
     """
     Returns review progress per exam/world.
-    A question is considered 'reviewed' if correct_answer != 'a'
-    (since all placeholder answers default to 'a').
+    A question is 'reviewed' if last_reviewed_at IS NOT NULL.
+    This is set when an admin explicitly confirms or changes the correct answer.
+
+    This approach treats all answer options (a/b/c/d) equally — no bias.
 
     Optional filter: ?exam=qudurat
-
-    Response: {
-      "progress": [
-        { "exam": "qudurat", "world_key": "math_100", "total": 100, "reviewed": 47, "unreviewed": 53 },
-        ...
-      ],
-      "summary": { "total": 2100, "reviewed": 320, "unreviewed": 1780 }
-    }
     """
     exam_filter = request.args.get("exam", "").strip().lower() or None
 
@@ -292,7 +287,7 @@ def review_progress():
         func.count(Question.id).label("total"),
         func.sum(
             case(
-                (Question.correct_answer != "a", 1),
+                (Question.last_reviewed_at.isnot(None), 1),
                 else_=0,
             )
         ).label("reviewed"),
@@ -434,14 +429,20 @@ def topic_coverage():
 def list_questions():
     """
     List questions with filters.
-    Query params: exam, world_key, is_active, difficulty, topic, search,
-                  page (default 1), per_page (default 50, max 200)
+    Query params: exam, world_key, is_active, difficulty, topic, reviewed,
+                  search, page (default 1), per_page (default 50, max 200)
+
+    Special filter values:
+      topic=_untagged  → questions with no topic assigned
+      reviewed=true    → questions with last_reviewed_at set
+      reviewed=false   → questions not yet reviewed
     """
     exam       = request.args.get("exam", "").strip().lower() or None
     world_key  = request.args.get("world_key", "").strip().lower() or None
     is_active  = request.args.get("is_active")
     difficulty = request.args.get("difficulty", "").strip().lower() or None
     topic      = request.args.get("topic", "").strip().lower() or None
+    reviewed   = request.args.get("reviewed", "").strip().lower() or None
     search     = request.args.get("search", "").strip() or None
     page       = max(1, int(request.args.get("page", 1) or 1))
     per_page   = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
@@ -472,6 +473,12 @@ def list_questions():
             q = q.filter(Question.topic == topic)
         else:
             return bad_request("invalid_topic", f"Invalid topic filter: {topic!r}.")
+
+    if reviewed:
+        if reviewed == "true":
+            q = q.filter(Question.last_reviewed_at.isnot(None))
+        elif reviewed == "false":
+            q = q.filter(Question.last_reviewed_at.is_(None))
 
     if search:
         q = q.filter(Question.question_text.ilike(f"%{search}%"))
@@ -615,6 +622,48 @@ def toggle_question_active(question_id: int):
     q.is_active            = bool(data["is_active"])
     q.updated_by_admin_id = admin.id
     q.version             += 1
+    db.session.commit()
+    return jsonify({"question": q.to_dict(include_answer=True)}), 200
+
+
+@admin_bp.route("/questions/<int:question_id>/mark-reviewed", methods=["PATCH"])
+@roles_required(*_ADMIN_ROLE)
+def mark_question_reviewed(question_id: int):
+    """
+    Explicitly mark a question as reviewed without changing any content.
+    Used when admin confirms the current answer is correct (e.g. answer IS 'a').
+
+    This solves the bug where questions with correct_answer='a' couldn't
+    be counted as reviewed. Now review status is tracked via last_reviewed_at
+    timestamp, independent of which answer option is correct.
+
+    Body: { "version": int }  (required for optimistic locking)
+    """
+    admin = _get_current_user()
+    data  = request.get_json(silent=True) or {}
+
+    q = Question.query.filter_by(id=question_id, deleted_at=None).first()
+    if not q:
+        return error_response("not_found", "Question not found.", 404)
+
+    submitted_version = data.get("version")
+    if submitted_version is None:
+        return bad_request("version_required",
+                           "version is required for optimistic locking.")
+    if int(submitted_version) != q.version:
+        return conflict(
+            f"Question was modified by another admin (expected version {submitted_version}, "
+            f"current version {q.version}). Reload and retry.",
+            {"current_record": q.to_dict(include_answer=True)},
+        )
+
+    now = datetime.now(timezone.utc)
+    q.last_reviewed_at          = now
+    q.last_reviewed_by_admin_id = admin.id
+    q.updated_by_admin_id       = admin.id
+    q.updated_at                = now
+    q.version                  += 1
+
     db.session.commit()
     return jsonify({"question": q.to_dict(include_answer=True)}), 200
 
