@@ -15,6 +15,38 @@ const WORLD_KEYS = {
   tahsili: ['math_100','math_150','math_200','math_250','math_300','biology_100','biology_150','biology_200','biology_250','biology_300','chemistry_100','chemistry_150','chemistry_200','chemistry_250','chemistry_300','physics_100','physics_150','physics_200','physics_250','physics_300'],
 };
 
+const SECTION_CONFIG = {
+  qudurat: {
+    label: 'Qudurat',
+    sections: {
+      math:   { label: 'Math',   worlds: ['math_100','math_150','math_200','math_250','math_300'] },
+      verbal: { label: 'Verbal', worlds: ['verbal_100','verbal_150','verbal_200','verbal_250','verbal_300'] },
+    },
+  },
+  tahsili: {
+    label: 'Tahsili',
+    sections: {
+      math:      { label: 'Math',      worlds: ['math_100','math_150','math_200','math_250','math_300'] },
+      biology:   { label: 'Biology',   worlds: ['biology_100','biology_150','biology_200','biology_250','biology_300'] },
+      chemistry: { label: 'Chemistry', worlds: ['chemistry_100','chemistry_150','chemistry_200','chemistry_250','chemistry_300'] },
+      physics:   { label: 'Physics',   worlds: ['physics_100','physics_150','physics_200','physics_250','physics_300'] },
+    },
+  },
+};
+
+const TIER_LABELS = {
+  100: 'Bidaya (البداية)',
+  150: "Su'ood (الصعود)",
+  200: 'Tahadi (التحدي)',
+  250: 'Itqan (الإتقان)',
+  300: 'Qimma (القمة)',
+};
+
+function worldDisplayName(worldKey) {
+  const band = parseInt(worldKey.split('_')[1], 10);
+  return TIER_LABELS[band] || worldKey;
+}
+
 function getSectionFromWorldKey(wk) {
   if (!wk) return null;
   return wk.replace(/_\d+$/, '');
@@ -465,24 +497,26 @@ function QuestionsTab() {
   const [loading,   setLoading]     = useState(false);
   const [editing,   setEditing]     = useState(null);
   const [flash,     showFlash]      = useFlash();
-  const [filters,   setFilters]     = useState({ exam: '', world_key: '', is_active: '', difficulty: '', topic: '', reviewed: '', search: '' });
+  const [filters,   setFilters]     = useState({ exam: 'qudurat', section: 'math', world_key: '', is_active: '', difficulty: '', topic: '', reviewed: '', search: '' });
   const [creating,  setCreating]    = useState(false);
   const [expanded,  setExpanded]    = useState(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
   const [taxonomy,  setTaxonomy]    = useState(null);
   const [bulkTopicOpen, setBulkTopicOpen] = useState(false);
+  const [goToPage,  setGoToPage]    = useState('');
 
   // Load taxonomy on mount
   useEffect(() => {
     adminApi.getTopics().then((d) => setTaxonomy(d.taxonomy)).catch(() => {});
   }, []);
 
-  const worldOptions = filters.exam ? WORLD_KEYS[filters.exam] || [] : [];
+  // Derive section config
+  const examConfig = SECTION_CONFIG[filters.exam];
+  const sectionConfig = examConfig?.sections?.[filters.section];
+  const worldOptions = sectionConfig?.worlds || [];
 
-  // Build topic options based on current filter context
-  const currentSection = filters.world_key
-    ? getSectionFromWorldKey(filters.world_key)
-    : (filters.exam ? null : null);
+  // Build topic options based on current section
+  const currentSection = filters.section;
   const topicOptions = currentSection && taxonomy && taxonomy[currentSection]
     ? taxonomy[currentSection]
     : (taxonomy ? Object.entries(taxonomy).flatMap(([, topics]) => topics) : []);
@@ -502,7 +536,10 @@ function QuestionsTab() {
 
   const fetchQuestions = useCallback(() => {
     setLoading(true);
-    adminApi.listQuestions({ ...filters, page, per_page: 50 })
+    const apiFilters = { ...filters, page, per_page: 50 };
+    // Backend accepts section as a filter (world_key prefix match)
+    // If specific world_key is set, section is redundant (backend uses world_key first)
+    adminApi.listQuestions(apiFilters)
       .then((d) => { setQuestions(d.questions); setTotal(d.total); })
       .catch(() => showFlash('Failed to load questions.', 'error'))
       .finally(() => setLoading(false));
@@ -510,9 +547,21 @@ function QuestionsTab() {
 
   useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
+  const handleExamChange = (exam) => {
+    const firstSection = Object.keys(SECTION_CONFIG[exam].sections)[0];
+    setFilters((f) => ({ ...f, exam, section: firstSection, world_key: '', topic: '' }));
+    setPage(1);
+    setExpanded(new Set());
+  };
+
+  const handleSectionChange = (section) => {
+    setFilters((f) => ({ ...f, section, world_key: '', topic: '' }));
+    setPage(1);
+    setExpanded(new Set());
+  };
+
   const handleFilterChange = (k, v) => {
     const updates = { [k]: v };
-    if (k === 'exam') { updates.world_key = ''; updates.topic = ''; }
     if (k === 'world_key') { updates.topic = ''; }
     setFilters((f) => ({ ...f, ...updates }));
     setPage(1);
@@ -609,17 +658,53 @@ function QuestionsTab() {
       <ReviewProgressPanel examFilter={filters.exam} refreshKey={refreshKey} />
       <TopicCoveragePanel examFilter={filters.exam} refreshKey={refreshKey} />
 
+      {/* ── Exam tabs ── */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 0 }}>
+        {Object.entries(SECTION_CONFIG).map(([examKey, cfg]) => (
+          <button key={examKey}
+            className={`btn btn-sm ${filters.exam === examKey ? '' : 'btn-ghost'}`}
+            style={{
+              borderRadius: '8px 8px 0 0',
+              borderBottom: filters.exam === examKey ? '2px solid var(--violet)' : '2px solid transparent',
+              fontWeight: filters.exam === examKey ? 700 : 500,
+              fontSize: '0.95rem',
+              padding: '10px 24px',
+              color: filters.exam === examKey ? 'var(--violet-light)' : 'var(--text-muted)',
+              background: filters.exam === examKey ? 'rgba(139,92,246,0.08)' : 'transparent',
+            }}
+            onClick={() => handleExamChange(examKey)}>
+            {cfg.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Section tabs ── */}
+      <div style={{ display: 'flex', gap: 4, padding: '10px 0', borderTop: '1px solid var(--border)', marginBottom: 12 }}>
+        {examConfig && Object.entries(examConfig.sections).map(([secKey, secCfg]) => (
+          <button key={secKey}
+            className={`btn btn-sm ${filters.section === secKey ? '' : 'btn-ghost'}`}
+            style={{
+              borderRadius: 6,
+              fontWeight: filters.section === secKey ? 700 : 400,
+              fontSize: '0.88rem',
+              padding: '6px 16px',
+              color: filters.section === secKey ? '#22d3ee' : 'var(--text-muted)',
+              background: filters.section === secKey ? 'rgba(34,211,238,0.1)' : 'transparent',
+              border: filters.section === secKey ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent',
+            }}
+            onClick={() => handleSectionChange(secKey)}>
+            {secCfg.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <div className="admin-filter-row">
         <input className="form-input" style={{ width: 'auto', minWidth: 220 }} placeholder="Search question text…"
           value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
-        <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.exam} onChange={(e) => handleFilterChange('exam', e.target.value)}>
-          <option value="">All exams</option>
-          {EXAMS.map((e) => <option key={e} value={e}>{e}</option>)}
-        </select>
-        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.world_key} onChange={(e) => handleFilterChange('world_key', e.target.value)} disabled={!filters.exam}>
+        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.world_key} onChange={(e) => handleFilterChange('world_key', e.target.value)}>
           <option value="">All worlds</option>
-          {worldOptions.map((w) => <option key={w} value={w}>{w}</option>)}
+          {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)}</option>)}
         </select>
         <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.is_active} onChange={(e) => handleFilterChange('is_active', e.target.value)}>
           <option value="">All status</option>
@@ -649,8 +734,7 @@ function QuestionsTab() {
       <div className="admin-bulk-bar">
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
           Bulk actions
-          {filters.exam && <strong style={{ color: 'var(--text-secondary)' }}> · {filters.exam}{filters.world_key ? ` / ${filters.world_key}` : ' (all worlds)'}</strong>}
-          {!filters.exam && <strong style={{ color: 'var(--amber)' }}> · ALL exams</strong>}
+          {filters.exam && <strong style={{ color: 'var(--text-secondary)' }}> · {SECTION_CONFIG[filters.exam]?.label} {examConfig?.sections?.[filters.section]?.label}{filters.world_key ? ` / ${worldDisplayName(filters.world_key)}` : ''}</strong>}
           {' '}({total} questions)
         </span>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
@@ -700,7 +784,7 @@ function QuestionsTab() {
                   <tr className={`question-row ${expanded.has(q.id) ? 'expanded-active' : ''}`}>
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{q.id}</td>
                     <td><Pill color="violet">{q.exam}</Pill></td>
-                    <td style={{ fontSize: '0.85rem' }}>{q.world_key}</td>
+                    <td style={{ fontSize: '0.85rem' }} title={q.world_key}>{worldDisplayName(q.world_key)}</td>
                     <td style={{ color: 'var(--text-muted)' }}>{q.index}</td>
                     <td className="admin-question-cell clickable-cell" onClick={() => toggleExpanded(q.id)} title="Click to expand/collapse">
                       <span className="expand-icon">{expanded.has(q.id) ? '▼' : '▶'}</span>
@@ -729,9 +813,27 @@ function QuestionsTab() {
 
       {totalPages > 1 && (
         <div className="admin-pagination">
+          <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(1)}>«</button>
           <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Page {page} of {totalPages}</span>
           <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
+          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>»</button>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: 12 }}>Go to</span>
+          <input type="number" min={1} max={totalPages} className="form-input"
+            style={{ width: 64, padding: '4px 8px', fontSize: '0.85rem', textAlign: 'center' }}
+            value={goToPage}
+            onChange={(e) => setGoToPage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10)));
+                if (!isNaN(p)) { setPage(p); setGoToPage(''); }
+              }
+            }}
+            placeholder="#" />
+          <button className="btn btn-ghost btn-sm" onClick={() => {
+            const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10)));
+            if (!isNaN(p)) { setPage(p); setGoToPage(''); }
+          }}>Go</button>
         </div>
       )}
 
@@ -892,7 +994,7 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
           <div className="form-group">
             <label className="form-label">World</label>
             <select className="form-input" value={form.world_key} onChange={(e) => setForm((f) => ({ ...f, world_key: e.target.value, topic: '' }))}>
-              {worldOptions.map((w) => <option key={w} value={w}>{w}</option>)}
+              {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)}</option>)}
             </select>
           </div>
         </div>

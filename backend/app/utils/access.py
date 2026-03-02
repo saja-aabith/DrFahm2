@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 
 from ..models.entitlement import Entitlement, ExamTrial
 from ..models.progress import LevelProgress, WorldProgress
+from ..models.user import UserRole
 from ..utils.world_config import (
     LockReason, LEVELS_PER_WORLD, TRIAL_WORLD_LIMIT,
     get_track_world_index, get_prev_world_in_track,
@@ -163,7 +164,18 @@ def resolve_world_access(user, exam: str, world_key: str) -> dict:
 
     After any ALLOW, progression is checked:
     - Previous world in track not completed → prereq_incomplete
+
+    ADMIN BYPASS:
+    - Users with role drfahm_admin skip ALL entitlement/trial checks.
+    - They are still subject to progression (prereq_incomplete) to maintain
+      data integrity, but can access any world that has its prerequisite met.
     """
+    # ── Admin bypass — skip entitlement/trial checks entirely ──
+    if user.role == UserRole.DRFAHM_ADMIN:
+        if not _prev_world_completed(user.id, exam, world_key):
+            return {"allowed": False, "lock_reason": LockReason.PREREQ_INCOMPLETE}
+        return {"allowed": True, "lock_reason": None}
+
     track_world_index = get_track_world_index(exam, world_key)
 
     # 1. Org entitlement

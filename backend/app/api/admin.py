@@ -439,6 +439,7 @@ def list_questions():
     """
     exam       = request.args.get("exam", "").strip().lower() or None
     world_key  = request.args.get("world_key", "").strip().lower() or None
+    section    = request.args.get("section", "").strip().lower() or None
     is_active  = request.args.get("is_active")
     difficulty = request.args.get("difficulty", "").strip().lower() or None
     topic      = request.args.get("topic", "").strip().lower() or None
@@ -458,6 +459,11 @@ def list_questions():
         if world_key not in VALID_WORLD_KEYS:
             return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
         q = q.filter(Question.world_key == world_key)
+    elif section:
+        # Filter by section prefix (e.g. section=math → world_key LIKE 'math_%')
+        valid_sections = {"math", "verbal", "biology", "chemistry", "physics"}
+        if section in valid_sections:
+            q = q.filter(Question.world_key.like(f"{section}_%"))
 
     if is_active is not None:
         q = q.filter(Question.is_active == (is_active.lower() == "true"))
