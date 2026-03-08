@@ -86,6 +86,78 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
     .lp-ranking-card { margin-top: 20px; padding: 14px 18px; border-radius: 10px; background: rgba(139,92,246,0.07); border: 1px solid rgba(139,92,246,0.2); }
 
     .lp-question-image { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; display: block; }
+
+    /* ── Correct burst overlay ── */
+    .lp-burst-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .lp-burst-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 4px solid rgba(22,163,74,0.6);
+      animation: burst-ring 0.6s ease-out forwards;
+    }
+    @keyframes burst-ring {
+      0%   { width: 0;     height: 0;     opacity: 1;   transform: translate(-50%,-50%) scale(1); }
+      100% { width: 280px; height: 280px; opacity: 0;   transform: translate(-50%,-50%) scale(1); }
+    }
+    .lp-burst-ring-2 {
+      animation-delay: 0.08s;
+      border-color: rgba(74,222,128,0.4);
+    }
+    .lp-burst-badge {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      animation: burst-badge 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    @keyframes burst-badge {
+      0%   { opacity: 0; transform: scale(0.3) rotate(-8deg); }
+      60%  { opacity: 1; transform: scale(1.12) rotate(3deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    .lp-burst-checkmark {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; color: white;
+      box-shadow: 0 0 0 0 rgba(22,163,74,0.5);
+      animation: burst-pulse 0.55s ease-out forwards;
+    }
+    @keyframes burst-pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(22,163,74,0.6); }
+      50%  { box-shadow: 0 0 0 20px rgba(22,163,74,0.2); }
+      100% { box-shadow: 0 0 0 40px rgba(22,163,74,0);   }
+    }
+    .lp-burst-label {
+      font-size: 1.5rem; font-weight: 900; color: #4ade80;
+      text-shadow: 0 2px 12px rgba(22,163,74,0.5);
+      letter-spacing: 1px;
+      animation: burst-label 0.5s cubic-bezier(.34,1.56,.64,1) 0.1s both;
+    }
+    @keyframes burst-label {
+      0%   { opacity: 0; transform: translateY(8px) scale(0.8); }
+      100% { opacity: 1; transform: translateY(0)   scale(1);   }
+    }
+    /* Confetti dots */
+    .lp-confetti-dot {
+      position: absolute;
+      width: 10px; height: 10px; border-radius: 50%;
+      animation: confetti-fly 0.7s ease-out forwards;
+    }
+    @keyframes confetti-fly {
+      0%   { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
+      100% { opacity: 0; transform: var(--confetti-end) scale(0.4) rotate(180deg); }
+    }
+    /* Fade out the whole overlay */
+    .lp-burst-overlay.fading {
+      animation: burst-fade 0.25s ease-in forwards;
+    }
+    @keyframes burst-fade {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
   `;
   document.head.appendChild(s);
 }
@@ -130,7 +202,100 @@ function SparkleCorrect() {
   );
 }
 
-function FullScreen({ children }) {
+// ── Correct sound (Web Audio API — no external files needed) ─────────────────
+
+function playCorrectSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Three-note ascending chime: C5 → E5 → G5
+    const notes = [523.25, 659.25, 783.99];
+    notes.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+      const start = ctx.currentTime + i * 0.12;
+      const end   = start + 0.22;
+
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.28, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+      osc.start(start);
+      osc.stop(end);
+    });
+
+    // Soft shimmer layer on top note
+    const shimmer = ctx.createOscillator();
+    const shimGain = ctx.createGain();
+    shimmer.connect(shimGain);
+    shimGain.connect(ctx.destination);
+    shimmer.type = 'triangle';
+    shimmer.frequency.setValueAtTime(1567.98, ctx.currentTime + 0.24); // G6
+    shimGain.gain.setValueAtTime(0, ctx.currentTime + 0.24);
+    shimGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.26);
+    shimGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+    shimmer.start(ctx.currentTime + 0.24);
+    shimmer.stop(ctx.currentTime + 0.55);
+  } catch {
+    // Audio not available — silent fallback
+  }
+}
+
+// ── Correct burst overlay ─────────────────────────────────────────────────────
+
+const CONFETTI_COLORS = ['#4ade80','#facc15','#60a5fa','#f472b6','#a78bfa','#fb923c'];
+const CONFETTI_POSITIONS = [
+  { x: -110, y: -90  }, { x: 110,  y: -90  }, { x: -130, y: 10   },
+  { x: 130,  y: 10   }, { x: -80,  y: 100  }, { x: 80,   y: 100  },
+  { x: -40,  y: -120 }, { x: 40,   y: -120 }, { x: 0,    y: 120  },
+  { x: -150, y: -30  }, { x: 150,  y: -30  }, { x: -60,  y: 80   },
+];
+
+function CorrectBurst({ onDone }) {
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    // Start fade-out at 650ms, call onDone at 900ms
+    const fadeTimer = setTimeout(() => setFading(true), 650);
+    const doneTimer = setTimeout(onDone, 900);
+    return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
+  }, [onDone]);
+
+  return (
+    <div className={`lp-burst-overlay${fading ? ' fading' : ''}`}>
+      {/* Expanding rings */}
+      <div className="lp-burst-ring"   style={{ position: 'absolute', left: '50%', top: '50%' }} />
+      <div className="lp-burst-ring lp-burst-ring-2" style={{ position: 'absolute', left: '50%', top: '50%' }} />
+
+      {/* Confetti dots */}
+      {CONFETTI_POSITIONS.map((pos, i) => (
+        <div
+          key={i}
+          className="lp-confetti-dot"
+          style={{
+            background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+            left: '50%', top: '50%',
+            marginLeft: -5, marginTop: -5,
+            '--confetti-end': `translate(${pos.x}px, ${pos.y}px)`,
+            animationDelay: `${i * 0.03}s`,
+          }}
+        />
+      ))}
+
+      {/* Centre badge */}
+      <div className="lp-burst-badge">
+        <div className="lp-burst-checkmark">✓</div>
+        <div className="lp-burst-label">Correct!</div>
+      </div>
+    </div>
+  );
+}
   return (
     <>
       <Navbar />
@@ -328,6 +493,7 @@ export default function LevelPage() {
   const [loadError,  setLoadError]  = useState('');
   const [answers,    setAnswers]    = useState({});
   const [feedback,   setFeedback]   = useState({});
+  const [showBurst,  setShowBurst]  = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -417,6 +583,12 @@ export default function LevelPage() {
     setAnswers((prev) => ({ ...prev, [questionId]: key }));
     setFeedback((fb) => ({ ...fb, [questionId]: isCorrect ? 'correct' : 'wrong' }));
 
+    // 2. Correct: fire centre burst + sound
+    if (isCorrect) {
+      playCorrectSound();
+      setShowBurst(true);
+    }
+
     // 2. Advance to next unanswered question after 700 ms
     //    (gives the animation time to play before the view changes)
     clearTimeout(advanceTimerRef.current);
@@ -462,6 +634,7 @@ export default function LevelPage() {
   const handleRetry = useCallback(() => {
     setAnswers({});
     setFeedback({});
+    setShowBurst(false);
     setCurrentIdx(0);
     setResults(null);
     setPassed(false);
@@ -543,6 +716,9 @@ export default function LevelPage() {
             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Submitting…</div>
           </div>
         </div>
+      )}
+      {showBurst && (
+        <CorrectBurst onDone={() => setShowBurst(false)} />
       )}
       <ExamScreen
         exam={exam} worldKey={worldKey} levelNumber={levelNumber}
