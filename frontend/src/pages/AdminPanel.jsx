@@ -7,6 +7,17 @@ import ImageUpload from '../components/ImageUpload';
 import LaTeXCheatsheet from '../components/LaTeXCheatsheet';
 import * as adminApi from '../api/admin';
 
+// Inject row-selected style (avoids touching global.css for this chunk)
+if (typeof document !== 'undefined' && !document.getElementById('chunk-e-styles')) {
+  const s = document.createElement('style');
+  s.id = 'chunk-e-styles';
+  s.textContent = `
+    .row-selected { background: rgba(139,92,246,0.07) !important; }
+    .row-selected:hover { background: rgba(139,92,246,0.11) !important; }
+  `;
+  document.head.appendChild(s);
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const EXAMS = ['qudurat', 'tahsili'];
@@ -562,12 +573,14 @@ function QuestionsTab() {
     setFilters((f) => ({ ...f, exam, section: firstSection, world_key: '', topic: '' }));
     setPage(1);
     setExpanded(new Set());
+    clearSelection();
   };
 
   const handleSectionChange = (section) => {
     setFilters((f) => ({ ...f, section, world_key: '', topic: '' }));
     setPage(1);
     setExpanded(new Set());
+    clearSelection();
   };
 
   const handleFilterChange = (k, v) => {
@@ -576,6 +589,7 @@ function QuestionsTab() {
     setFilters((f) => ({ ...f, ...updates }));
     setPage(1);
     setExpanded(new Set());
+    clearSelection();
   };
 
   const handleToggle = async (q) => {
@@ -659,7 +673,101 @@ function QuestionsTab() {
   };
 
   const totalPages = Math.ceil(total / 50);
-  const TABLE_COLS = 10;
+  const TABLE_COLS = 11; // +1 for checkbox column
+
+  // ── Selection state ────────────────────────────────────────────────────────
+  const [selectedIds,      setSelectedIds]      = useState(new Set());
+  const [selectAllLoading, setSelectAllLoading] = useState(false);
+  const [bulkAssignOpen,   setBulkAssignOpen]   = useState(false);
+  const [bulkDeleteOpen,   setBulkDeleteOpen]   = useState(false);
+
+  // Clear selection whenever the fetched page changes
+  // (filter/page changes already call fetchQuestions which sets new questions)
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const pageIds = questions.map((q) => q.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const somePageSelected = pageIds.some((id) => selectedIds.has(id));
+
+  const toggleSelectAllPage = () => {
+    if (allPageSelected) {
+      // Deselect all on this page
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        pageIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      // Select all on this page
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        pageIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  };
+
+  // Fetch every matching ID (up to 5000) and add to selection
+  const handleSelectAllMatching = async () => {
+    setSelectAllLoading(true);
+    try {
+      const data = await adminApi.listQuestions({ ...filters, page: 1, per_page: 5000 });
+      setSelectedIds(new Set(data.questions.map((q) => q.id)));
+    } catch {
+      showFlash('Failed to select all matching.', 'error');
+    } finally {
+      setSelectAllLoading(false);
+    }
+  };
+
+  // ── Bulk selected: delete ──────────────────────────────────────────────────
+  const [bulkOpLoading, setBulkOpLoading] = useState(false);
+
+  const handleBulkDeleteSelected = async () => {
+    const ids = Array.from(selectedIds);
+    setBulkOpLoading(true);
+    try {
+      const result = await adminApi.bulkDelete(ids);
+      showFlash(`${result.deleted} question(s) soft-deleted.`);
+      setBulkDeleteOpen(false);
+      clearSelection();
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      showFlash(e?.error?.message || 'Bulk delete failed.', 'error');
+    } finally {
+      setBulkOpLoading(false);
+    }
+  };
+
+  // ── Bulk selected: assign ──────────────────────────────────────────────────
+  const handleBulkAssignSelected = async (assign) => {
+    const ids = Array.from(selectedIds);
+    setBulkOpLoading(true);
+    try {
+      const result = await adminApi.bulkAssign(ids, assign);
+      const skippedMsg = result.skipped?.length
+        ? ` (${result.skipped.length} skipped — section mismatch)`
+        : '';
+      showFlash(`${result.updated} question(s) updated.${skippedMsg}`);
+      setBulkAssignOpen(false);
+      clearSelection();
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      showFlash(e?.error?.message || 'Bulk assign failed.', 'error');
+    } finally {
+      setBulkOpLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -778,12 +886,67 @@ function QuestionsTab() {
         </div>
       )}
 
+      {/* ── Sticky selection action bar ── */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 30,
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          padding: '10px 16px', marginBottom: 8, borderRadius: 8,
+          background: 'rgba(139,92,246,0.12)',
+          border: '1px solid rgba(139,92,246,0.3)',
+          backdropFilter: 'blur(8px)',
+        }}>
+          <span style={{ fontWeight: 700, color: 'var(--violet-light)', fontSize: '0.92rem' }}>
+            {selectedIds.size} selected
+          </span>
+          {selectedIds.size < total && (
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.82rem', padding: '3px 10px' }}
+              onClick={handleSelectAllMatching}
+              disabled={selectAllLoading}
+            >
+              {selectAllLoading ? '…' : `Select all ${total} matching`}
+            </button>
+          )}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }}
+              onClick={() => setBulkAssignOpen(true)}
+            >
+              Assign…
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.25)' }}
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              Delete…
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={clearSelection}>✕ Clear</button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
-              <tr><th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Topic</th><th>Diff</th><th>Status</th><th>Actions</th></tr>
+              <tr>
+                <th style={{ width: 36, padding: '0 8px' }}>
+                  <input
+                    type="checkbox"
+                    style={{ cursor: 'pointer', width: 15, height: 15 }}
+                    checked={allPageSelected}
+                    ref={(el) => { if (el) el.indeterminate = somePageSelected && !allPageSelected; }}
+                    onChange={toggleSelectAllPage}
+                    title={allPageSelected ? 'Deselect page' : 'Select page'}
+                  />
+                </th>
+                <th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Topic</th><th>Diff</th><th>Status</th><th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {questions.length === 0 && (
@@ -791,11 +954,19 @@ function QuestionsTab() {
               )}
               {questions.map((q) => (
                 <React.Fragment key={q.id}>
-                  <tr className={`question-row ${expanded.has(q.id) ? 'expanded-active' : ''}`}>
+                  <tr className={`question-row ${expanded.has(q.id) ? 'expanded-active' : ''} ${selectedIds.has(q.id) ? 'row-selected' : ''}`}>
+                    <td style={{ padding: '0 8px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        style={{ cursor: 'pointer', width: 15, height: 15 }}
+                        checked={selectedIds.has(q.id)}
+                        onChange={() => toggleSelectRow(q.id)}
+                      />
+                    </td>
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{q.id}</td>
                     <td><Pill color="violet">{q.exam}</Pill></td>
-                    <td style={{ fontSize: '0.85rem' }} title={q.world_key}>{worldDisplayName(q.world_key)}</td>
-                    <td style={{ color: 'var(--text-muted)' }}>{q.index}</td>
+                    <td style={{ fontSize: '0.85rem' }} title={q.world_key}>{q.world_key ? worldDisplayName(q.world_key) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>unassigned</span>}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{q.index ?? '—'}</td>
                     <td className="admin-question-cell clickable-cell" onClick={() => toggleExpanded(q.id)} title="Click to expand/collapse">
                       <span className="expand-icon">{expanded.has(q.id) ? '▼' : '▶'}</span>
                       {q.question_text.slice(0, 70)}{q.question_text.length > 70 ? '…' : ''}
@@ -849,7 +1020,144 @@ function QuestionsTab() {
 
       {editing && <QuestionEditModal question={editing} taxonomy={taxonomy} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
       {creating && <CreateQuestionModal taxonomy={taxonomy} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); setRefreshKey((k) => k + 1); showFlash('Question created.'); }} />}
+      {bulkAssignOpen && (
+        <BulkAssignModal
+          count={selectedIds.size}
+          section={filters.section}
+          taxonomy={taxonomy}
+          worldOptions={worldOptions}
+          loading={bulkOpLoading}
+          onAssign={handleBulkAssignSelected}
+          onClose={() => setBulkAssignOpen(false)}
+        />
+      )}
+      {bulkDeleteOpen && (
+        <BulkDeleteModal
+          count={selectedIds.size}
+          loading={bulkOpLoading}
+          onConfirm={handleBulkDeleteSelected}
+          onClose={() => setBulkDeleteOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+
+// ── BULK ASSIGN MODAL ─────────────────────────────────────────────────────────
+
+function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAssign, onClose }) {
+  const [form, setForm] = useState({ topic: '', difficulty: '', world_key: '' });
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
+
+  // At least one field must be set before submitting
+  const hasAny = form.topic || form.difficulty || form.world_key;
+
+  const handleSubmit = () => {
+    const assign = {};
+    if (form.topic)     assign.topic      = form.topic;
+    if (form.difficulty) assign.difficulty = form.difficulty;
+    if (form.world_key) assign.world_key  = form.world_key;
+    onAssign(assign);
+  };
+
+  return (
+    <Modal title={`Bulk Assign — ${count} question${count !== 1 ? 's' : ''}`} onClose={onClose} width="480px">
+      <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        Set one or more fields on all selected questions. Only checked/filled fields will be updated — blank fields are left unchanged.
+      </p>
+
+      {/* Topic */}
+      <div className="form-group">
+        <label className="form-label">Topic</label>
+        <select className="form-input" value={form.topic} onChange={set('topic')}>
+          <option value="">— Leave unchanged —</option>
+          {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+        {topicOptions.length === 0 && (
+          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Select a section filter above to see topic options.
+          </p>
+        )}
+      </div>
+
+      {/* Difficulty */}
+      <div className="form-group" style={{ marginTop: 12 }}>
+        <label className="form-label">Difficulty</label>
+        <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
+          <option value="">— Leave unchanged —</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+
+      {/* World assignment */}
+      <div className="form-group" style={{ marginTop: 12 }}>
+        <label className="form-label">Assign to World</label>
+        <select className="form-input" value={form.world_key} onChange={set('world_key')}>
+          <option value="">— Leave unchanged —</option>
+          {worldOptions.map((w) => (
+            <option key={w} value={w}>{worldDisplayName(w)} ({w})</option>
+          ))}
+        </select>
+        {form.world_key && (
+          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#b45309' }}>
+            ⚠ Questions whose section doesn't match this world will be skipped (reported as skipped in the result).
+          </p>
+        )}
+      </div>
+
+      {!hasAny && (
+        <p style={{ margin: '14px 0 0', fontSize: '0.83rem', color: '#b45309' }}>
+          Set at least one field to proceed.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button
+          className="btn btn-green"
+          onClick={handleSubmit}
+          disabled={loading || !hasAny}
+        >
+          {loading ? 'Updating…' : `Update ${count} Question${count !== 1 ? 's' : ''}`}
+        </button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+// ── BULK DELETE MODAL ─────────────────────────────────────────────────────────
+
+function BulkDeleteModal({ count, loading, onConfirm, onClose }) {
+  return (
+    <Modal title="Confirm Bulk Delete" onClose={onClose} width="420px">
+      <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+        <div style={{ fontSize: '2rem', marginBottom: 12 }}>🗑️</div>
+        <p style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+          Soft-delete {count} question{count !== 1 ? 's' : ''}?
+        </p>
+        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          These questions will be marked as deleted and will not be visible to students.
+          This action can be reversed by Anthropic support but not from the admin panel.
+        </p>
+      </div>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
+        <button
+          className="btn"
+          style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
+          onClick={onConfirm}
+          disabled={loading}
+        >
+          {loading ? 'Deleting…' : `Delete ${count} Question${count !== 1 ? 's' : ''}`}
+        </button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+      </div>
+    </Modal>
   );
 }
 
