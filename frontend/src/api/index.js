@@ -95,14 +95,25 @@ export const billing = {
 
 export const exams = {
   worldMap:   (exam)                            => request(`/api/exams/${exam}/world-map`),
-  questions:  (exam, worldKey, levelNumber)     =>
+  progress:   (exam)                            => request(`/api/exams/${exam}/progress`),
+
+  // Canonical names (used by LevelPage.jsx — Chunk H)
+  getQuestions: (exam, worldKey, levelNumber)        =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/questions`),
-  submit:     (exam, worldKey, levelNumber, answers) =>
+  submitLevel:  (exam, worldKey, levelNumber, answers) =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/submit`, {
       method: 'POST',
       body: JSON.stringify({ answers }),
     }),
-  progress:   (exam)                            => request(`/api/exams/${exam}/progress`),
+
+  // Legacy aliases — kept so any existing callers don't break
+  questions: (exam, worldKey, levelNumber)           =>
+    request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/questions`),
+  submit:    (exam, worldKey, levelNumber, answers)  =>
+    request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
 };
 
 export { setTokens, clearTokens, getTokens };
