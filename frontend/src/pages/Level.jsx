@@ -296,6 +296,8 @@ function CorrectBurst({ onDone }) {
     </div>
   );
 }
+
+function FullScreen({ children }) {
   return (
     <>
       <Navbar />
