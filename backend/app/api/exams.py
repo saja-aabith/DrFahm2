@@ -299,7 +299,9 @@ def get_questions(exam: str, world_key: str, level_number: str):
         "world_key":    world_key,
         "level_number": level_number,
         "total":        len(questions),
-        "questions":    [q.to_dict(include_answer=False) for q in questions],
+        # hint included — frontend shows it after a wrong answer.
+        # correct_answer NOT included — never sent before submission.
+        "questions":    [q.to_dict(include_answer=False, include_hint=True) for q in questions],
     }), 200
 
 
@@ -395,16 +397,24 @@ def submit_level(exam: str, world_key: str, level_number: str):
     results       = []
 
     for q in questions:
-        submitted    = answers.get(str(q.id))
-        is_correct   = submitted == q.correct_answer
+        submitted  = answers.get(str(q.id))
+        is_correct = submitted == q.correct_answer
         if is_correct:
             correct_count += 1
-        results.append({
+
+        result_entry = {
             "question_id":    q.id,
+            "qid":            str(q.qid) if q.qid else None,
             "your_answer":    submitted,
             "correct_answer": q.correct_answer,
             "is_correct":     is_correct,
-        })
+        }
+        # Include hint only for wrong answers — correct answers don't need it.
+        # Frontend displays the hint in the hint panel after the student picks wrong.
+        if not is_correct and q.hint:
+            result_entry["hint"] = q.hint
+
+        results.append(result_entry)
 
     total_questions = len(questions)
     score_pct       = (correct_count / total_questions * 100) if total_questions else 0
@@ -482,9 +492,12 @@ def submit_level(exam: str, world_key: str, level_number: str):
         "level_number":       level_number,
         "score":              correct_count,
         "total":              total_questions,
+        "score_pct":          round(score_pct, 1),
         "passed":             passed,
         "pass_threshold_pct": pass_threshold_pct,
         "world_completed":    world_completed,
+        # Per-question breakdown. For wrong answers, `hint` is included when present.
+        # Frontend uses this to drive the review screen / hint panel.
         "results":            results,
     }), 200
 
