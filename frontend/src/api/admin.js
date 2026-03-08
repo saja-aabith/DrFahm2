@@ -49,8 +49,8 @@ async function adminUpload(path, formData, queryParams = '') {
 export const getStats = () => adminRequest('/api/admin/stats');
 
 // ── Topics ───────────────────────────────────────────────────────────────────
-export const getTopics       = (section) => adminRequest(`/api/admin/topics${section ? '?section=' + section : ''}`);
-export const topicCoverage   = (params = {}) => {
+export const getTopics     = (section) => adminRequest(`/api/admin/topics${section ? '?section=' + section : ''}`);
+export const topicCoverage = (params = {}) => {
   const qs = new URLSearchParams(
     Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
   ).toString();
@@ -65,20 +65,19 @@ export const listQuestions = (params = {}) => {
   return adminRequest(`/api/admin/questions${qs ? '?' + qs : ''}`);
 };
 
-export const getQuestion     = (id)       => adminRequest(`/api/admin/questions/${id}`);
-export const updateQuestion  = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',   body: JSON.stringify(data) });
-export const deleteQuestion  = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
-export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
-export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
+export const getQuestion    = (id)       => adminRequest(`/api/admin/questions/${id}`);
+export const updateQuestion = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',    body: JSON.stringify(data) });
+export const deleteQuestion = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
+export const toggleQuestion = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
+export const importQuestions = (arr)     => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
 export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
-export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
-export const bulkTopic       = (data)     => adminRequest('/api/admin/questions/bulk-topic', { method: 'POST', body: JSON.stringify(data) });
-export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
+export const bulkActivate    = (data)    => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
+export const bulkTopic       = (data)    => adminRequest('/api/admin/questions/bulk-topic',    { method: 'POST', body: JSON.stringify(data) });
+export const reviewProgress  = (exam)    => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
 export const markReviewed    = (id, version) => adminRequest(`/api/admin/questions/${id}/mark-reviewed`, { method: 'PATCH', body: JSON.stringify({ version }) });
 
 /**
  * Quick inline update — sends only changed field + version for optimistic locking.
- * Used by inline answer picker, inline difficulty picker, and inline topic picker.
  */
 export const quickUpdate = (id, field, value, version) =>
   adminRequest(`/api/admin/questions/${id}`, {
@@ -86,18 +85,48 @@ export const quickUpdate = (id, field, value, version) =>
     body: JSON.stringify({ [field]: value, version }),
   });
 
+// ── Bulk Delete ──────────────────────────────────────────────────────────────
+
+/**
+ * Soft-delete a list of questions by ID.
+ * @param {number[]} questionIds
+ * @returns {{ deleted: number, message: string }}
+ */
+export const bulkDelete = (questionIds) =>
+  adminRequest('/api/admin/questions/bulk-delete', {
+    method: 'POST',
+    body: JSON.stringify({ question_ids: questionIds, confirm: true }),
+  });
+
+// ── Bulk Assign ──────────────────────────────────────────────────────────────
+
+/**
+ * Bulk assign topic, difficulty, and/or world_key to selected questions.
+ *
+ * @param {number[]} questionIds
+ * @param {{ topic?: string, difficulty?: string, world_key?: string }} assign
+ *   Only include fields you want to change — others are left untouched.
+ * @returns {{ affected: number, assigned: object, skipped: object[], message: string }}
+ */
+export const bulkAssign = (questionIds, assign) =>
+  adminRequest('/api/admin/questions/bulk-assign', {
+    method: 'POST',
+    body: JSON.stringify({ question_ids: questionIds, assign }),
+  });
+
 // ── Bulk CSV Upload ──────────────────────────────────────────────────────────
 
 /**
  * Download the CSV template for bulk upload.
- * Returns a raw Response — caller handles the blob/download.
+ * Columns: exam, section, question_text, option_a–d, correct_answer, hint, topic, difficulty
+ * NOTE: world_key is NOT a column — world assignment is done via bulk-assign after upload.
  */
 export const bulkTemplate = () =>
   adminRequest('/api/admin/questions/bulk-template', { _raw: true });
 
 /**
  * Validate a CSV file (dry run — no DB changes).
- * @param {File} file — the CSV file object
+ * @param {File} file
  * @returns {{ stats, errors, duplicates, preview }}
  */
 export const bulkValidate = (file) => {
@@ -107,9 +136,10 @@ export const bulkValidate = (file) => {
 };
 
 /**
- * Commit a CSV file — insert all valid rows into the database.
- * @param {File} file — the same CSV file
- * @param {boolean} forceDuplicates — if true, also insert flagged duplicates
+ * Commit a CSV file — insert all valid rows into the question bank.
+ * Questions are inserted unassigned (no world_key) and inactive.
+ * @param {File} file
+ * @param {boolean} forceDuplicates — also insert flagged duplicates
  * @returns {{ inserted, skipped, errors, duplicates, message }}
  */
 export const bulkCommit = (file, forceDuplicates = false) => {
@@ -120,17 +150,17 @@ export const bulkCommit = (file, forceDuplicates = false) => {
 };
 
 // ── Orgs ─────────────────────────────────────────────────────────────────────
-export const listOrgs          = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
-export const createOrg         = (data)        => adminRequest('/api/admin/orgs', { method: 'POST', body: JSON.stringify(data) });
-export const getOrg            = (id)          => adminRequest(`/api/admin/orgs/${id}`);
-export const createOrgLeader   = (id, data)    => adminRequest(`/api/admin/orgs/${id}/leader`, { method: 'POST', body: JSON.stringify(data) });
-export const generateStudents  = (id, data)    => adminRequest(`/api/admin/orgs/${id}/students/generate`, { method: 'POST', body: JSON.stringify(data) });
-export const exportStudentsCsv = (id)          => adminRequest(`/api/admin/orgs/${id}/students/export`, { _raw: true });
-export const grantOrgEntitlement = (id, data)  => adminRequest(`/api/admin/orgs/${id}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
+export const listOrgs           = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
+export const createOrg          = (data)        => adminRequest('/api/admin/orgs', { method: 'POST', body: JSON.stringify(data) });
+export const getOrg             = (id)          => adminRequest(`/api/admin/orgs/${id}`);
+export const createOrgLeader    = (id, data)    => adminRequest(`/api/admin/orgs/${id}/leader`, { method: 'POST', body: JSON.stringify(data) });
+export const generateStudents   = (id, data)    => adminRequest(`/api/admin/orgs/${id}/students/generate`, { method: 'POST', body: JSON.stringify(data) });
+export const exportStudentsCsv  = (id)          => adminRequest(`/api/admin/orgs/${id}/students/export`, { _raw: true });
+export const grantOrgEntitlement = (id, data)   => adminRequest(`/api/admin/orgs/${id}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
 
 // ── Users ────────────────────────────────────────────────────────────────────
-export const listUsers       = (params = {}) => adminRequest('/api/admin/users?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))));
-export const createUser      = (data)        => adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
-export const activateUser    = (id)          => adminRequest(`/api/admin/users/${id}/activate`, { method: 'PATCH' });
-export const deactivateUser  = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`, { method: 'PATCH' });
-export const resetPassword   = (id, data)    => adminRequest(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify(data) });
+export const listUsers      = (params = {}) => adminRequest('/api/admin/users?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))));
+export const createUser     = (data)        => adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
+export const activateUser   = (id)          => adminRequest(`/api/admin/users/${id}/activate`,     { method: 'PATCH' });
+export const deactivateUser = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`,   { method: 'PATCH' });
+export const resetPassword  = (id, data)    => adminRequest(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify(data) });
