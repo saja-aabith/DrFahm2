@@ -141,9 +141,10 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
         <div className="review-progress-worlds">
           {progress.map((p) => {
             const wpct = p.total > 0 ? Math.round((p.reviewed / p.total) * 100) : 0;
+            const sectionKey = p.section || p.world_key || '—';
             return (
-              <div key={`${p.exam}-${p.world_key}`} className="review-world-row">
-                <span className="review-world-label">{p.exam} / {p.world_key}</span>
+              <div key={`${p.exam}-${sectionKey}`} className="review-world-row">
+                <span className="review-world-label" style={{ textTransform: 'capitalize' }}>{p.exam} / {sectionKey}</span>
                 <div className="review-world-bar-bg">
                   <div className="review-world-bar-fill" style={{ width: `${wpct}%` }} />
                 </div>
@@ -364,7 +365,7 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const section = getSectionFromWorldKey(question.world_key);
+  const section = question.section || getSectionFromWorldKey(question.world_key);
   const topics = (taxonomy && section && taxonomy[section]) || [];
 
   const handlePick = async (topicKey) => {
@@ -424,7 +425,7 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
 // ── EXPANDED QUESTION ROW ─────────────────────────────────────────────────────
 
 function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
-  const section = getSectionFromWorldKey(question.world_key);
+  const section = question.section || getSectionFromWorldKey(question.world_key);
   const topics = (taxonomy && section && taxonomy[section]) || [];
   const topicLabel = question.topic
     ? (topics.find(t => t.key === question.topic)?.label || question.topic)
@@ -459,11 +460,11 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
             })}
           </div>
 
-          {question.explanation && (
+          {question.hint && (
             <div className="expanded-explanation">
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Explanation</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Hint</span>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginTop: 4 }}>
-                <MathText text={question.explanation} />
+                <MathText text={question.hint} />
               </div>
             </div>
           )}
@@ -861,14 +862,14 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
     option_b: question.option_b, option_c: question.option_c, option_d: question.option_d,
     correct_answer: question.correct_answer || 'a', topic: question.topic || '',
     difficulty: question.difficulty || '', image_url: question.image_url || null,
-    explanation: question.explanation || '',
+    hint: question.hint || '',
     is_active: question.is_active, version: question.version,
   });
   const [saving, setSaving] = useState(false);
   const [showMathPreview, setShowMathPreview] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
-  const section = getSectionFromWorldKey(question.world_key);
+  const section = question.section || getSectionFromWorldKey(question.world_key);
   const topicOptions = (taxonomy && section && taxonomy[section]) || [];
 
   const handleSubmit = (e) => {
@@ -877,7 +878,7 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
     const payload = { ...form };
     if (!payload.topic) payload.topic = null;
     if (!payload.difficulty) payload.difficulty = null;
-    if (!payload.explanation) payload.explanation = null;
+    if (!payload.hint) payload.hint = null;
     onSave(payload);
     setSaving(false);
   };
@@ -943,8 +944,8 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
         </div>
 
         <div className="form-group" style={{ marginTop: 12 }}>
-          <label className="form-label">Explanation (why the answer is correct)</label>
-          <textarea className="form-input" rows={3} value={form.explanation} onChange={set('explanation')} placeholder="Explain why the correct answer is right…" />
+          <label className="form-label">Hint (shown after wrong answer)</label>
+          <textarea className="form-input" rows={3} value={form.hint} onChange={set('hint')} placeholder="Guide the student toward the right answer without giving it away…" />
         </div>
 
         <div className="form-group" style={{ marginTop: 12 }}>
@@ -971,7 +972,7 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
     exam: 'qudurat', world_key: 'math_100',
     question_text: '', option_a: '', option_b: '', option_c: '', option_d: '',
     correct_answer: 'a', topic: '', difficulty: '', is_active: false, image_url: null,
-    explanation: '',
+    hint: '',
   });
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
@@ -990,6 +991,7 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
         index: nextIdx.next_index,
         topic: form.topic || null,
         difficulty: form.difficulty || null,
+        hint: form.hint || null,
       }];
       await adminApi.importQuestions(payload);
       onCreated();
@@ -1062,8 +1064,8 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
         </div>
 
         <div className="form-group" style={{ marginTop: 12 }}>
-          <label className="form-label">Explanation (why the answer is correct)</label>
-          <textarea className="form-input" rows={3} value={form.explanation} onChange={set('explanation')} placeholder="Explain why the correct answer is right…" />
+          <label className="form-label">Hint (shown after wrong answer)</label>
+          <textarea className="form-input" rows={3} value={form.hint} onChange={set('hint')} placeholder="Guide the student toward the right answer without giving it away…" />
         </div>
 
         <div className="form-group" style={{ marginTop: 12 }}>
@@ -1384,14 +1386,26 @@ function CreateAdminModal({ onClose, onCreated }) {
 
 // ── BULK UPLOAD TAB ───────────────────────────────────────────────────────────
 
+// CSV columns as of Chunk B — world_key removed, section added, explanation→hint
+const BULK_CSV_COLUMNS = [
+  'exam', 'section', 'question_text',
+  'option_a', 'option_b', 'option_c', 'option_d',
+  'correct_answer', 'hint', 'topic', 'difficulty',
+];
+
+const VALID_EXAM_SECTIONS = {
+  qudurat: ['math', 'verbal'],
+  tahsili: ['math', 'biology', 'chemistry', 'physics'],
+};
+
 function BulkUploadTab() {
   const [step, setStep]             = useState(1);      // 1=upload, 2=review, 3=result
   const [file, setFile]             = useState(null);
   const [dragging, setDragging]     = useState(false);
   const [validating, setValidating] = useState(false);
   const [committing, setCommitting] = useState(false);
-  const [report, setReport]         = useState(null);    // from bulk-validate
-  const [result, setResult]         = useState(null);    // from bulk-commit
+  const [report, setReport]         = useState(null);   // from bulk-validate
+  const [result, setResult]         = useState(null);   // from bulk-commit
   const [forceDupes, setForceDupes] = useState(false);
   const [flash, showFlash]          = useFlash();
   const fileInputRef                = useRef(null);
@@ -1411,6 +1425,22 @@ function BulkUploadTab() {
     } catch {
       showFlash('Failed to download template.', 'error');
     }
+  };
+
+  // ── Error CSV download ──
+  const handleDownloadErrors = () => {
+    if (!report?.errors?.length) return;
+    const header = 'row,field,message\n';
+    const rows = report.errors
+      .map((e) => `${e.row},"${e.field}","${String(e.message).replace(/"/g, '""')}"`)
+      .join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `drfahm_upload_errors_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── File selection ──
@@ -1434,11 +1464,9 @@ function BulkUploadTab() {
   const onDrop = (e) => {
     e.preventDefault();
     setDragging(false);
-    const f = e.dataTransfer?.files?.[0];
-    handleFile(f);
+    handleFile(e.dataTransfer?.files?.[0]);
   };
-
-  const onDragOver = (e) => { e.preventDefault(); setDragging(true); };
+  const onDragOver  = (e) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
 
   // ── Step 1 → 2: Validate ──
@@ -1481,17 +1509,17 @@ function BulkUploadTab() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const importCount = report
+    ? report.stats.valid_count + (forceDupes ? report.stats.duplicate_count : 0)
+    : 0;
+
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
 
       {/* ── Step Indicator ── */}
       <div className="bulk-steps">
-        {[
-          { n: 1, label: 'Upload CSV' },
-          { n: 2, label: 'Review' },
-          { n: 3, label: 'Done' },
-        ].map(({ n, label }) => (
+        {[{ n: 1, label: 'Upload CSV' }, { n: 2, label: 'Review' }, { n: 3, label: 'Done' }].map(({ n, label }) => (
           <div key={n} className={`bulk-step ${step >= n ? 'active' : ''} ${step === n ? 'current' : ''}`}>
             <div className="bulk-step-number">{step > n ? '✓' : n}</div>
             <span className="bulk-step-label">{label}</span>
@@ -1507,7 +1535,7 @@ function BulkUploadTab() {
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Upload Questions CSV</h3>
                 <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Fill in the template, save as CSV, then upload here.
+                  Fill in the template, save as CSV, then upload here. Questions go into the bank unassigned — world placement happens after.
                 </p>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>
@@ -1518,62 +1546,75 @@ function BulkUploadTab() {
             {/* Drop zone */}
             <div
               className={`bulk-dropzone ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
+              onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                style={{ display: 'none' }}
-                onChange={(e) => handleFile(e.target.files?.[0])}
-              />
+              <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }}
+                onChange={(e) => handleFile(e.target.files?.[0])} />
               {file ? (
                 <div className="bulk-dropzone-file">
                   <span className="bulk-dropzone-icon">📄</span>
                   <span className="bulk-dropzone-name">{file.name}</span>
                   <span className="bulk-dropzone-size">({(file.size / 1024).toFixed(1)} KB)</span>
                   <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }}
-                    onClick={(e) => { e.stopPropagation(); handleReset(); }}>
-                    ✕ Remove
-                  </button>
+                    onClick={(e) => { e.stopPropagation(); handleReset(); }}>✕ Remove</button>
                 </div>
               ) : (
                 <div className="bulk-dropzone-empty">
                   <span className="bulk-dropzone-icon">📁</span>
-                  <p style={{ margin: '8px 0 4px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Drag & drop CSV file here
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    or click to browse
-                  </p>
+                  <p style={{ margin: '8px 0 4px', fontWeight: 600, color: 'var(--text-primary)' }}>Drag & drop CSV file here</p>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>or click to browse</p>
                 </div>
               )}
             </div>
 
-            {/* CSV format guide */}
+            {/* ── CSV Format Guide ── */}
             <div className="bulk-format-guide">
               <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>
-                Required Columns
+                Required Columns (11 total)
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {['exam', 'world_key', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'explanation', 'topic', 'difficulty'].map(c => (
-                  <Pill key={c} color="violet">{c}</Pill>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {BULK_CSV_COLUMNS.map((c) => (
+                  <Pill key={c} color={c === 'section' || c === 'hint' ? 'green' : 'violet'}>{c}</Pill>
                 ))}
               </div>
-              <p style={{ margin: '12px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                <strong>No index column needed</strong> — auto-assigned. All questions are imported as <strong>inactive</strong> by default.
-                Duplicates (same question text in same exam) are detected and skipped automatically.
-                LaTeX is supported in question_text, options, and explanation — use <code style={{ fontSize: '0.8rem' }}>$...$</code> syntax.
+
+              {/* Column notes */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>exam</strong> — <code>qudurat</code> or <code>tahsili</code></div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>section</strong> — subject within exam (see below)</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>correct_answer</strong> — <code>a</code>, <code>b</code>, <code>c</code>, or <code>d</code></div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>hint</strong> — shown after a wrong answer; guide don't give away</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>topic</strong> — must match valid topics for the section</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>difficulty</strong> — <code>easy</code>, <code>medium</code>, or <code>hard</code></div>
+              </div>
+
+              {/* Valid exam/section combos */}
+              <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 8, border: '1px solid rgba(139,92,246,0.15)' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 6 }}>
+                  Valid exam / section combinations
+                </div>
+                {Object.entries(VALID_EXAM_SECTIONS).map(([exam, sections]) => (
+                  <div key={exam} style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 3 }}>
+                    <strong style={{ textTransform: 'capitalize' }}>{exam}:</strong>{' '}
+                    {sections.map((s) => <code key={s} style={{ marginRight: 6 }}>{s}</code>)}
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ margin: '10px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                <strong>No world_key or index column needed</strong> — questions go into the bank unassigned.
+                Use Bulk Assign after upload to place them into worlds.
+                All questions import as <strong>inactive</strong>.
+                Exact duplicates (same question text + section) are detected and skipped.
+                LaTeX supported everywhere via <code style={{ fontSize: '0.8rem' }}>$...$</code> syntax.
               </p>
             </div>
 
             {file && (
               <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
                 <button className="btn btn-violet" onClick={handleValidate} disabled={validating}>
-                  {validating ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} /> Validating…</> : 'Validate CSV'}
+                  {validating ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} />Validating…</> : 'Validate CSV'}
                 </button>
               </div>
             )}
@@ -1604,12 +1645,18 @@ function BulkUploadTab() {
             </div>
           </div>
 
-          {/* Errors */}
+          {/* ── Errors ── */}
           {report.errors.length > 0 && (
             <div className="bulk-card" style={{ marginTop: 16 }}>
-              <h4 style={{ margin: '0 0 12px', color: '#dc2626', fontSize: '0.95rem' }}>
-                ✗ {report.errors.length} Error{report.errors.length !== 1 ? 's' : ''} Found
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h4 style={{ margin: 0, color: '#dc2626', fontSize: '0.95rem' }}>
+                  ✗ {report.errors.length} Error{report.errors.length !== 1 ? 's' : ''} Found
+                </h4>
+                <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}
+                  title="Download full error list as CSV">
+                  ⬇ Download Errors CSV
+                </button>
+              </div>
               <div className="bulk-table-wrap">
                 <table className="admin-table">
                   <thead>
@@ -1629,29 +1676,36 @@ function BulkUploadTab() {
                     ))}
                   </tbody>
                 </table>
-                {report.errors.length > 50 && (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 8 }}>
-                    Showing first 50 of {report.errors.length} errors. Fix the CSV and re-upload.
-                  </p>
-                )}
               </div>
+              {report.errors.length > 50 && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 8 }}>
+                  Showing first 50 of {report.errors.length} errors.{' '}
+                  <button className="btn btn-ghost btn-sm" style={{ padding: '2px 8px' }} onClick={handleDownloadErrors}>
+                    Download all errors as CSV
+                  </button>{' '}
+                  to fix them, then re-upload.
+                </p>
+              )}
             </div>
           )}
 
-          {/* Duplicates */}
+          {/* ── Duplicates ── */}
           {report.duplicates.length > 0 && (
             <div className="bulk-card" style={{ marginTop: 16 }}>
-              <h4 style={{ margin: '0 0 12px', color: '#b45309', fontSize: '0.95rem' }}>
+              <h4 style={{ margin: '0 0 4px', color: '#b45309', fontSize: '0.95rem' }}>
                 ⚠ {report.duplicates.length} Duplicate{report.duplicates.length !== 1 ? 's' : ''} Detected
               </h4>
+              <p style={{ margin: '0 0 12px', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+                These questions match existing records (same text + section). By default they are skipped.
+                Check the box below to include them anyway.
+              </p>
               <div className="bulk-table-wrap">
                 <table className="admin-table">
                   <thead>
                     <tr>
                       <th style={{ width: 70 }}>Row</th>
                       <th>Question Text (preview)</th>
-                      <th style={{ width: 110 }}>Existing ID</th>
-                      <th style={{ width: 130 }}>Existing World</th>
+                      <th style={{ width: 130 }}>Matches</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1663,39 +1717,44 @@ function BulkUploadTab() {
                         </td>
                         <td>
                           {dup.existing_id
-                            ? <Pill color="amber">#{dup.existing_id}</Pill>
+                            ? <Pill color="amber">DB #{dup.existing_id}</Pill>
                             : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>
                           }
                         </td>
-                        <td style={{ fontSize: '0.85rem' }}>{dup.existing_world || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {report.duplicates.length > 30 && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 8 }}>
+                    Showing first 30 of {report.duplicates.length} duplicates.
+                  </p>
+                )}
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 <input type="checkbox" checked={forceDupes} onChange={(e) => setForceDupes(e.target.checked)} />
-                Include duplicates in import anyway
+                Import duplicates anyway (creates new copies alongside existing records)
               </label>
             </div>
           )}
 
-          {/* Preview of valid rows */}
+          {/* ── Preview of valid rows ── */}
           {report.preview && report.preview.length > 0 && (
             <div className="bulk-card" style={{ marginTop: 16 }}>
               <h4 style={{ margin: '0 0 12px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
-                Preview ({Math.min(report.preview.length, 20)} of {report.stats.valid_count} valid rows)
+                ✓ Preview — {Math.min(report.preview.length, 20)} of {report.stats.valid_count} valid rows
               </h4>
               <div className="bulk-table-wrap">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th style={{ width: 70 }}>Row</th>
+                      <th style={{ width: 60 }}>Row</th>
                       <th style={{ width: 90 }}>Exam</th>
-                      <th style={{ width: 110 }}>World</th>
+                      <th style={{ width: 100 }}>Section</th>
                       <th>Question</th>
-                      <th style={{ width: 60 }}>Ans</th>
-                      <th style={{ width: 100 }}>Topic</th>
+                      <th style={{ width: 55 }}>Ans</th>
+                      <th style={{ width: 110 }}>Topic</th>
+                      <th style={{ width: 75 }}>Diff</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1703,12 +1762,18 @@ function BulkUploadTab() {
                       <tr key={i}>
                         <td><Pill color="gray">{row._row}</Pill></td>
                         <td><Pill color="violet">{row.exam}</Pill></td>
-                        <td style={{ fontSize: '0.82rem' }}>{row.world_key}</td>
-                        <td style={{ fontSize: '0.85rem', maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td style={{ fontSize: '0.82rem', textTransform: 'capitalize' }}>{row.section}</td>
+                        <td style={{ fontSize: '0.85rem', maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {row.question_text}
                         </td>
                         <td><Pill color="green">{row.correct_answer.toUpperCase()}</Pill></td>
                         <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{row.topic || '—'}</td>
+                        <td>
+                          {row.difficulty
+                            ? <Pill color={row.difficulty === 'easy' ? 'green' : row.difficulty === 'hard' ? 'amber' : 'blue'}>{row.difficulty}</Pill>
+                            : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          }
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1717,18 +1782,21 @@ function BulkUploadTab() {
             </div>
           )}
 
-          {/* Action buttons */}
-          <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-            {report.stats.valid_count > 0 || forceDupes ? (
+          {/* ── Action buttons ── */}
+          <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {importCount > 0 ? (
               <button className="btn btn-green" onClick={handleCommit} disabled={committing}>
                 {committing
-                  ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} /> Importing…</>
-                  : `Import ${report.stats.valid_count + (forceDupes ? report.stats.duplicate_count : 0)} Question${report.stats.valid_count !== 1 ? 's' : ''}`
+                  ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} />Importing…</>
+                  : `Import ${importCount} Question${importCount !== 1 ? 's' : ''} into Bank`
                 }
               </button>
             ) : (
-              <button className="btn" disabled style={{ opacity: 0.5 }}>
-                No valid rows to import
+              <button className="btn" disabled style={{ opacity: 0.5 }}>No valid rows to import</button>
+            )}
+            {report.stats.error_count > 0 && (
+              <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>
+                ⬇ Download Errors CSV
               </button>
             )}
             <button className="btn btn-ghost" onClick={handleReset}>← Back to Upload</button>
@@ -1745,7 +1813,7 @@ function BulkUploadTab() {
             </div>
             <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
               {result.inserted > 0
-                ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Imported Successfully`
+                ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Added to Bank`
                 : 'No Questions Imported'
               }
             </h3>
@@ -1753,27 +1821,31 @@ function BulkUploadTab() {
               {result.message}
             </p>
 
-            {(result.skipped > 0 || result.errors?.length > 0) && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24 }}>
-                {result.inserted > 0 && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div>
-                  </div>
-                )}
-                {result.skipped > 0 && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped (duplicates)</div>
-                  </div>
-                )}
-                {result.errors?.length > 0 && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626' }}>{result.errors.length}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Errors</div>
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
+              {result.inserted > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div>
+                </div>
+              )}
+              {result.skipped > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped (duplicates)</div>
+                </div>
+              )}
+              {result.errors?.length > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626' }}>{result.errors.length}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Errors</div>
+                </div>
+              )}
+            </div>
+
+            {result.inserted > 0 && (
+              <p style={{ fontSize: '0.83rem', color: 'var(--text-muted)', marginBottom: 20 }}>
+                Questions are unassigned and inactive. Go to the <strong>Questions</strong> tab → filter <em>Unassigned</em> → use Bulk Assign to place them into worlds.
+              </p>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
