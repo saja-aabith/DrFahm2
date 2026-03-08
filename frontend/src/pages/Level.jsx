@@ -336,6 +336,7 @@ export default function LevelPage() {
   const timerRef      = useRef(null);
   const autoSubmitRef = useRef(false);
   const startTimeRef  = useRef(null);
+  const advanceTimerRef = useRef(null);
   const [timeTakenSeconds, setTimeTakenSeconds] = useState(0);
   const [results,        setResults]        = useState(null);
   const [passed,         setPassed]         = useState(false);
@@ -402,19 +403,30 @@ export default function LevelPage() {
   // eslint-disable-next-line
   }, [answers]);
 
+  // Keep a ref to latest answers so the delayed advance closure can read it
+  const answersRef = useRef(answers);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
   const handleSelectAnswer = useCallback((questionId, key) => {
-    setAnswers((prev) => {
-      if (prev[questionId]) return prev;
-      const q = questions.find((q) => q.id === questionId);
-      const isCorrect = q && q.correct_answer === key;
-      setFeedback((fb) => ({ ...fb, [questionId]: isCorrect ? 'correct' : 'wrong' }));
-      const next = { ...prev, [questionId]: key };
+    // Guard: already answered
+    if (answersRef.current[questionId]) return;
+
+    // 1. Lock the answer and set feedback immediately — same tick, same render
+    const q = questions.find((q) => q.id === questionId);
+    const isCorrect = q && q.correct_answer === key;
+    setAnswers((prev) => ({ ...prev, [questionId]: key }));
+    setFeedback((fb) => ({ ...fb, [questionId]: isCorrect ? 'correct' : 'wrong' }));
+
+    // 2. Advance to next unanswered question after 700 ms
+    //    (gives the animation time to play before the view changes)
+    clearTimeout(advanceTimerRef.current);
+    advanceTimerRef.current = setTimeout(() => {
       setCurrentIdx((ci) => {
-        const nextIdx = questions.findIndex((q, i) => i > ci && !next[q.id]);
+        const updatedAnswers = { ...answersRef.current, [questionId]: key };
+        const nextIdx = questions.findIndex((q, i) => i > ci && !updatedAnswers[q.id]);
         return nextIdx !== -1 ? nextIdx : ci;
       });
-      return next;
-    });
+    }, 700);
   }, [questions]);
 
   const handleNavigate = useCallback((idx) => {
@@ -460,6 +472,7 @@ export default function LevelPage() {
     setSubmitError('');
     setTimeTakenSeconds(0);
     autoSubmitRef.current = false;
+    clearTimeout(advanceTimerRef.current);
     startTimeRef.current  = Date.now();
     const total = questions.length * SECONDS_PER_QUESTION;
     setTimeLeft(total);
