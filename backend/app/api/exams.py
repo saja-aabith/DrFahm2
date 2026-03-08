@@ -301,7 +301,7 @@ def get_questions(exam: str, world_key: str, level_number: str):
         "total":        len(questions),
         # hint included — frontend shows it after a wrong answer.
         # correct_answer NOT included — never sent before submission.
-        "questions":    [q.to_dict(include_answer=False, include_hint=True) for q in questions],
+        "questions":    [q.to_dict(include_answer=True, include_hint=True) for q in questions],
     }), 200
 
 
