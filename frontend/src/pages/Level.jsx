@@ -861,7 +861,7 @@ export default function LevelPage() {
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line
   }, [questions.length]); // only re-run if questions change (new attempt)
 
   // ── Handle timer expiry ──────────────────────────────────────────────────────
@@ -869,7 +869,7 @@ export default function LevelPage() {
     const handler = () => handleSubmit();
     window.addEventListener('level-timer-expired', handler);
     return () => window.removeEventListener('level-timer-expired', handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line
   }, [answers]); // re-bind when answers changes so we always submit the latest state
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
