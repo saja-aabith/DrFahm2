@@ -172,63 +172,234 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
 
 // ── TOPIC COVERAGE PANEL ──────────────────────────────────────────────────────
 
-function TopicCoveragePanel({ examFilter, refreshKey }) {
-  const [data, setData] = useState(null);
+// Colour thresholds for per-topic bars
+function topicBarColor(count) {
+  if (count < 10)  return { bar: '#dc2626', bg: 'rgba(220,38,38,0.12)',  text: '#dc2626' };  // red
+  if (count < 30)  return { bar: '#d97706', bg: 'rgba(217,119,6,0.12)',  text: '#b45309' };  // amber
+  return             { bar: '#16a34a', bg: 'rgba(22,163,74,0.1)',   text: '#15803d' };         // green
+}
+
+function TopicCoveragePanel({ examFilter, refreshKey, onShowUntagged }) {
+  const [data,     setData]     = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [loading,  setLoading]  = useState(false);
 
   useEffect(() => {
-    adminApi.topicCoverage({ exam: examFilter || '' }).then(setData).catch(() => {});
+    setLoading(true);
+    adminApi.topicCoverage({ exam: examFilter || '' })
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [examFilter, refreshKey]);
 
-  if (!data) return null;
-  const { summary, coverage } = data;
-  const taggedPct = summary.total > 0 ? Math.round((summary.tagged / summary.total) * 100) : 0;
+  if (!data && !loading) return null;
+  if (loading && !data)  return null; // silent until first load
 
-  // Group by section
-  const bySection = {};
-  coverage.forEach((c) => {
-    const sec = c.section || 'other';
-    if (!bySection[sec]) bySection[sec] = [];
-    bySection[sec].push(c);
-  });
+  const { summary, by_section } = data || {};
+  if (!summary) return null;
+
+  const overallPct = summary.total > 0
+    ? Math.round((summary.tagged / summary.total) * 100)
+    : 0;
+
+  // Overall bar colour based on pct
+  const overallBarColor = overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#16a34a';
 
   return (
-    <div className="topic-coverage-panel">
-      <div className="topic-coverage-header">
-        <div>
-          <span className="topic-coverage-title">Topic Coverage</span>
-          <span className="topic-coverage-stats">
-            {summary.tagged} tagged · {summary.untagged} untagged · {taggedPct}%
+    <div className="topic-coverage-panel" style={{
+      background: 'var(--bg-card, rgba(255,255,255,0.04))',
+      border: '1px solid var(--border)',
+      borderRadius: 10,
+      padding: '14px 16px',
+      marginBottom: 16,
+    }}>
+      {/* ── Header row ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+          Topic Coverage
+        </span>
+        <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+          {summary.tagged.toLocaleString()} tagged
+          {' · '}
+          <span style={{ color: summary.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>
+            {summary.untagged.toLocaleString()} untagged
           </span>
-        </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Collapse' : 'Details'}
-        </button>
-      </div>
-      <div className="review-progress-bar-bg" style={{ marginTop: 6 }}>
-        <div className="review-progress-bar-fill" style={{ width: `${taggedPct}%`, background: 'var(--cyan, #0891b2)' }} />
-      </div>
-      {expanded && (
-        <div className="topic-coverage-details">
-          {Object.entries(bySection).map(([section, topics]) => (
-            <div key={section} className="topic-section-group">
-              <div className="topic-section-label">{section}</div>
-              <div className="topic-section-items">
-                {topics.map((t) => (
-                  <div key={t.topic} className="topic-item">
-                    <Pill color="cyan">{t.label}</Pill>
-                    <span className="topic-item-count">{t.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {summary.untagged > 0 && (
-            <div className="topic-section-group">
-              <div className="topic-section-label" style={{ color: 'var(--amber, #b45309)' }}>Untagged</div>
-              <span className="topic-item-count">{summary.untagged} questions</span>
-            </div>
+          {' · '}
+          <strong style={{ color: overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#15803d' }}>
+            {overallPct}%
+          </strong>
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {summary.untagged > 0 && onShowUntagged && (
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.8rem', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
+              onClick={onShowUntagged}
+              title="Filter to untagged questions"
+            >
+              ⚠ Show untagged
+            </button>
           )}
+          <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(!expanded)}>
+            {expanded ? 'Collapse' : 'Details'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Overall progress bar ── */}
+      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: 3,
+          width: `${overallPct}%`,
+          background: overallBarColor,
+          transition: 'width 0.4s ease',
+        }} />
+      </div>
+
+      {/* ── Expanded detail ── */}
+      {expanded && by_section && (
+        <div style={{ marginTop: 16 }}>
+          {Object.entries(by_section).map(([sectionKey, secData]) => {
+            const secPct = secData.total > 0
+              ? Math.round((secData.tagged / secData.total) * 100)
+              : 0;
+            const secBarColor = secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#16a34a';
+
+            // Max count in this section (for bar scaling)
+            const topics = secData.topics || [];
+            const maxCount = topics.reduce((m, t) => Math.max(m, t.count), 1);
+
+            return (
+              <div key={sectionKey} style={{
+                marginBottom: 20,
+                paddingBottom: 16,
+                borderBottom: '1px solid var(--border)',
+              }}>
+                {/* Section header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{
+                    fontWeight: 700, fontSize: '0.88rem', textTransform: 'capitalize',
+                    color: 'var(--text-secondary)',
+                  }}>
+                    {sectionKey}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {secData.total.toLocaleString()} total ·{' '}
+                    {secData.tagged.toLocaleString()} tagged ·{' '}
+                    <span style={{ color: secData.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>
+                      {secData.untagged.toLocaleString()} untagged
+                    </span>
+                  </span>
+                  <span style={{
+                    marginLeft: 'auto', fontWeight: 700, fontSize: '0.85rem',
+                    color: secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#15803d',
+                  }}>
+                    {secPct}%
+                  </span>
+                </div>
+
+                {/* Section progress bar */}
+                <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 12 }}>
+                  <div style={{
+                    height: '100%', borderRadius: 2,
+                    width: `${secPct}%`,
+                    background: secBarColor,
+                    transition: 'width 0.4s ease',
+                  }} />
+                </div>
+
+                {/* Per-topic bars */}
+                {topics.length === 0 ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>No topics defined for this section.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {topics.map((t) => {
+                      const clr      = topicBarColor(t.count);
+                      const barWidth = maxCount > 0 ? Math.round((t.count / maxCount) * 100) : 0;
+                      return (
+                        <div key={t.topic} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {/* Label */}
+                          <span style={{
+                            width: 160, flexShrink: 0,
+                            fontSize: '0.8rem', color: 'var(--text-secondary)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }} title={t.label}>
+                            {t.label}
+                          </span>
+                          {/* Bar track */}
+                          <div style={{
+                            flex: 1, height: 14, borderRadius: 3,
+                            background: clr.bg, overflow: 'hidden',
+                            position: 'relative',
+                          }}>
+                            <div style={{
+                              position: 'absolute', left: 0, top: 0, bottom: 0,
+                              width: `${barWidth}%`,
+                              background: clr.bar,
+                              borderRadius: 3,
+                              transition: 'width 0.35s ease',
+                              opacity: 0.85,
+                            }} />
+                          </div>
+                          {/* Count badge */}
+                          <span style={{
+                            width: 40, flexShrink: 0, textAlign: 'right',
+                            fontSize: '0.78rem', fontWeight: 600,
+                            color: clr.text,
+                          }}>
+                            {t.count}
+                          </span>
+                          {/* Traffic light dot */}
+                          <span style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            background: clr.bar,
+                          }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Untagged note for this section */}
+                {secData.untagged > 0 && (
+                  <div style={{
+                    marginTop: 8, padding: '6px 10px', borderRadius: 6,
+                    background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)',
+                    fontSize: '0.8rem', color: '#b45309',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <span>⚠</span>
+                    <span>{secData.untagged.toLocaleString()} question{secData.untagged !== 1 ? 's' : ''} in this section have no topic tag.</span>
+                    {onShowUntagged && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ marginLeft: 'auto', fontSize: '0.78rem', padding: '1px 8px', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
+                        onClick={onShowUntagged}
+                      >
+                        Filter
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
+              &lt;10 questions
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+              10–29 questions
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
+              30+ questions
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -774,7 +945,15 @@ function QuestionsTab() {
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
 
       <ReviewProgressPanel examFilter={filters.exam} refreshKey={refreshKey} />
-      <TopicCoveragePanel examFilter={filters.exam} refreshKey={refreshKey} />
+      <TopicCoveragePanel
+        examFilter={filters.exam}
+        refreshKey={refreshKey}
+        onShowUntagged={() => {
+          handleFilterChange('topic', '_untagged');
+          // Scroll to filter bar so user sees the active filter
+          document.querySelector('.admin-filter-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }}
+      />
 
       {/* ── Exam tabs ── */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 0 }}>
