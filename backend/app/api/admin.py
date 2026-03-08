@@ -67,13 +67,15 @@ from ..api.errors import bad_request, forbidden, conflict, error_response
 from ..utils.world_config import (
     VALID_EXAMS, VALID_WORLD_KEYS, EXAM_WORLD_ORDER,
     get_total_questions, validate_exam, validate_world_key, PLAN_WORLD_LIMIT,
-    get_section_from_world_key as _wk_to_section,
 )
 from ..utils.topic_config import (
     TOPIC_TAXONOMY, ALL_TOPIC_KEYS, TOPIC_KEY_TO_LABEL,
     get_section_from_world_key, get_topics_for_world_key,
     validate_topic, get_api_taxonomy,
 )
+
+# Convenience alias used throughout this module
+_wk_to_section = get_section_from_world_key
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
