@@ -75,6 +75,17 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
     .lp-hint-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #b45309; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
     .lp-hint-body  { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.65; }
 
+    /* ── CHUNK I: "Next →" button shown after a wrong answer ── */
+    .lp-next-btn {
+      margin-top: 14px; width: 100%; padding: 12px 0;
+      border-radius: 10px; border: 1.5px solid rgba(139,92,246,0.4);
+      background: rgba(139,92,246,0.08); color: var(--violet-light, #a78bfa);
+      font-weight: 700; font-size: 0.95rem; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      animation: hint-slide-in 0.3s ease-out;
+    }
+    .lp-next-btn:hover { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.6); }
+
     .lp-unanswered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; background: rgba(217,119,6,0.1); border: 1px solid rgba(217,119,6,0.3); color: #b45309; font-size: 0.8rem; font-weight: 600; }
 
     .lp-results-card { max-width: 520px; margin: 0 auto; background: var(--bg-card, rgba(255,255,255,0.04)); border: 1.5px solid var(--border); border-radius: 14px; padding: 32px 36px; text-align: center; }
@@ -262,6 +273,7 @@ function CorrectBurst({ onDone }) {
 
   useEffect(() => {
     // Start fade-out at 650ms, call onDone at 900ms
+    // onDone also triggers the advance to next question (see LevelPage)
     const fadeTimer = setTimeout(() => setFading(true), 650);
     const doneTimer = setTimeout(onDone, 900);
     return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
@@ -310,7 +322,11 @@ function FullScreen({ children }) {
 
 // ── EXAM SCREEN ───────────────────────────────────────────────────────────────
 
-function ExamScreen({ exam, worldKey, levelNumber, questions, answers, feedback, currentIdx, timeLeft, totalTime, onSelectAnswer, onNavigate, onSubmit }) {
+function ExamScreen({
+  exam, worldKey, levelNumber,
+  questions, answers, feedback, currentIdx, timeLeft, totalTime,
+  onSelectAnswer, onNavigate, onSubmit,
+}) {
   const q            = questions[currentIdx];
   const totalQ       = questions.length;
   const answeredCount = Object.keys(answers).length;
@@ -321,6 +337,12 @@ function ExamScreen({ exam, worldKey, levelNumber, questions, answers, feedback,
   const selected     = answers[q.id] || null;
   const qFeedback    = feedback[q.id] || null;
   const allAnswered  = answeredCount === totalQ;
+
+  // CHUNK I: "Next →" appears when wrong and there is a next question.
+  // Navigate to the next unanswered question first; fall back to currentIdx + 1.
+  const nextUnansweredIdx = questions.findIndex((qq, i) => i > currentIdx && !answers[qq.id]);
+  const nextTarget        = nextUnansweredIdx !== -1 ? nextUnansweredIdx : currentIdx + 1;
+  const showWrongNext     = isLocked && qFeedback === 'wrong' && currentIdx < totalQ - 1;
 
   return (
     <>
@@ -377,12 +399,28 @@ function ExamScreen({ exam, worldKey, levelNumber, questions, answers, feedback,
             );
           })}
 
-          {isLocked && qFeedback === 'wrong' && q.hint && (
-            <div className="lp-hint-panel">
-              <div className="lp-hint-title"><span>💡</span> Hint</div>
-              <div className="lp-hint-body"><MathText text={q.hint} /></div>
-            </div>
+          {/* ── CHUNK I: Wrong-answer block ───────────────────────────────── */}
+          {/* Hint (if exists) + "Next →" button (if not last question).      */}
+          {/* No auto-advance on wrong — user controls when to proceed.        */}
+          {isLocked && qFeedback === 'wrong' && (
+            <>
+              {q.hint && (
+                <div className="lp-hint-panel">
+                  <div className="lp-hint-title"><span>💡</span> Hint</div>
+                  <div className="lp-hint-body"><MathText text={q.hint} /></div>
+                </div>
+              )}
+              {showWrongNext && (
+                <button
+                  className="lp-next-btn"
+                  onClick={() => onNavigate(nextTarget)}
+                >
+                  Next →
+                </button>
+              )}
+            </>
           )}
+          {/* ─────────────────────────────────────────────────────────────── */}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -504,7 +542,8 @@ export default function LevelPage() {
   const timerRef      = useRef(null);
   const autoSubmitRef = useRef(false);
   const startTimeRef  = useRef(null);
-  const advanceTimerRef = useRef(null);
+  // advanceTimerRef removed — correct advances via CorrectBurst.onDone,
+  // wrong never auto-advances (user presses "Next →").
   const [timeTakenSeconds, setTimeTakenSeconds] = useState(0);
   const [results,        setResults]        = useState(null);
   const [passed,         setPassed]         = useState(false);
@@ -571,42 +610,40 @@ export default function LevelPage() {
   // eslint-disable-next-line
   }, [answers]);
 
-  // Keep a ref to latest answers so the delayed advance closure can read it
-  const answersRef = useRef(answers);
-  useEffect(() => { answersRef.current = answers; }, [answers]);
+  // Keep a ref to latest answers so advance closures can read current state
+  const answersRef  = useRef(answers);
+  const questionsRef = useRef(questions);
+  useEffect(() => { answersRef.current  = answers;   }, [answers]);
+  useEffect(() => { questionsRef.current = questions; }, [questions]);
 
   const handleSelectAnswer = useCallback((questionId, key) => {
     // Guard: already answered
     if (answersRef.current[questionId]) return;
 
-    // 1. Lock the answer and set feedback immediately — same tick, same render
-    const q = questions.find((q) => q.id === questionId);
+    const q = questionsRef.current.find((qq) => qq.id === questionId);
     const isCorrect = q && q.correct_answer === key;
-    setAnswers((prev) => ({ ...prev, [questionId]: key }));
-    setFeedback((fb) => ({ ...fb, [questionId]: isCorrect ? 'correct' : 'wrong' }));
 
-    // 2. Correct: fire centre burst + sound
+    // Lock answer + set feedback in one synchronous batch → single render
+    setAnswers((prev) => ({ ...prev, [questionId]: key }));
+    setFeedback((fb)  => ({ ...fb,  [questionId]: isCorrect ? 'correct' : 'wrong' }));
+
     if (isCorrect) {
+      // ── CORRECT ──────────────────────────────────────────────────────────
+      // Play sound and show burst.
+      // Advance to next question happens inside CorrectBurst.onDone (900ms)
+      // so the student sees the full burst before the view changes.
       playCorrectSound();
       setShowBurst(true);
     }
-
-    // 2. Advance to next unanswered question after 700 ms
-    //    (gives the animation time to play before the view changes)
-    clearTimeout(advanceTimerRef.current);
-    advanceTimerRef.current = setTimeout(() => {
-      setCurrentIdx((ci) => {
-        const updatedAnswers = { ...answersRef.current, [questionId]: key };
-        const nextIdx = questions.findIndex((q, i) => i > ci && !updatedAnswers[q.id]);
-        return nextIdx !== -1 ? nextIdx : ci;
-      });
-    }, 700);
-  }, [questions]);
+    // ── WRONG ────────────────────────────────────────────────────────────
+    // No auto-advance. Hint panel + "Next →" button appear in ExamScreen.
+    // Student reads the hint at their own pace, then taps "Next →".
+  }, []);  // no deps needed — all state read via refs
 
   const handleNavigate = useCallback((idx) => {
-    if (idx < 0 || idx >= questions.length) return;
+    if (idx < 0 || idx >= questionsRef.current.length) return;
     setCurrentIdx(idx);
-  }, [questions.length]);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
@@ -647,9 +684,8 @@ export default function LevelPage() {
     setSubmitError('');
     setTimeTakenSeconds(0);
     autoSubmitRef.current = false;
-    clearTimeout(advanceTimerRef.current);
     startTimeRef.current  = Date.now();
-    const total = questions.length * SECONDS_PER_QUESTION;
+    const total = questionsRef.current.length * SECONDS_PER_QUESTION;
     setTimeLeft(total);
     setTotalTime(total);
     clearInterval(timerRef.current);
@@ -666,7 +702,7 @@ export default function LevelPage() {
         return prev - 1;
       });
     }, 1000);
-  }, [questions.length]);
+  }, []);
 
   if (loading) return <FullScreen><div className="spinner" /></FullScreen>;
 
@@ -719,9 +755,24 @@ export default function LevelPage() {
           </div>
         </div>
       )}
+
+      {/* ── CHUNK I: CorrectBurst.onDone now drives the advance ── */}
       {showBurst && (
-        <CorrectBurst onDone={() => setShowBurst(false)} />
+        <CorrectBurst
+          onDone={() => {
+            setShowBurst(false);
+            // Advance to the next unanswered question after the burst completes.
+            // Using the functional updater gives us the live currentIdx value.
+            setCurrentIdx((ci) => {
+              const qs   = questionsRef.current;
+              const ans  = answersRef.current;
+              const next = qs.findIndex((qq, i) => i > ci && !ans[qq.id]);
+              return next !== -1 ? next : ci;
+            });
+          }}
+        />
       )}
+
       <ExamScreen
         exam={exam} worldKey={worldKey} levelNumber={levelNumber}
         questions={questions} answers={answers} feedback={feedback}
