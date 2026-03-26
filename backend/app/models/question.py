@@ -127,7 +127,7 @@ class Question(db.Model):
 
     # Workflow state — see ReviewStatus enum for valid transitions.
     review_status = db.Column(
-        db.Enum(ReviewStatus),
+        db.Enum(ReviewStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=ReviewStatus.UNREVIEWED,
         server_default=ReviewStatus.UNREVIEWED.value,
