@@ -9,17 +9,20 @@ Endpoints:
     GET    /api/admin/questions/bulk-template
     POST   /api/admin/questions/bulk-validate           (dry-run CSV)
     POST   /api/admin/questions/bulk-commit             (insert from CSV)
-    POST   /api/admin/questions/bulk-delete             ← NEW (soft-delete selected)
-    POST   /api/admin/questions/bulk-assign             ← NEW (assign topic/difficulty/world)
+    POST   /api/admin/questions/bulk-delete             (soft-delete selected)
+    POST   /api/admin/questions/bulk-assign             (assign topic/difficulty/world)
+    POST   /api/admin/questions/ai-review               (Chunk J — AI review batch)
     GET    /api/admin/questions/next-index
     GET    /api/admin/questions/review-progress
     GET    /api/admin/questions/topic-coverage
-    GET    /api/admin/questions                        (+ search, topic, section, unassigned, qid params)
+    GET    /api/admin/questions                        (+ search, topic, section, unassigned, qid, review_status)
     GET    /api/admin/questions/:id
     PUT    /api/admin/questions/:id          (optimistic lock on version)
     DELETE /api/admin/questions/:id          (soft delete)
     PATCH  /api/admin/questions/:id/activate
     PATCH  /api/admin/questions/:id/mark-reviewed
+    PATCH  /api/admin/questions/:id/approve-review      (Chunk J)
+    PATCH  /api/admin/questions/:id/reject-review       (Chunk J)
     POST   /api/admin/questions/bulk-activate
     POST   /api/admin/questions/bulk-topic
 
@@ -61,7 +64,7 @@ from ..extensions import db
 from ..models.user import User, UserRole
 from ..models.org import Org
 from ..models.entitlement import Entitlement, PlanId, PlanType
-from ..models.question import Question, Difficulty
+from ..models.question import Question, Difficulty, ReviewStatus
 from ..api.auth import roles_required, _get_current_user
 from ..api.errors import bad_request, forbidden, conflict, error_response
 from ..utils.world_config import (
@@ -358,8 +361,10 @@ def _parse_and_validate_csv(file_storage) -> dict:
         row_num = i + 2   # 1-based header + 1-based data
         row_errors = []
 
-        # Required field presence check
+        # Required field presence check — hint is allowed to be empty
         for field in _CSV_REQUIRED:
+            if field == "hint":
+                continue   # hint is optional — empty string → NULL
             if not row.get(field):
                 row_errors.append({"row": row_num, "field": field,
                                    "message": f"Required field '{field}' is empty."})
@@ -453,7 +458,7 @@ def _parse_and_validate_csv(file_storage) -> dict:
             "option_c":      row["option_c"],
             "option_d":      row["option_d"],
             "correct_answer": answer,
-            "hint":          row["hint"],
+            "hint":          row.get("hint") or None,   # empty string → None
             "topic":         topic,
             "difficulty":    diff,
             "_row":          row_num,
@@ -481,6 +486,7 @@ def bulk_template():
 
     NOTE: world_key is NOT a column — questions go into the bank first,
     world/level assignment is done later via admin bulk tools.
+    hint column is optional — leave empty if unknown, AI Review will generate it.
     """
     output = io.StringIO()
     writer = csv.writer(output)
@@ -494,7 +500,7 @@ def bulk_template():
     writer.writerow([
         "qudurat", "verbal", "The synonym of 'happy' is:",
         "Sad", "Joyful", "Angry", "Tired", "b",
-        "Think about words that share the same positive emotional meaning as 'happy'.",
+        "",   # hint intentionally blank — AI Review will generate it
         "synonyms", "easy",
     ])
 
@@ -554,15 +560,6 @@ def bulk_commit():
     All questions inserted as is_active=false.
 
     Optional query param: ?force_duplicates=true to also insert flagged duplicates.
-
-    Response:
-    {
-        "inserted":   N,
-        "skipped":    N,
-        "errors":     [...],
-        "duplicates": [...],
-        "message":    "..."
-    }
     """
     admin = _get_current_user()
 
@@ -614,7 +611,7 @@ def bulk_commit():
                 "option_c":      row["option_c"],
                 "option_d":      row["option_d"],
                 "correct_answer": row["correct_answer"].strip().lower(),
-                "hint":          row["hint"],
+                "hint":          row.get("hint") or None,
                 "topic":         row["topic"].strip().lower(),
                 "difficulty":    row["difficulty"].strip().lower(),
                 "_row":          row_num,
@@ -637,7 +634,6 @@ def bulk_commit():
         q = Question(
             exam=row["exam"],
             section=row["section"],
-            # world_key and index intentionally NOT set — unassigned bank questions
             question_text=row["question_text"],
             option_a=row["option_a"],
             option_b=row["option_b"],
@@ -682,21 +678,7 @@ def bulk_commit():
 def bulk_delete_questions():
     """
     Soft-delete a list of questions by ID.
-
-    Questions are NEVER hard-deleted — deleted_at is set and they become
-    invisible to all queries. Student attempt data retains referential integrity.
-
-    Body:
-    {
-      "question_ids": [1, 2, 3, ...],   -- required, max 500 per call
-      "confirm": true                    -- required safety flag
-    }
-
-    Response:
-    {
-      "deleted":  N,
-      "message":  "..."
-    }
+    Body: { "question_ids": [int], "confirm": true }
     """
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
@@ -707,13 +689,11 @@ def bulk_delete_questions():
                            "question_ids must be a non-empty array of integer IDs.")
     if len(ids) > 500:
         return bad_request("validation_error",
-                           "Maximum 500 IDs per bulk-delete call. "
-                           "Split into smaller batches if needed.")
+                           "Maximum 500 IDs per bulk-delete call.")
     if not data.get("confirm"):
         return bad_request("confirmation_required",
                            "Set confirm: true to proceed with bulk deletion.")
 
-    # Validate all IDs are integers
     try:
         ids = [int(i) for i in ids]
     except (ValueError, TypeError):
@@ -738,8 +718,7 @@ def bulk_delete_questions():
 
     return jsonify({
         "deleted": affected,
-        "message": f"{affected} question(s) soft-deleted. "
-                   "They are no longer visible to students or in search results.",
+        "message": f"{affected} question(s) soft-deleted.",
     }), 200
 
 
@@ -752,31 +731,7 @@ def bulk_delete_questions():
 def bulk_assign_questions():
     """
     Bulk assign topic, difficulty, and/or world to selected questions.
-
-    Only fields present in 'assign' are applied — partial update.
-    Unspecified fields are left unchanged on every question.
-
-    World assignment auto-assigns index values sequentially
-    (next available index per world_key). Validates that world_key section
-    matches question section (e.g. can't assign a verbal question to math_100).
-
-    Body:
-    {
-      "question_ids": [1, 2, 3, ...],   -- required, max 500 per call
-      "assign": {
-        "topic":      "algebra",         -- optional, must be valid for section
-        "difficulty": "medium",          -- optional: easy / medium / hard
-        "world_key":  "math_100"         -- optional: assign to a world (auto-index)
-      }
-    }
-
-    Response:
-    {
-      "affected":   N,
-      "assigned":   { "topic": "algebra", "difficulty": "medium", "world_key": "math_100" },
-      "skipped":    [ { "id": N, "reason": "..." }, ... ],  -- section mismatch etc.
-      "message":    "..."
-    }
+    Body: { "question_ids": [int], "assign": { "topic"?, "difficulty"?, "world_key"? } }
     """
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
@@ -786,8 +741,7 @@ def bulk_assign_questions():
         return bad_request("validation_error",
                            "question_ids must be a non-empty array of integer IDs.")
     if len(ids) > 500:
-        return bad_request("validation_error",
-                           "Maximum 500 IDs per bulk-assign call.")
+        return bad_request("validation_error", "Maximum 500 IDs per bulk-assign call.")
     try:
         ids = [int(i) for i in ids]
     except (ValueError, TypeError):
@@ -803,8 +757,6 @@ def bulk_assign_questions():
     diff_val   = assign.get("difficulty")
     wk_val     = assign.get("world_key")
 
-    # ── Validate assign values up front ──────────────────────────────────────
-
     if diff_val is not None:
         diff_val = str(diff_val).strip().lower()
         if diff_val not in {d.value for d in Difficulty}:
@@ -814,17 +766,13 @@ def bulk_assign_questions():
     if wk_val is not None:
         wk_val = str(wk_val).strip().lower()
         if wk_val not in VALID_WORLD_KEYS:
-            return bad_request("invalid_world_key",
-                               f"Invalid world_key: {wk_val!r}.")
+            return bad_request("invalid_world_key", f"Invalid world_key: {wk_val!r}.")
 
     if topic_val is not None:
         topic_val = str(topic_val).strip().lower() or None
         if topic_val and topic_val not in ALL_TOPIC_KEYS:
-            return bad_request("invalid_topic",
-                               f"Invalid topic key: {topic_val!r}. "
-                               f"Must be a valid topic from the taxonomy.")
+            return bad_request("invalid_topic", f"Invalid topic key: {topic_val!r}.")
 
-    # ── Load questions ────────────────────────────────────────────────────────
     questions = Question.query.filter(
         Question.id.in_(ids),
         Question.deleted_at.is_(None),
@@ -837,12 +785,8 @@ def bulk_assign_questions():
     skipped = []
     affected_ids = []
 
-    # ── Pre-compute next available index for world assignment ─────────────────
-    # Only needed if world_key is being assigned
     world_index_counter = {}
     if wk_val:
-        # Get current max index for this world across all exams
-        # (world_key is unique per section — math questions go to math worlds)
         world_section = _wk_to_section(wk_val)
         for q in questions:
             exam_key = q.exam
@@ -855,40 +799,30 @@ def bulk_assign_questions():
                 ).scalar()
                 world_index_counter[wk_counter_key] = current_max or 0
 
-    # ── Apply assignments ─────────────────────────────────────────────────────
     for q in questions:
-        # Topic validation: topic must belong to the question's section
         if topic_val:
             valid_keys_for_section = {k for k, _ in TOPIC_TAXONOMY.get(q.section or "", [])}
             if topic_val not in valid_keys_for_section:
                 skipped.append({
                     "id":     q.id,
-                    "reason": f"Topic '{topic_val}' is not valid for section "
-                               f"'{q.section}' (question #{q.id}).",
+                    "reason": f"Topic '{topic_val}' is not valid for section '{q.section}'.",
                 })
                 continue
 
-        # World assignment: section of world_key must match question's section
         if wk_val:
             world_section = _wk_to_section(wk_val)
             if q.section and q.section != world_section:
                 skipped.append({
                     "id":     q.id,
                     "reason": f"Cannot assign question #{q.id} (section: {q.section!r}) "
-                               f"to world '{wk_val}' (section: {world_section!r}). "
-                               "Section mismatch.",
+                               f"to world '{wk_val}' (section: {world_section!r}).",
                 })
                 continue
 
-        # Apply topic
         if topic_val is not None:
             q.topic = topic_val
-
-        # Apply difficulty
         if diff_val is not None:
             q.difficulty = Difficulty(diff_val)
-
-        # Apply world assignment + auto-index
         if wk_val is not None:
             counter_key = (q.exam, wk_val)
             world_index_counter[counter_key] = world_index_counter.get(counter_key, 0) + 1
@@ -903,12 +837,9 @@ def bulk_assign_questions():
     db.session.commit()
 
     assigned_summary = {}
-    if topic_val is not None:
-        assigned_summary["topic"] = topic_val
-    if diff_val is not None:
-        assigned_summary["difficulty"] = diff_val
-    if wk_val is not None:
-        assigned_summary["world_key"] = wk_val
+    if topic_val is not None: assigned_summary["topic"]      = topic_val
+    if diff_val  is not None: assigned_summary["difficulty"] = diff_val
+    if wk_val    is not None: assigned_summary["world_key"]  = wk_val
 
     return jsonify({
         "affected":  len(affected_ids),
@@ -920,17 +851,299 @@ def bulk_assign_questions():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# AI REVIEW  (Chunk J)
+# ═════════════════════════════════════════════════════════════════════════════
+
+@admin_bp.route("/questions/ai-review", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def ai_review_questions():
+    """
+    Trigger AI review for a selected batch of questions.
+
+    The LLM proposes: predicted_answer, confidence, review_note, proposed_hint.
+    Nothing is written to correct_answer or hint until admin approves.
+
+    Body:
+    {
+      "question_ids": [int],   -- required, max 20 per call
+      "overwrite": false        -- optional; if true, re-reviews approved questions
+    }
+
+    Response:
+    {
+      "processed":        N,
+      "failed":           N,
+      "skipped_approved": [ids],
+      "results": [
+        {
+          "question_id":      int,
+          "status":           "reviewed" | "failed",
+          "predicted_answer": "a"|"b"|"c"|"d" | null,
+          "confidence":       float | null,
+          "review_note":      str | null,
+          "proposed_hint":    str | null,
+          "error":            str | null
+        }
+      ],
+      "message": "..."
+    }
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from ..utils.llm_provider import get_llm_provider, QuestionReviewResult  # noqa: PLC0415
+
+    data      = request.get_json(silent=True) or {}
+    ids       = data.get("question_ids")
+    overwrite = bool(data.get("overwrite", False))
+
+    if not isinstance(ids, list) or len(ids) == 0:
+        return bad_request("validation_error",
+                           "question_ids must be a non-empty array of integer IDs.")
+    if len(ids) > 20:
+        return bad_request("validation_error",
+                           "Maximum 20 questions per AI review call. "
+                           "The frontend batches larger selections automatically.")
+    try:
+        ids = [int(i) for i in ids]
+    except (ValueError, TypeError):
+        return bad_request("validation_error", "All question_ids must be integers.")
+
+    questions = Question.query.filter(
+        Question.id.in_(ids),
+        Question.deleted_at.is_(None),
+    ).all()
+
+    if not questions:
+        return bad_request("not_found", "No active questions found for the provided IDs.")
+
+    # Partition: skip already-approved unless overwrite=True
+    to_review        = []
+    skipped_approved = []
+    for q in questions:
+        if not overwrite and q.review_status == ReviewStatus.APPROVED:
+            skipped_approved.append(q.id)
+        else:
+            to_review.append(q)
+
+    if not to_review:
+        return jsonify({
+            "processed":        0,
+            "failed":           0,
+            "skipped_approved": skipped_approved,
+            "results":          [],
+            "message":          "All selected questions are already approved. "
+                                "Pass overwrite=true to re-review them.",
+        }), 200
+
+    # Mark as ai_pending
+    now = datetime.now(timezone.utc)
+    for q in to_review:
+        q.review_status = ReviewStatus.AI_PENDING
+        q.updated_at    = now
+    db.session.commit()
+
+    # Instantiate provider — 501 if misconfigured
+    try:
+        provider = get_llm_provider()
+    except RuntimeError as exc:
+        for q in to_review:
+            q.review_status = ReviewStatus.UNREVIEWED
+            q.updated_at    = now
+        db.session.commit()
+        return error_response("provider_error", str(exc), 501)
+
+    # Build call args (all DB reads done before thread pool)
+    call_args = [
+        (q.id, q.exam, q.section or "", q.question_text,
+         q.option_a, q.option_b, q.option_c, q.option_d)
+        for q in to_review
+    ]
+
+    # Parallel LLM calls — I/O-bound, safe with threads
+    results_map: dict = {}
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {
+            executor.submit(provider.review_question, *args): args[0]
+            for args in call_args
+        }
+        for future in as_completed(futures):
+            q_id = futures[future]
+            try:
+                results_map[q_id] = future.result()
+            except Exception as exc:
+                results_map[q_id] = QuestionReviewResult(
+                    question_id=q_id,
+                    predicted_answer=None, confidence=None,
+                    proposed_hint=None, review_note=None,
+                    error=str(exc),
+                )
+
+    # Write results back to DB (single transaction)
+    now        = datetime.now(timezone.utc)
+    q_map      = {q.id: q for q in to_review}
+    processed  = 0
+    failed     = 0
+    results_out = []
+
+    for q_id, result in results_map.items():
+        q = q_map.get(q_id)
+        if not q:
+            continue
+
+        if result.error:
+            q.review_status = ReviewStatus.UNREVIEWED
+            q.updated_at    = now
+            failed += 1
+            results_out.append({
+                "question_id":      q_id,
+                "status":           "failed",
+                "predicted_answer": None,
+                "confidence":       None,
+                "review_note":      None,
+                "proposed_hint":    None,
+                "error":            result.error,
+            })
+        else:
+            q.llm_predicted_answer = result.predicted_answer
+            q.llm_confidence       = result.confidence
+            q.llm_review_note      = result.review_note
+            q.llm_proposed_hint    = result.proposed_hint
+            q.llm_reviewed_at      = now
+            q.review_status        = ReviewStatus.AI_REVIEWED
+            q.updated_at           = now
+            processed += 1
+            results_out.append({
+                "question_id":      q_id,
+                "status":           "reviewed",
+                "predicted_answer": result.predicted_answer,
+                "confidence":       result.confidence,
+                "review_note":      result.review_note,   # internal — admin panel only
+                "proposed_hint":    result.proposed_hint,
+                "error":            None,
+            })
+
+    db.session.commit()
+
+    return jsonify({
+        "processed":        processed,
+        "failed":           failed,
+        "skipped_approved": skipped_approved,
+        "results":          results_out,
+        "message":          f"AI review complete: {processed} reviewed, "
+                            f"{failed} failed, {len(skipped_approved)} skipped (approved).",
+    }), 200
+
+
+@admin_bp.route("/questions/<int:question_id>/approve-review", methods=["PATCH"])
+@roles_required(*_ADMIN_ROLE)
+def approve_ai_review(question_id: int):
+    """
+    Admin approves AI review suggestions for a single question.
+
+    Body:
+    {
+      "version":        int,            -- required (optimistic lock)
+      "accept_answer":  true|false,     -- default true
+      "accept_hint":    true|false,     -- default true
+      "correct_answer": "a"|"b"|"c"|"d" -- optional override
+    }
+    """
+    admin = _get_current_user()
+    data  = request.get_json(silent=True) or {}
+
+    q = Question.query.filter_by(id=question_id, deleted_at=None).first()
+    if not q:
+        return error_response("not_found", "Question not found.", 404)
+
+    if q.review_status not in (ReviewStatus.AI_REVIEWED, ReviewStatus.REJECTED):
+        return bad_request(
+            "invalid_state",
+            f"Cannot approve — review_status is '{q.review_status.value}'. "
+            "Expected 'ai_reviewed' or 'rejected'.",
+        )
+
+    submitted_version = data.get("version")
+    if submitted_version is None:
+        return bad_request("version_required", "version is required.")
+    if int(submitted_version) != q.version:
+        return conflict(
+            f"Version mismatch (submitted {submitted_version}, current {q.version}). "
+            "Reload and retry.",
+            {"current_record": q.to_dict(include_answer=True)},
+        )
+
+    accept_answer   = bool(data.get("accept_answer", True))
+    accept_hint     = bool(data.get("accept_hint",   True))
+    override_answer = (data.get("correct_answer") or "").strip().lower() or None
+
+    now = datetime.now(timezone.utc)
+
+    if accept_answer:
+        final_answer = override_answer or q.llm_predicted_answer
+        if not final_answer or final_answer not in {"a", "b", "c", "d"}:
+            return bad_request(
+                "validation_error",
+                "No valid answer available to approve. "
+                "Either supply correct_answer in the body or ensure the question "
+                "has been AI-reviewed first.",
+            )
+        q.correct_answer              = final_answer
+        q.last_reviewed_at            = now
+        q.last_reviewed_by_admin_id   = admin.id
+
+    if accept_hint and q.llm_proposed_hint:
+        q.hint = q.llm_proposed_hint
+
+    q.review_status       = ReviewStatus.APPROVED
+    q.updated_by_admin_id = admin.id
+    q.updated_at          = now
+    q.version            += 1
+
+    db.session.commit()
+    return jsonify({"question": q.to_dict(include_answer=True)}), 200
+
+
+@admin_bp.route("/questions/<int:question_id>/reject-review", methods=["PATCH"])
+@roles_required(*_ADMIN_ROLE)
+def reject_ai_review(question_id: int):
+    """
+    Admin rejects AI review suggestions.
+    Sets review_status='rejected'. Does NOT change correct_answer or hint.
+    Body: { "version": int }
+    """
+    admin = _get_current_user()
+    data  = request.get_json(silent=True) or {}
+
+    q = Question.query.filter_by(id=question_id, deleted_at=None).first()
+    if not q:
+        return error_response("not_found", "Question not found.", 404)
+
+    submitted_version = data.get("version")
+    if submitted_version is None:
+        return bad_request("version_required", "version is required.")
+    if int(submitted_version) != q.version:
+        return conflict(
+            f"Version mismatch (submitted {submitted_version}, current {q.version}). "
+            "Reload and retry.",
+            {"current_record": q.to_dict(include_answer=True)},
+        )
+
+    now = datetime.now(timezone.utc)
+    q.review_status       = ReviewStatus.REJECTED
+    q.updated_by_admin_id = admin.id
+    q.updated_at          = now
+    q.version            += 1
+
+    db.session.commit()
+    return jsonify({"question": q.to_dict(include_answer=True)}), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # QUESTION — next-index
 # ═════════════════════════════════════════════════════════════════════════════
 
 @admin_bp.route("/questions/next-index", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def get_next_index():
-    """
-    Returns the next available index for a given exam + world_key.
-    GET /api/admin/questions/next-index?exam=qudurat&world_key=math_100
-    Response: { "next_index": 101 }
-    """
     exam      = (request.args.get("exam") or "").strip().lower()
     world_key = (request.args.get("world_key") or "").strip().lower()
 
@@ -945,8 +1158,7 @@ def get_next_index():
         Question.deleted_at.is_(None),
     ).scalar()
 
-    next_index = (max_idx or 0) + 1
-    return jsonify({"exam": exam, "world_key": world_key, "next_index": next_index}), 200
+    return jsonify({"exam": exam, "world_key": world_key, "next_index": (max_idx or 0) + 1}), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -956,10 +1168,6 @@ def get_next_index():
 @admin_bp.route("/questions/review-progress", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def review_progress():
-    """
-    Returns review progress per exam/section.
-    Optional filter: ?exam=qudurat
-    """
     exam_filter = request.args.get("exam", "").strip().lower() or None
 
     q = db.session.query(
@@ -1020,36 +1228,6 @@ def review_progress():
 @admin_bp.route("/questions/topic-coverage", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def topic_coverage():
-    """
-    Returns topic coverage stats per subject bank.
-
-    Optional filters: ?exam=qudurat&section=math
-
-    Response:
-    {
-        "coverage": [
-            {
-                "section":      "math",
-                "topic":        "algebra",
-                "label":        "Algebra",
-                "count":        142,
-                "exam_counts":  { "qudurat": 80, "tahsili": 62 }
-            },
-            ...
-        ],
-        "by_section": {
-            "math": {
-                "total": 500, "tagged": 480, "untagged": 20,
-                "pct_tagged": 96.0,
-                "topics": [ { "topic", "label", "count" }, ... ]
-            },
-            ...
-        },
-        "summary": {
-            "total": 2100, "tagged": 860, "untagged": 1240, "pct_tagged": 41.0
-        }
-    }
-    """
     exam_filter    = request.args.get("exam", "").strip().lower() or None
     section_filter = request.args.get("section", "").strip().lower() or None
 
@@ -1070,7 +1248,6 @@ def topic_coverage():
     ).count()
     tagged = total - untagged
 
-    # Per-topic counts (grouped by section + topic + exam for breakdown)
     topic_q = db.session.query(
         Question.section,
         Question.exam,
@@ -1093,7 +1270,6 @@ def topic_coverage():
 
     rows = topic_q.all()
 
-    # Build by_section structure
     by_section = {}
     for section_key, topics in TOPIC_TAXONOMY.items():
         if section_filter and section_key != section_filter:
@@ -1106,7 +1282,6 @@ def topic_coverage():
             "topics":     {k: {"topic": k, "label": lbl, "count": 0} for k, lbl in topics},
         }
 
-    # Aggregate per-section totals
     sec_total_q = db.session.query(
         Question.section,
         func.count(Question.id).label("total"),
@@ -1128,18 +1303,16 @@ def topic_coverage():
         if sec in by_section:
             t = int(sec_row.total or 0)
             u = int(sec_row.untagged or 0)
-            by_section[sec]["total"]    = t
-            by_section[sec]["untagged"] = u
-            by_section[sec]["tagged"]   = t - u
+            by_section[sec]["total"]      = t
+            by_section[sec]["untagged"]   = u
+            by_section[sec]["tagged"]     = t - u
             by_section[sec]["pct_tagged"] = round((t - u) / t * 100, 1) if t else 0.0
 
-    # Fill in topic counts
     flat_coverage = []
     for row in rows:
         sec = row.section
         if sec in by_section and row.topic in by_section[sec]["topics"]:
             by_section[sec]["topics"][row.topic]["count"] += int(row.count)
-
         flat_coverage.append({
             "section": sec,
             "topic":   row.topic,
@@ -1147,7 +1320,6 @@ def topic_coverage():
             "count":   int(row.count),
         })
 
-    # Convert topic dicts to sorted lists
     by_section_out = {}
     for sec, data in by_section.items():
         by_section_out[sec] = {
@@ -1155,11 +1327,7 @@ def topic_coverage():
             "tagged":     data["tagged"],
             "untagged":   data["untagged"],
             "pct_tagged": data["pct_tagged"],
-            "topics":     sorted(
-                data["topics"].values(),
-                key=lambda x: x["count"],
-                reverse=True,
-            ),
+            "topics":     sorted(data["topics"].values(), key=lambda x: x["count"], reverse=True),
         }
 
     pct_tagged = round(tagged / total * 100, 1) if total else 0.0
@@ -1188,28 +1356,22 @@ def list_questions():
 
     Query params:
       exam, section, world_key, is_active, difficulty, topic, reviewed,
-      search, unassigned, qid,
+      search, unassigned, qid, review_status,
       page (default 1), per_page (default 50, max 200)
-
-    Special filter values:
-      topic=_untagged   → questions with no topic assigned
-      reviewed=true     → questions with last_reviewed_at set
-      reviewed=false    → questions not yet reviewed
-      unassigned=true   → questions not yet placed in a world (world_key IS NULL)
-      qid=<uuid>        → look up a specific question by permanent ID
     """
-    exam       = request.args.get("exam",       "").strip().lower() or None
-    section    = request.args.get("section",    "").strip().lower() or None
-    world_key  = request.args.get("world_key",  "").strip().lower() or None
-    is_active  = request.args.get("is_active")
-    difficulty = request.args.get("difficulty", "").strip().lower() or None
-    topic      = request.args.get("topic",      "").strip().lower() or None
-    reviewed   = request.args.get("reviewed",   "").strip().lower() or None
-    search     = request.args.get("search",     "").strip() or None
-    unassigned = request.args.get("unassigned", "").strip().lower() or None
-    qid        = request.args.get("qid",        "").strip() or None
-    page       = max(1, int(request.args.get("page",     1) or 1))
-    per_page   = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
+    exam          = request.args.get("exam",          "").strip().lower() or None
+    section       = request.args.get("section",       "").strip().lower() or None
+    world_key     = request.args.get("world_key",     "").strip().lower() or None
+    is_active     = request.args.get("is_active")
+    difficulty    = request.args.get("difficulty",    "").strip().lower() or None
+    topic         = request.args.get("topic",         "").strip().lower() or None
+    reviewed      = request.args.get("reviewed",      "").strip().lower() or None
+    review_status = request.args.get("review_status", "").strip().lower() or None   # Chunk J
+    search        = request.args.get("search",        "").strip() or None
+    unassigned    = request.args.get("unassigned",    "").strip().lower() or None
+    qid           = request.args.get("qid",           "").strip() or None
+    page          = max(1, int(request.args.get("page",     1) or 1))
+    per_page      = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
 
     q = Question.query.filter(Question.deleted_at.is_(None))
 
@@ -1257,6 +1419,12 @@ def list_questions():
         elif reviewed == "false":
             q = q.filter(Question.last_reviewed_at.is_(None))
 
+    # Chunk J: filter by AI review workflow status
+    if review_status:
+        valid_statuses = {s.value for s in ReviewStatus}
+        if review_status in valid_statuses:
+            q = q.filter(Question.review_status == ReviewStatus(review_status))
+
     if search:
         q = q.filter(Question.question_text.ilike(f"%{search}%"))
 
@@ -1290,10 +1458,7 @@ def get_question(question_id: int):
 @admin_bp.route("/questions/<int:question_id>", methods=["PUT"])
 @roles_required(*_ADMIN_ROLE)
 def update_question(question_id: int):
-    """
-    Update question. Requires version for optimistic locking.
-    Mismatch → 409.
-    """
+    """Update question. Requires version for optimistic locking."""
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
 
@@ -1303,8 +1468,7 @@ def update_question(question_id: int):
 
     submitted_version = data.get("version")
     if submitted_version is None:
-        return bad_request("version_required",
-                           "version is required for question updates to prevent conflicts.")
+        return bad_request("version_required", "version is required.")
     if int(submitted_version) != q.version:
         return conflict(
             f"Question was modified by another admin (expected version {submitted_version}, "
@@ -1324,21 +1488,14 @@ def update_question(question_id: int):
     if "topic" in data:
         topic_val = (data["topic"] or "").strip() or None
         if topic_val:
-            # Validate topic against question's section (subject-specific enforcement)
-            section_key = q.section or (
-                _wk_to_section(q.world_key) if q.world_key else None
-            )
+            section_key = q.section or (_wk_to_section(q.world_key) if q.world_key else None)
             if section_key:
                 valid_keys = {k for k, _ in TOPIC_TAXONOMY.get(section_key, [])}
                 if topic_val not in valid_keys:
-                    return bad_request(
-                        "invalid_topic",
-                        f"Topic '{topic_val}' is not valid for section '{section_key}'. "
-                        f"Valid topics: {sorted(valid_keys)}",
-                    )
+                    return bad_request("invalid_topic",
+                                       f"Topic '{topic_val}' is not valid for section '{section_key}'.")
             elif topic_val not in ALL_TOPIC_KEYS:
-                return bad_request("invalid_topic",
-                                   f"Invalid topic key: {topic_val!r}.")
+                return bad_request("invalid_topic", f"Invalid topic key: {topic_val!r}.")
         q.topic = topic_val
 
     if "image_url" in data:
@@ -1347,8 +1504,7 @@ def update_question(question_id: int):
             if len(img) > 700_000:
                 return bad_request("image_too_large", "Image must be under 500KB.")
             if not (img.startswith("data:image/") or img.startswith("http")):
-                return bad_request("invalid_image",
-                                   "image_url must be a data URL or HTTP URL.")
+                return bad_request("invalid_image", "image_url must be a data URL or HTTP URL.")
         q.image_url = img or None
 
     if "hint" in data:
@@ -1357,20 +1513,17 @@ def update_question(question_id: int):
     if "correct_answer" in data:
         ans = (data["correct_answer"] or "").strip().lower()
         if ans not in valid_answers:
-            return bad_request("validation_error",
-                               "correct_answer must be one of a/b/c/d.")
-        q.correct_answer = ans
-        q.last_reviewed_at          = datetime.now(timezone.utc)
-        q.last_reviewed_by_admin_id = admin.id
+            return bad_request("validation_error", "correct_answer must be one of a/b/c/d.")
+        q.correct_answer              = ans
+        q.last_reviewed_at            = datetime.now(timezone.utc)
+        q.last_reviewed_by_admin_id   = admin.id
 
     if "difficulty" in data:
         diff = data["difficulty"]
         if diff and diff not in {d.value for d in Difficulty}:
-            return bad_request("validation_error",
-                               "difficulty must be easy/medium/hard.")
+            return bad_request("validation_error", "difficulty must be easy/medium/hard.")
         q.difficulty = Difficulty(diff) if diff else None
 
-    # Allow updating world assignment via individual edit
     if "world_key" in data:
         wk = (data["world_key"] or "").strip().lower() or None
         if wk and wk not in VALID_WORLD_KEYS:
@@ -1397,18 +1550,17 @@ def update_question(question_id: int):
 @admin_bp.route("/questions/<int:question_id>", methods=["DELETE"])
 @roles_required(*_ADMIN_ROLE)
 def delete_question(question_id: int):
-    """Soft delete — sets deleted_at and deleted_by_admin_id."""
     admin = _get_current_user()
     q     = Question.query.filter_by(id=question_id, deleted_at=None).first()
     if not q:
         return error_response("not_found", "Question not found.", 404)
 
     now = datetime.now(timezone.utc)
-    q.deleted_at           = now
-    q.deleted_by_admin_id  = admin.id
-    q.is_active            = False
-    q.updated_by_admin_id  = admin.id
-    q.updated_at           = now
+    q.deleted_at          = now
+    q.deleted_by_admin_id = admin.id
+    q.is_active           = False
+    q.updated_by_admin_id = admin.id
+    q.updated_at          = now
     db.session.commit()
     return jsonify({"message": "Question deleted."}), 200
 
@@ -1416,7 +1568,6 @@ def delete_question(question_id: int):
 @admin_bp.route("/questions/<int:question_id>/activate", methods=["PATCH"])
 @roles_required(*_ADMIN_ROLE)
 def toggle_question_active(question_id: int):
-    """Toggle is_active. Body: { "is_active": true|false }"""
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
     q     = Question.query.filter_by(id=question_id, deleted_at=None).first()
@@ -1426,9 +1577,9 @@ def toggle_question_active(question_id: int):
     if "is_active" not in data:
         return bad_request("validation_error", "is_active (boolean) is required.")
 
-    q.is_active            = bool(data["is_active"])
-    q.updated_by_admin_id  = admin.id
-    q.version             += 1
+    q.is_active           = bool(data["is_active"])
+    q.updated_by_admin_id = admin.id
+    q.version            += 1
     db.session.commit()
     return jsonify({"question": q.to_dict(include_answer=True)}), 200
 
@@ -1436,10 +1587,6 @@ def toggle_question_active(question_id: int):
 @admin_bp.route("/questions/<int:question_id>/mark-reviewed", methods=["PATCH"])
 @roles_required(*_ADMIN_ROLE)
 def mark_question_reviewed(question_id: int):
-    """
-    Mark a question as reviewed without changing content.
-    Body: { "version": int }
-    """
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
 
@@ -1449,7 +1596,7 @@ def mark_question_reviewed(question_id: int):
 
     submitted_version = data.get("version")
     if submitted_version is None:
-        return bad_request("version_required", "version is required for optimistic locking.")
+        return bad_request("version_required", "version is required.")
     if int(submitted_version) != q.version:
         return conflict(
             f"Question was modified by another admin (expected version {submitted_version}, "
@@ -1475,17 +1622,6 @@ def mark_question_reviewed(question_id: int):
 @admin_bp.route("/questions/bulk-activate", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def bulk_activate_questions():
-    """
-    Bulk activate or deactivate questions.
-
-    Body:
-    {
-      "is_active": true|false,
-      "exam": "qudurat",       -- optional filter
-      "world_key": "math_100", -- optional filter
-      "ids": [1,2,3]           -- optional: explicit IDs (overrides filters)
-    }
-    """
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
 
@@ -1533,17 +1669,6 @@ def bulk_activate_questions():
 @admin_bp.route("/questions/bulk-topic", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def bulk_assign_topic():
-    """
-    Bulk assign a topic to questions.
-
-    Body:
-    {
-      "topic":     "algebra",
-      "exam":      "qudurat",   -- optional filter
-      "world_key": "math_100",  -- optional filter
-      "ids":       [1,2,3]      -- optional: explicit IDs
-    }
-    """
     admin = _get_current_user()
     data  = request.get_json(silent=True) or {}
 
@@ -1553,8 +1678,7 @@ def bulk_assign_topic():
     ids       = data.get("ids")
 
     if topic_val and topic_val not in ALL_TOPIC_KEYS:
-        return bad_request("invalid_topic",
-                           f"Invalid topic: {topic_val!r}. Must be a valid topic key.")
+        return bad_request("invalid_topic", f"Invalid topic: {topic_val!r}.")
 
     now = datetime.now(timezone.utc)
     q   = Question.query.filter(Question.deleted_at.is_(None))
@@ -1614,11 +1738,7 @@ def create_org():
     if existing:
         return conflict(f"An org with slug {slug!r} already exists.")
 
-    org = Org(
-        name=name, slug=slug,
-        estimated_student_count=count,
-        created_by_admin_id=admin.id,
-    )
+    org = Org(name=name, slug=slug, estimated_student_count=count, created_by_admin_id=admin.id)
     db.session.add(org)
     db.session.commit()
     return jsonify({"org": org.to_dict()}), 201
@@ -1929,13 +2049,9 @@ def reset_user_password(user_id: int):
 def get_stats():
     now = datetime.now(timezone.utc)
 
-    total_questions  = Question.query.filter(Question.deleted_at.is_(None)).count()
-    active_questions = Question.query.filter(
-        Question.deleted_at.is_(None), Question.is_active == True
-    ).count()
-    unassigned_questions = Question.query.filter(
-        Question.deleted_at.is_(None), Question.world_key.is_(None)
-    ).count()
+    total_questions      = Question.query.filter(Question.deleted_at.is_(None)).count()
+    active_questions     = Question.query.filter(Question.deleted_at.is_(None), Question.is_active == True).count()
+    unassigned_questions = Question.query.filter(Question.deleted_at.is_(None), Question.world_key.is_(None)).count()
 
     total_users = User.query.filter_by(role=UserRole.STUDENT).count()
     total_orgs  = Org.query.count()
@@ -1960,19 +2076,13 @@ def get_stats():
 
     return jsonify({
         "questions": {
-            "total":      total_questions,
-            "active":     active_questions,
-            "unassigned": unassigned_questions,
+            "total":       total_questions,
+            "active":      active_questions,
+            "unassigned":  unassigned_questions,
             "per_exam":    questions_per_exam,
             "per_section": questions_per_section,
         },
-        "users": {
-            "students": total_users,
-        },
-        "orgs": {
-            "total": total_orgs,
-        },
-        "entitlements": {
-            "active": active_entitlements,
-        },
+        "users":        {"students": total_users},
+        "orgs":         {"total": total_orgs},
+        "entitlements": {"active": active_entitlements},
     }), 200

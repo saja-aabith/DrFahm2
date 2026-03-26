@@ -20,6 +20,17 @@ Key design decisions:
                        data retains FK integrity forever.
 - Optimistic locking — `version` integer. Any UPDATE must supply the current
                        version; mismatch → 409 Conflict.
+
+AI review fields (added Chunk J):
+- `review_status`        — workflow state machine (see ReviewStatus enum).
+- `llm_predicted_answer` — GPT-proposed answer. NOT used in gameplay until admin
+                           explicitly approves (copies to correct_answer).
+- `llm_confidence`       — 0.0–1.0, LLM self-reported certainty.
+- `llm_review_note`      — 1-sentence internal justification for admin verification.
+                           NEVER included in any student-facing serialisation.
+- `llm_proposed_hint`    — AI-drafted hint. Staged here until admin approves;
+                           copied to hint column on approval.
+- `llm_reviewed_at`      — timestamp of the most recent LLM call for this question.
 """
 
 import enum
@@ -35,6 +46,26 @@ class Difficulty(str, enum.Enum):
     EASY   = "easy"
     MEDIUM = "medium"
     HARD   = "hard"
+
+
+class ReviewStatus(str, enum.Enum):
+    """
+    AI review workflow states.
+
+    Transitions:
+      unreviewed  ──► ai_pending   (admin triggers AI review)
+      ai_pending  ──► ai_reviewed  (LLM call succeeded)
+      ai_pending  ──► unreviewed   (LLM call failed — reset so it can be retried)
+      ai_reviewed ──► approved     (admin accepts prediction)
+      ai_reviewed ──► rejected     (admin rejects prediction — manual edit needed)
+      rejected    ──► approved     (admin edits and saves manually)
+      approved    ──► ai_reviewed  (overwrite=true re-review)
+    """
+    UNREVIEWED  = "unreviewed"
+    AI_PENDING  = "ai_pending"
+    AI_REVIEWED = "ai_reviewed"
+    APPROVED    = "approved"
+    REJECTED    = "rejected"
 
 
 class Question(db.Model):
@@ -77,6 +108,7 @@ class Question(db.Model):
 
     # Shown to student AFTER a wrong answer. Frontend controls reveal timing.
     # Never reveals the correct answer directly. Supports LaTeX ($...$).
+    # Populated manually by admin OR copied from llm_proposed_hint on approval.
     hint = db.Column(db.Text, nullable=True)
 
     # Supporting image (data URI or HTTP URL). POST-MVP: migrate to S3.
@@ -86,6 +118,42 @@ class Question(db.Model):
     topic      = db.Column(db.String(100), nullable=True, index=True)
     difficulty = db.Column(db.Enum(Difficulty), nullable=True, index=True)
     is_active  = db.Column(db.Boolean, nullable=False, default=False, index=True)
+
+    # ── AI review fields ──────────────────────────────────────────────────────
+    # These fields are INTERNAL to the admin workflow.
+    # None of them are ever included in student-facing serialisation.
+    # correct_answer is the single source of truth for gameplay — it is only
+    # updated when an admin explicitly approves an llm_predicted_answer.
+
+    # Workflow state — see ReviewStatus enum for valid transitions.
+    review_status = db.Column(
+        db.Enum(ReviewStatus),
+        nullable=False,
+        default=ReviewStatus.UNREVIEWED,
+        server_default=ReviewStatus.UNREVIEWED.value,
+        index=True,
+    )
+
+    # GPT-proposed answer (a/b/c/d). Staged — does NOT affect gameplay until
+    # admin copies it to correct_answer via the approve-review endpoint.
+    llm_predicted_answer = db.Column(db.String(1), nullable=True)
+
+    # LLM self-reported certainty. Surfaced in admin panel to help prioritise
+    # manual review (low confidence → check carefully).
+    llm_confidence = db.Column(db.Float, nullable=True)
+
+    # 1-sentence internal note from the LLM explaining its predicted answer.
+    # Shown only in admin panel to help verify quickly.
+    # INVARIANT: never included in any serialisation path that reaches students.
+    llm_review_note = db.Column(db.Text, nullable=True)
+
+    # AI-drafted student hint. Staged here until admin approves.
+    # Copied to hint column only on explicit approval (accept_hint=True).
+    # Preserves any existing human-written hint until overwritten.
+    llm_proposed_hint = db.Column(db.Text, nullable=True)
+
+    # Timestamp of the most recent LLM review call for this question.
+    llm_reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     # ── Soft delete ───────────────────────────────────────────────────────────
     deleted_at          = db.Column(db.DateTime(timezone=True), nullable=True)
@@ -133,7 +201,6 @@ class Question(db.Model):
 
     # Partial unique index (world_key, index) is managed in the migration —
     # only enforced when both are non-null and row is not soft-deleted.
-    # SQLAlchemy does not support partial indexes in __table_args__ natively.
     __table_args__ = ()
 
     # ── Properties ────────────────────────────────────────────────────────────
@@ -157,13 +224,14 @@ class Question(db.Model):
         """
         Serialise question to a dict.
 
-        include_answer=True  → adds correct_answer AND hint  (admin panel only).
-        include_hint=True    → adds hint only, NO correct_answer (gameplay).
-                               The frontend shows the hint only after the student
-                               selects a wrong answer — backend never enforces that
-                               timing; it just supplies the data.
+        include_answer=True  → admin view: adds correct_answer, hint, AND all
+                               llm_* review fields (predicted_answer, confidence,
+                               review_note, proposed_hint, review_status).
+        include_hint=True    → gameplay view: adds hint only. No answer,
+                               no llm_* fields ever reach students.
 
-        Invariant: correct_answer is NEVER sent unless include_answer=True.
+        INVARIANT: llm_review_note and llm_* fields are NEVER included unless
+        include_answer=True. They are internal admin-only fields.
         """
         d = {
             "id":            self.id,
@@ -191,11 +259,24 @@ class Question(db.Model):
         }
 
         if include_answer:
-            # Full admin view — correct answer + hint both included
+            # ── Admin view ────────────────────────────────────────────────────
+            # Full content + all AI review fields.
             d["correct_answer"] = self.correct_answer
             d["hint"]           = self.hint
+
+            # AI review workflow fields — admin panel only
+            d["review_status"]        = self.review_status.value if self.review_status else ReviewStatus.UNREVIEWED.value
+            d["llm_predicted_answer"] = self.llm_predicted_answer
+            d["llm_confidence"]       = self.llm_confidence
+            d["llm_review_note"]      = self.llm_review_note        # INTERNAL ONLY
+            d["llm_proposed_hint"]    = self.llm_proposed_hint
+            d["llm_reviewed_at"]      = (
+                self.llm_reviewed_at.isoformat() if self.llm_reviewed_at else None
+            )
+
         elif include_hint:
-            # Gameplay view — hint only, answer stays server-side
+            # ── Gameplay view ─────────────────────────────────────────────────
+            # Hint only. No answer, no llm_* fields.
             d["hint"] = self.hint
 
         return d

@@ -7,13 +7,81 @@ import ImageUpload from '../components/ImageUpload';
 import LaTeXCheatsheet from '../components/LaTeXCheatsheet';
 import * as adminApi from '../api/admin';
 
-// Inject row-selected style (avoids touching global.css for this chunk)
+// Inject styles
 if (typeof document !== 'undefined' && !document.getElementById('chunk-e-styles')) {
   const s = document.createElement('style');
   s.id = 'chunk-e-styles';
   s.textContent = `
     .row-selected { background: rgba(139,92,246,0.07) !important; }
     .row-selected:hover { background: rgba(139,92,246,0.11) !important; }
+
+    /* ── Chunk J: AI review card ── */
+    .ai-review-card {
+      margin-top: 12px; padding: 14px 16px; border-radius: 10px;
+      background: rgba(124,58,237,0.06); border: 1px solid rgba(124,58,237,0.2);
+    }
+    .ai-review-card.rejected {
+      background: rgba(220,38,38,0.05); border-color: rgba(220,38,38,0.2);
+    }
+    .ai-review-card.approved {
+      background: rgba(22,163,74,0.05); border-color: rgba(22,163,74,0.2);
+    }
+    .ai-review-predicted {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.1rem;
+      background: rgba(124,58,237,0.15); color: #a78bfa;
+      border: 1.5px solid rgba(124,58,237,0.3);
+    }
+    .ai-review-btn {
+      padding: 6px 14px; border-radius: 7px; font-weight: 700;
+      font-size: 0.85rem; cursor: pointer; transition: opacity 0.15s;
+    }
+    .ai-review-btn:disabled { opacity: 0.5; cursor: default; }
+    .ai-review-btn.approve {
+      background: rgba(22,163,74,0.15); color: #16a34a;
+      border: 1px solid rgba(22,163,74,0.35);
+    }
+    .ai-review-btn.edit {
+      background: rgba(255,255,255,0.04); color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .ai-review-btn.edit.active {
+      background: rgba(59,130,246,0.15); color: #60a5fa;
+      border-color: rgba(59,130,246,0.3);
+    }
+    .ai-review-btn.reject {
+      background: rgba(220,38,38,0.08); color: #dc2626;
+      border: 1px solid rgba(220,38,38,0.25);
+    }
+    .ai-review-note {
+      padding: 8px 10px; border-radius: 6px;
+      background: rgba(0,0,0,0.15); border-left: 3px solid rgba(124,58,237,0.4);
+      margin-bottom: 10px;
+    }
+    .ai-review-hint {
+      padding: 8px 10px; border-radius: 6px;
+      background: rgba(217,119,6,0.06); border: 1px solid rgba(217,119,6,0.2);
+      margin-bottom: 10px;
+    }
+    .ai-override-btn {
+      width: 32px; height: 32px; border-radius: 6px; font-weight: 700;
+      font-size: 0.85rem; cursor: pointer;
+      background: rgba(255,255,255,0.04); border: 1.5px solid var(--border);
+      color: var(--text-muted); transition: all 0.1s;
+    }
+    .ai-override-btn.selected {
+      background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.5); color: #4ade80;
+    }
+    /* AI review progress modal log */
+    .ai-log {
+      max-height: 180px; overflow: auto;
+      background: rgba(0,0,0,0.2); border-radius: 6px; padding: 10px;
+      font-size: 0.8rem; font-family: monospace; color: var(--text-muted);
+    }
+    .ai-log-line { margin-bottom: 2px; }
+    .ai-log-line.ok   { color: #4ade80; }
+    .ai-log-line.fail { color: #f87171; }
   `;
   document.head.appendChild(s);
 }
@@ -77,12 +145,13 @@ function useFlash() {
 
 function Pill({ color = 'gray', children, style, ...rest }) {
   const colors = {
-    green: { bg: 'rgba(22,163,74,0.08)', text: '#15803d', border: 'rgba(22,163,74,0.2)' },
-    amber: { bg: 'rgba(217,119,6,0.08)', text: '#b45309', border: 'rgba(217,119,6,0.2)' },
-    violet: { bg: 'rgba(124,58,237,0.08)', text: '#6d28d9', border: 'rgba(124,58,237,0.2)' },
-    gray: { bg: 'rgba(100,116,139,0.08)', text: '#64748b', border: 'rgba(100,116,139,0.15)' },
-    blue: { bg: 'rgba(59,130,246,0.08)', text: '#2563eb', border: 'rgba(59,130,246,0.2)' },
-    cyan: { bg: 'rgba(6,182,212,0.08)', text: '#0891b2', border: 'rgba(6,182,212,0.2)' },
+    green:  { bg: 'rgba(22,163,74,0.08)',    text: '#15803d',  border: 'rgba(22,163,74,0.2)' },
+    amber:  { bg: 'rgba(217,119,6,0.08)',    text: '#b45309',  border: 'rgba(217,119,6,0.2)' },
+    violet: { bg: 'rgba(124,58,237,0.08)',   text: '#6d28d9',  border: 'rgba(124,58,237,0.2)' },
+    gray:   { bg: 'rgba(100,116,139,0.08)',  text: '#64748b',  border: 'rgba(100,116,139,0.15)' },
+    blue:   { bg: 'rgba(59,130,246,0.08)',   text: '#2563eb',  border: 'rgba(59,130,246,0.2)' },
+    cyan:   { bg: 'rgba(6,182,212,0.08)',    text: '#0891b2',  border: 'rgba(6,182,212,0.2)' },
+    red:    { bg: 'rgba(220,38,38,0.08)',    text: '#dc2626',  border: 'rgba(220,38,38,0.2)' },
   };
   const c = colors[color] || colors.gray;
   return (
@@ -107,11 +176,11 @@ function TabBar({ tabs, active, onChange }) {
 
 function Modal({ title, onClose, children, width }) {
   return (
-    <div className="admin-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="admin-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose && onClose()}>
       <div className="admin-modal" style={width ? { maxWidth: width } : {}}>
         <div className="admin-modal-header">
           <h3 className="admin-modal-title">{title}</h3>
-          <button className="admin-modal-close" onClick={onClose}>✕</button>
+          {onClose && <button className="admin-modal-close" onClick={onClose}>✕</button>}
         </div>
         <div className="admin-modal-body">{children}</div>
       </div>
@@ -172,11 +241,10 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
 
 // ── TOPIC COVERAGE PANEL ──────────────────────────────────────────────────────
 
-// Colour thresholds for per-topic bars
 function topicBarColor(count) {
-  if (count < 10)  return { bar: '#dc2626', bg: 'rgba(220,38,38,0.12)',  text: '#dc2626' };  // red
-  if (count < 30)  return { bar: '#d97706', bg: 'rgba(217,119,6,0.12)',  text: '#b45309' };  // amber
-  return             { bar: '#16a34a', bg: 'rgba(22,163,74,0.1)',   text: '#15803d' };         // green
+  if (count < 10)  return { bar: '#dc2626', bg: 'rgba(220,38,38,0.12)',  text: '#dc2626' };
+  if (count < 30)  return { bar: '#d97706', bg: 'rgba(217,119,6,0.12)',  text: '#b45309' };
+  return             { bar: '#16a34a', bg: 'rgba(22,163,74,0.1)',   text: '#15803d' };
 }
 
 function TopicCoveragePanel({ examFilter, refreshKey, onShowUntagged }) {
@@ -187,218 +255,96 @@ function TopicCoveragePanel({ examFilter, refreshKey, onShowUntagged }) {
   useEffect(() => {
     setLoading(true);
     adminApi.topicCoverage({ exam: examFilter || '' })
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then(setData).catch(() => {}).finally(() => setLoading(false));
   }, [examFilter, refreshKey]);
 
   if (!data && !loading) return null;
-  if (loading && !data)  return null; // silent until first load
+  if (loading && !data)  return null;
 
   const { summary, by_section } = data || {};
   if (!summary) return null;
 
-  const overallPct = summary.total > 0
-    ? Math.round((summary.tagged / summary.total) * 100)
-    : 0;
-
-  // Overall bar colour based on pct
+  const overallPct = summary.total > 0 ? Math.round((summary.tagged / summary.total) * 100) : 0;
   const overallBarColor = overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#16a34a';
 
   return (
     <div className="topic-coverage-panel" style={{
-      background: 'var(--bg-card, rgba(255,255,255,0.04))',
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      padding: '14px 16px',
-      marginBottom: 16,
+      background: 'var(--bg-card, rgba(255,255,255,0.04))', border: '1px solid var(--border)',
+      borderRadius: 10, padding: '14px 16px', marginBottom: 16,
     }}>
-      {/* ── Header row ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-          Topic Coverage
-        </span>
+        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>Topic Coverage</span>
         <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>
-          {summary.tagged.toLocaleString()} tagged
-          {' · '}
-          <span style={{ color: summary.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>
-            {summary.untagged.toLocaleString()} untagged
-          </span>
-          {' · '}
-          <strong style={{ color: overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#15803d' }}>
-            {overallPct}%
-          </strong>
+          {summary.tagged.toLocaleString()} tagged · <span style={{ color: summary.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>{summary.untagged.toLocaleString()} untagged</span>
+          {' · '}<strong style={{ color: overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#15803d' }}>{overallPct}%</strong>
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           {summary.untagged > 0 && onShowUntagged && (
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: '0.8rem', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
-              onClick={onShowUntagged}
-              title="Filter to untagged questions"
-            >
-              ⚠ Show untagged
-            </button>
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
+              onClick={onShowUntagged}>⚠ Show untagged</button>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(!expanded)}>
-            {expanded ? 'Collapse' : 'Details'}
-          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(!expanded)}>{expanded ? 'Collapse' : 'Details'}</button>
         </div>
       </div>
-
-      {/* ── Overall progress bar ── */}
       <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', borderRadius: 3,
-          width: `${overallPct}%`,
-          background: overallBarColor,
-          transition: 'width 0.4s ease',
-        }} />
+        <div style={{ height: '100%', borderRadius: 3, width: `${overallPct}%`, background: overallBarColor, transition: 'width 0.4s ease' }} />
       </div>
-
-      {/* ── Expanded detail ── */}
       {expanded && by_section && (
         <div style={{ marginTop: 16 }}>
           {Object.entries(by_section).map(([sectionKey, secData]) => {
-            const secPct = secData.total > 0
-              ? Math.round((secData.tagged / secData.total) * 100)
-              : 0;
+            const secPct = secData.total > 0 ? Math.round((secData.tagged / secData.total) * 100) : 0;
             const secBarColor = secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#16a34a';
-
-            // Max count in this section (for bar scaling)
             const topics = secData.topics || [];
             const maxCount = topics.reduce((m, t) => Math.max(m, t.count), 1);
-
             return (
-              <div key={sectionKey} style={{
-                marginBottom: 20,
-                paddingBottom: 16,
-                borderBottom: '1px solid var(--border)',
-              }}>
-                {/* Section header */}
+              <div key={sectionKey} style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{
-                    fontWeight: 700, fontSize: '0.88rem', textTransform: 'capitalize',
-                    color: 'var(--text-secondary)',
-                  }}>
-                    {sectionKey}
-                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{sectionKey}</span>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {secData.total.toLocaleString()} total ·{' '}
-                    {secData.tagged.toLocaleString()} tagged ·{' '}
-                    <span style={{ color: secData.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>
-                      {secData.untagged.toLocaleString()} untagged
-                    </span>
+                    {secData.total.toLocaleString()} total · {secData.tagged.toLocaleString()} tagged ·{' '}
+                    <span style={{ color: secData.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>{secData.untagged.toLocaleString()} untagged</span>
                   </span>
-                  <span style={{
-                    marginLeft: 'auto', fontWeight: 700, fontSize: '0.85rem',
-                    color: secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#15803d',
-                  }}>
-                    {secPct}%
-                  </span>
+                  <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: '0.85rem', color: secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#15803d' }}>{secPct}%</span>
                 </div>
-
-                {/* Section progress bar */}
                 <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 12 }}>
-                  <div style={{
-                    height: '100%', borderRadius: 2,
-                    width: `${secPct}%`,
-                    background: secBarColor,
-                    transition: 'width 0.4s ease',
-                  }} />
+                  <div style={{ height: '100%', borderRadius: 2, width: `${secPct}%`, background: secBarColor, transition: 'width 0.4s ease' }} />
                 </div>
-
-                {/* Per-topic bars */}
                 {topics.length === 0 ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>No topics defined for this section.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {topics.map((t) => {
-                      const clr      = topicBarColor(t.count);
+                      const clr = topicBarColor(t.count);
                       const barWidth = maxCount > 0 ? Math.round((t.count / maxCount) * 100) : 0;
                       return (
                         <div key={t.topic} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {/* Label */}
-                          <span style={{
-                            width: 160, flexShrink: 0,
-                            fontSize: '0.8rem', color: 'var(--text-secondary)',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }} title={t.label}>
-                            {t.label}
-                          </span>
-                          {/* Bar track */}
-                          <div style={{
-                            flex: 1, height: 14, borderRadius: 3,
-                            background: clr.bg, overflow: 'hidden',
-                            position: 'relative',
-                          }}>
-                            <div style={{
-                              position: 'absolute', left: 0, top: 0, bottom: 0,
-                              width: `${barWidth}%`,
-                              background: clr.bar,
-                              borderRadius: 3,
-                              transition: 'width 0.35s ease',
-                              opacity: 0.85,
-                            }} />
+                          <span style={{ width: 160, flexShrink: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.label}>{t.label}</span>
+                          <div style={{ flex: 1, height: 14, borderRadius: 3, background: clr.bg, overflow: 'hidden', position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, background: clr.bar, borderRadius: 3, transition: 'width 0.35s ease', opacity: 0.85 }} />
                           </div>
-                          {/* Count badge */}
-                          <span style={{
-                            width: 40, flexShrink: 0, textAlign: 'right',
-                            fontSize: '0.78rem', fontWeight: 600,
-                            color: clr.text,
-                          }}>
-                            {t.count}
-                          </span>
-                          {/* Traffic light dot */}
-                          <span style={{
-                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                            background: clr.bar,
-                          }} />
+                          <span style={{ width: 40, flexShrink: 0, textAlign: 'right', fontSize: '0.78rem', fontWeight: 600, color: clr.text }}>{t.count}</span>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: clr.bar }} />
                         </div>
                       );
                     })}
                   </div>
                 )}
-
-                {/* Untagged note for this section */}
                 {secData.untagged > 0 && (
-                  <div style={{
-                    marginTop: 8, padding: '6px 10px', borderRadius: 6,
-                    background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)',
-                    fontSize: '0.8rem', color: '#b45309',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                  }}>
+                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', fontSize: '0.8rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>⚠</span>
                     <span>{secData.untagged.toLocaleString()} question{secData.untagged !== 1 ? 's' : ''} in this section have no topic tag.</span>
-                    {onShowUntagged && (
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ marginLeft: 'auto', fontSize: '0.78rem', padding: '1px 8px', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
-                        onClick={onShowUntagged}
-                      >
-                        Filter
-                      </button>
-                    )}
+                    {onShowUntagged && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: '0.78rem', padding: '1px 8px', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }} onClick={onShowUntagged}>Filter</button>}
                   </div>
                 )}
               </div>
             );
           })}
-
-          {/* Legend */}
           <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
-              &lt;10 questions
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
-              10–29 questions
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
-              30+ questions
-            </span>
+            {[['#dc2626','<10 questions'],['#d97706','10–29 questions'],['#16a34a','30+ questions']].map(([c,l]) => (
+              <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' }} />{l}
+              </span>
+            ))}
           </div>
         </div>
       )}
@@ -467,11 +413,8 @@ function InlineAnswerPicker({ question, onSaved }) {
           ))}
           {!isReviewed && (
             <button className="inline-answer-btn confirm" onClick={handleConfirmReview}
-              title="Confirm current answer is correct (mark as reviewed)" style={{
-                marginLeft: 4, background: 'rgba(34,197,94,0.15)', color: '#15803d',
-                border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '2px 6px',
-                fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700,
-              }}>
+              title="Confirm current answer is correct (mark as reviewed)"
+              style={{ marginLeft: 4, background: 'rgba(34,197,94,0.15)', color: '#15803d', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '2px 6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>
               ✓
             </button>
           )}
@@ -513,9 +456,7 @@ function InlineDifficultyPicker({ question, onSaved }) {
     }
     return (
       <span onClick={() => setOpen(true)} title="Click to tag difficulty"
-        style={{ color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, border: '1px dashed rgba(255,255,255,0.1)' }}>
-        —
-      </span>
+        style={{ color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, border: '1px dashed rgba(255,255,255,0.1)' }}>—</span>
     );
   }
 
@@ -572,9 +513,7 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
     }
     return (
       <span onClick={() => setOpen(true)} title="Click to tag topic"
-        style={{ color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, border: '1px dashed rgba(255,255,255,0.1)' }}>
-        —
-      </span>
+        style={{ color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, border: '1px dashed rgba(255,255,255,0.1)' }}>—</span>
     );
   }
 
@@ -582,21 +521,169 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
     <div ref={ref} className="inline-topic-picker">
       {saving ? <span className="inline-answer-saving">…</span> : (
         <div className="inline-topic-dropdown">
-          {topics.length === 0 && (
-            <div className="inline-topic-empty">No topics for this section</div>
-          )}
+          {topics.length === 0 && <div className="inline-topic-empty">No topics for this section</div>}
           {topics.map((t) => (
-            <button key={t.key}
-              className={`inline-topic-btn ${t.key === question.topic ? 'active' : ''}`}
-              onClick={() => handlePick(t.key)}>
-              {t.label}
+            <button key={t.key} className={`inline-topic-btn ${t.key === question.topic ? 'active' : ''}`} onClick={() => handlePick(t.key)}>{t.label}</button>
+          ))}
+          {question.topic && <button className="inline-topic-btn clear" onClick={() => handlePick('')}>✕ Clear topic</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── AI REVIEW CARD (shown inside ExpandedQuestionRow) ─────────────────────────
+
+function AIReviewCard({ question, onUpdated }) {
+  const [approving,      setApproving]      = useState(false);
+  const [rejecting,      setRejecting]      = useState(false);
+  const [editMode,       setEditMode]       = useState(false);
+  const [overrideAnswer, setOverrideAnswer] = useState('');
+  const [acceptHint,     setAcceptHint]     = useState(true);
+
+  const status     = question.review_status;
+  const confidence = question.llm_confidence;
+
+  // Confidence colour: high ≥85%, medium 65–84%, low <65%
+  const confColor = confidence >= 0.85 ? '#16a34a' : confidence >= 0.65 ? '#d97706' : '#dc2626';
+  const confLabel = confidence >= 0.85 ? 'High' : confidence >= 0.65 ? 'Medium' : 'Low';
+  const confPill  = confidence >= 0.85 ? 'green'  : confidence >= 0.65 ? 'amber'  : 'red';
+
+  const cardClass = status === 'rejected' ? 'ai-review-card rejected'
+                  : status === 'approved' ? 'ai-review-card approved'
+                  : 'ai-review-card';
+
+  const handleApprove = async () => {
+    setApproving(true);
+    try {
+      const body = { version: question.version, accept_answer: true, accept_hint: acceptHint };
+      if (editMode && overrideAnswer) body.correct_answer = overrideAnswer;
+      const result = await adminApi.approveReview(question.id, body);
+      onUpdated(result.question);
+    } catch (e) { alert(e?.error?.message || 'Approval failed. Reload and try again.'); }
+    finally { setApproving(false); }
+  };
+
+  const handleReject = async () => {
+    setRejecting(true);
+    try {
+      const result = await adminApi.rejectReview(question.id, question.version);
+      onUpdated(result.question);
+    } catch (e) { alert(e?.error?.message || 'Rejection failed.'); }
+    finally { setRejecting(false); }
+  };
+
+  // Don't render if no AI data
+  if (!question.llm_predicted_answer && !question.llm_review_note && !question.llm_proposed_hint) return null;
+
+  return (
+    <div className={cardClass}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <span style={{ fontWeight: 700, fontSize: '0.87rem', color: 'var(--text-secondary)' }}>🤖 AI Review</span>
+        {status === 'ai_reviewed' && <Pill color="violet">Pending approval</Pill>}
+        {status === 'rejected'    && <Pill color="red">Rejected — edit manually or re-run</Pill>}
+        {status === 'approved'    && <Pill color="green">Approved</Pill>}
+        {question.llm_reviewed_at && (
+          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {new Date(question.llm_reviewed_at).toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      {/* Predicted answer + confidence */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Predicted Answer</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="ai-review-predicted">{question.llm_predicted_answer?.toUpperCase() || '?'}</div>
+            {question.correct_answer !== question.llm_predicted_answer && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                current: <strong style={{ color: 'var(--text-secondary)' }}>{question.correct_answer?.toUpperCase()}</strong>
+              </span>
+            )}
+            {question.correct_answer === question.llm_predicted_answer && (
+              <span style={{ fontSize: '0.75rem', color: '#15803d' }}>matches current ✓</span>
+            )}
+          </div>
+        </div>
+
+        {confidence != null && (
+          <div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Confidence</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: confColor }}>{Math.round(confidence * 100)}%</span>
+              <Pill color={confPill}>{confLabel}</Pill>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Review note — internal admin only */}
+      {question.llm_review_note && (
+        <div className="ai-review-note">
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-muted)', marginBottom: 4 }}>
+            🔒 Admin Note (never shown to students)
+          </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+            {question.llm_review_note}
+          </div>
+        </div>
+      )}
+
+      {/* Proposed hint */}
+      {question.llm_proposed_hint && (
+        <div className="ai-review-hint">
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#b45309', marginBottom: 4 }}>
+            💡 Proposed Hint (shown to student after wrong answer)
+          </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            <MathText text={question.llm_proposed_hint} />
+          </div>
+          {status !== 'approved' && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={acceptHint} onChange={e => setAcceptHint(e.target.checked)} />
+              Accept this hint (copies to live hint field on approval)
+            </label>
+          )}
+        </div>
+      )}
+
+      {/* Answer override (edit mode) */}
+      {editMode && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>Override answer:</span>
+          {['a', 'b', 'c', 'd'].map(opt => (
+            <button key={opt}
+              className={`ai-override-btn ${overrideAnswer === opt ? 'selected' : ''}`}
+              onClick={() => setOverrideAnswer(overrideAnswer === opt ? '' : opt)}>
+              {opt.toUpperCase()}
             </button>
           ))}
-          {question.topic && (
-            <button className="inline-topic-btn clear" onClick={() => handlePick('')}>
-              ✕ Clear topic
-            </button>
+          {overrideAnswer ? (
+            <span style={{ fontSize: '0.78rem', color: '#4ade80' }}>Will approve as {overrideAnswer.toUpperCase()}</span>
+          ) : (
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No override — will use AI prediction ({question.llm_predicted_answer?.toUpperCase()})</span>
           )}
+        </div>
+      )}
+
+      {/* Action buttons — only show for pending/rejected */}
+      {['ai_reviewed', 'rejected'].includes(status) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="ai-review-btn approve" onClick={handleApprove} disabled={approving || rejecting}>
+            {approving ? '…' : '✓ Approve'}
+          </button>
+          <button
+            className={`ai-review-btn edit ${editMode ? 'active' : ''}`}
+            onClick={() => { setEditMode(!editMode); if (editMode) setOverrideAnswer(''); }}
+          >
+            ✏ {editMode ? 'Cancel Edit' : 'Edit & Approve'}
+          </button>
+          <button className="ai-review-btn reject" onClick={handleReject} disabled={approving || rejecting}>
+            {rejecting ? '…' : '✗ Reject'}
+          </button>
         </div>
       )}
     </div>
@@ -606,7 +693,7 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
 
 // ── EXPANDED QUESTION ROW ─────────────────────────────────────────────────────
 
-function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
+function ExpandedQuestionRow({ question, colSpan, taxonomy, onQuestionUpdated }) {
   const section = question.section || getSectionFromWorldKey(question.world_key);
   const topics = (taxonomy && section && taxonomy[section]) || [];
   const topicLabel = question.topic
@@ -633,9 +720,7 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
               return (
                 <div key={opt} className={`expanded-option ${isCorrect ? 'correct' : ''}`}>
                   <span className="expanded-option-letter">{opt.toUpperCase()}</span>
-                  <span className="expanded-option-text">
-                    <MathText text={question[`option_${opt}`]} />
-                  </span>
+                  <span className="expanded-option-text"><MathText text={question[`option_${opt}`]} /></span>
                   {isCorrect && <span className="expanded-correct-badge">✓ Correct</span>}
                 </div>
               );
@@ -653,26 +738,30 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
 
           <div className="expanded-meta-row">
             {topicLabel && (
-              <span className="expanded-meta-item">
-                <span style={{ color: 'var(--text-muted)' }}>Topic:</span>{' '}
-                <Pill color="cyan">{topicLabel}</Pill>
-              </span>
+              <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Topic:</span> <Pill color="cyan">{topicLabel}</Pill></span>
             )}
             {question.difficulty && (
+              <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Difficulty:</span> <Pill color={question.difficulty === 'easy' ? 'green' : 'amber'}>{question.difficulty}</Pill></span>
+            )}
+            <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>ID:</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{question.id}</span></span>
+            <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Version:</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>v{question.version}</span></span>
+            {question.review_status && question.review_status !== 'unreviewed' && (
               <span className="expanded-meta-item">
-                <span style={{ color: 'var(--text-muted)' }}>Difficulty:</span>{' '}
-                <Pill color={question.difficulty === 'easy' ? 'green' : 'amber'}>{question.difficulty}</Pill>
+                <span style={{ color: 'var(--text-muted)' }}>AI Status:</span>{' '}
+                <Pill color={
+                  question.review_status === 'approved'    ? 'green'  :
+                  question.review_status === 'rejected'    ? 'red'    :
+                  question.review_status === 'ai_reviewed' ? 'violet' : 'gray'
+                }>{question.review_status}</Pill>
               </span>
             )}
-            <span className="expanded-meta-item">
-              <span style={{ color: 'var(--text-muted)' }}>ID:</span>{' '}
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{question.id}</span>
-            </span>
-            <span className="expanded-meta-item">
-              <span style={{ color: 'var(--text-muted)' }}>Version:</span>{' '}
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>v{question.version}</span>
-            </span>
           </div>
+
+          {/* ── Chunk J: AI review card ── */}
+          {/* Shows for ai_reviewed, rejected, and approved (approved = read-only view) */}
+          {['ai_reviewed', 'rejected', 'approved'].includes(question.review_status) && onQuestionUpdated && (
+            <AIReviewCard question={question} onUpdated={onQuestionUpdated} />
+          )}
         </div>
       </td>
     </tr>
@@ -680,58 +769,187 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy }) {
 }
 
 
+// ── AI REVIEW MODAL ───────────────────────────────────────────────────────────
+
+const AI_REVIEW_BATCH_SIZE = 20;
+
+function AIReviewModal({ questionIds, onDone, onClose }) {
+  const [running,   setRunning]   = useState(false);
+  const [done,      setDone]      = useState(false);
+  const [progress,  setProgress]  = useState(0);
+  const [overwrite, setOverwrite] = useState(false);
+  const [log,       setLog]       = useState([]);
+  const [summary,   setSummary]   = useState({ processed: 0, failed: 0, skipped: 0 });
+  const cancelRef = useRef(false);
+  const total = questionIds.length;
+
+  const addLog = (line, cls = '') => setLog(prev => [...prev, { line, cls }]);
+
+  const runReview = async () => {
+    setRunning(true);
+    cancelRef.current = false;
+
+    const batches = [];
+    for (let i = 0; i < questionIds.length; i += AI_REVIEW_BATCH_SIZE) {
+      batches.push(questionIds.slice(i, i + AI_REVIEW_BATCH_SIZE));
+    }
+
+    let totalProcessed = 0, totalFailed = 0, totalSkipped = 0;
+
+    for (let i = 0; i < batches.length; i++) {
+      if (cancelRef.current) {
+        addLog('Cancelled.', 'fail');
+        break;
+      }
+      const batch = batches[i];
+      addLog(`Batch ${i + 1}/${batches.length}  (${batch.length} questions)…`);
+      try {
+        const result = await adminApi.aiReview(batch, overwrite);
+        totalProcessed += result.processed  || 0;
+        totalFailed    += result.failed     || 0;
+        totalSkipped   += (result.skipped_approved || []).length;
+        setProgress(Math.min((i + 1) * AI_REVIEW_BATCH_SIZE, total));
+        setSummary({ processed: totalProcessed, failed: totalFailed, skipped: totalSkipped });
+        addLog(
+          `  ✓  ${result.processed} reviewed, ${result.failed} failed${(result.skipped_approved || []).length ? `, ${result.skipped_approved.length} skipped` : ''}`,
+          result.failed > 0 ? 'fail' : 'ok',
+        );
+      } catch (e) {
+        const msg = e?.error?.message || 'Request failed';
+        addLog(`  ✗  Batch failed: ${msg}`, 'fail');
+        totalFailed += batch.length;
+        setSummary({ processed: totalProcessed, failed: totalFailed, skipped: totalSkipped });
+      }
+      // Pause between batches — avoids hammering OpenAI rate limits
+      if (i < batches.length - 1 && !cancelRef.current) {
+        await new Promise(r => setTimeout(r, 350));
+      }
+    }
+
+    setDone(true);
+    setRunning(false);
+  };
+
+  const pct = total > 0 ? Math.round((Math.min(progress, total) / total) * 100) : 0;
+  const progressBarColor = done ? '#16a34a' : '#7c3aed';
+
+  return (
+    <Modal title="🤖 AI Question Review" onClose={running ? undefined : onClose} width="560px">
+      {/* ── Pre-run config ── */}
+      {!running && !done && (
+        <div>
+          <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Run AI review on <strong>{total}</strong> selected question{total !== 1 ? 's' : ''}.
+            The AI (GPT-4o-mini) will predict the correct answer, generate a student hint,
+            and write an internal review note. You then approve or reject each suggestion.
+          </p>
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(217,119,6,0.07)', border: '1px solid rgba(217,119,6,0.2)', marginBottom: 14, fontSize: '0.83rem', color: '#b45309' }}>
+            ⚠ AI predictions are suggestions only — no question is changed until you explicitly approve.
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <input type="checkbox" checked={overwrite} onChange={e => setOverwrite(e.target.checked)} />
+            Re-review already approved questions
+          </label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-violet" onClick={runReview}>Start AI Review ({total} questions)</button>
+            <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Running / done ── */}
+      {(running || done) && (
+        <div>
+          {/* Progress bar */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <span style={{ fontWeight: 600 }}>{done ? '✓ Complete' : 'Processing…'}</span>
+              <span>{Math.min(progress, total)} / {total}</span>
+            </div>
+            <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: progressBarColor, borderRadius: 4, transition: 'width 0.35s' }} />
+            </div>
+          </div>
+
+          {/* Summary stats */}
+          <div style={{ display: 'flex', gap: 20, marginBottom: 12, fontSize: '0.87rem' }}>
+            <span style={{ color: '#4ade80', fontWeight: 600 }}>✓ {summary.processed} reviewed</span>
+            {summary.failed  > 0 && <span style={{ color: '#f87171', fontWeight: 600 }}>✗ {summary.failed} failed</span>}
+            {summary.skipped > 0 && <span style={{ color: '#b45309', fontWeight: 600 }}>⟳ {summary.skipped} skipped (approved)</span>}
+          </div>
+
+          {/* Log output */}
+          <div className="ai-log">
+            {log.map((entry, i) => (
+              <div key={i} className={`ai-log-line ${entry.cls}`}>{entry.line}</div>
+            ))}
+            {running && <div style={{ color: '#a78bfa' }}>▌</div>}
+          </div>
+
+          {done && (
+            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+              <button className="btn btn-violet" onClick={() => onDone(summary)}>
+                Done — filter to review results
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+
 // ── QUESTIONS TAB ─────────────────────────────────────────────────────────────
 
 function QuestionsTab() {
-  const [questions, setQuestions]   = useState([]);
-  const [total,     setTotal]       = useState(0);
-  const [page,      setPage]        = useState(1);
-  const [loading,   setLoading]     = useState(false);
-  const [editing,   setEditing]     = useState(null);
-  const [flash,     showFlash]      = useFlash();
-  const [filters,   setFilters]     = useState({ exam: 'qudurat', section: 'math', world_key: '', is_active: '', difficulty: '', topic: '', reviewed: '', search: '' });
-  const [creating,  setCreating]    = useState(false);
-  const [expanded,  setExpanded]    = useState(new Set());
+  const [questions,  setQuestions]  = useState([]);
+  const [total,      setTotal]      = useState(0);
+  const [page,       setPage]       = useState(1);
+  const [loading,    setLoading]    = useState(false);
+  const [editing,    setEditing]    = useState(null);
+  const [flash,      showFlash]     = useFlash();
+  const [filters,    setFilters]    = useState({
+    exam: 'qudurat', section: 'math', world_key: '',
+    is_active: '', difficulty: '', topic: '', reviewed: '',
+    search: '',
+    review_status: '',  // ← Chunk J
+  });
+  const [creating,   setCreating]   = useState(false);
+  const [expanded,   setExpanded]   = useState(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
-  const [taxonomy,  setTaxonomy]    = useState(null);
+  const [taxonomy,   setTaxonomy]   = useState(null);
   const [bulkTopicOpen, setBulkTopicOpen] = useState(false);
-  const [goToPage,  setGoToPage]    = useState('');
+  const [goToPage,   setGoToPage]   = useState('');
 
-  // Load taxonomy on mount
+  // ── Chunk J: AI review modal state ──
+  const [aiReviewOpen, setAiReviewOpen] = useState(false);
+
   useEffect(() => {
     adminApi.getTopics().then((d) => setTaxonomy(d.taxonomy)).catch(() => {});
   }, []);
 
-  // Derive section config
-  const examConfig = SECTION_CONFIG[filters.exam];
+  const examConfig    = SECTION_CONFIG[filters.exam];
   const sectionConfig = examConfig?.sections?.[filters.section];
-  const worldOptions = sectionConfig?.worlds || [];
+  const worldOptions  = sectionConfig?.worlds || [];
 
-  // Build topic options based on current section
   const currentSection = filters.section;
-  const topicOptions = currentSection && taxonomy && taxonomy[currentSection]
+  const topicOptions   = currentSection && taxonomy && taxonomy[currentSection]
     ? taxonomy[currentSection]
     : (taxonomy ? Object.entries(taxonomy).flatMap(([, topics]) => topics) : []);
 
-  // Debounced search
   const searchTimeout = useRef(null);
   const [searchInput, setSearchInput] = useState('');
 
   const handleSearchChange = (val) => {
     setSearchInput(val);
     clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      setFilters((f) => ({ ...f, search: val }));
-      setPage(1);
-    }, 400);
+    searchTimeout.current = setTimeout(() => { setFilters((f) => ({ ...f, search: val })); setPage(1); }, 400);
   };
 
   const fetchQuestions = useCallback(() => {
     setLoading(true);
-    const apiFilters = { ...filters, page, per_page: 50 };
-    // Backend accepts section as a filter (world_key prefix match)
-    // If specific world_key is set, section is redundant (backend uses world_key first)
-    adminApi.listQuestions(apiFilters)
+    adminApi.listQuestions({ ...filters, page, per_page: 50 })
       .then((d) => { setQuestions(d.questions); setTotal(d.total); })
       .catch(() => showFlash('Failed to load questions.', 'error'))
       .finally(() => setLoading(false));
@@ -742,25 +960,19 @@ function QuestionsTab() {
   const handleExamChange = (exam) => {
     const firstSection = Object.keys(SECTION_CONFIG[exam].sections)[0];
     setFilters((f) => ({ ...f, exam, section: firstSection, world_key: '', topic: '' }));
-    setPage(1);
-    setExpanded(new Set());
-    clearSelection();
+    setPage(1); setExpanded(new Set()); clearSelection();
   };
 
   const handleSectionChange = (section) => {
     setFilters((f) => ({ ...f, section, world_key: '', topic: '' }));
-    setPage(1);
-    setExpanded(new Set());
-    clearSelection();
+    setPage(1); setExpanded(new Set()); clearSelection();
   };
 
   const handleFilterChange = (k, v) => {
     const updates = { [k]: v };
-    if (k === 'world_key') { updates.topic = ''; }
+    if (k === 'world_key') updates.topic = '';
     setFilters((f) => ({ ...f, ...updates }));
-    setPage(1);
-    setExpanded(new Set());
-    clearSelection();
+    setPage(1); setExpanded(new Set()); clearSelection();
   };
 
   const handleToggle = async (q) => {
@@ -800,21 +1012,15 @@ function QuestionsTab() {
   };
 
   const toggleExpanded = (id) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
 
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const handleBulkActivate = async (is_active) => {
-    const scope = filters.exam
-      ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`)
-      : 'ALL questions';
+    const scope = filters.exam ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`) : 'ALL questions';
     const action = is_active ? 'activate' : 'deactivate';
-    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} all ${scope}? This affects every matching question.`)) return;
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} all ${scope}?`)) return;
     setBulkLoading(true);
     try {
       const result = await adminApi.bulkActivate({ is_active, exam: filters.exam || undefined, world_key: filters.world_key || undefined });
@@ -825,12 +1031,8 @@ function QuestionsTab() {
   };
 
   const handleBulkTopic = async (topicKey) => {
-    const scope = filters.exam
-      ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`)
-      : 'ALL questions';
-    const label = topicKey
-      ? (topicOptions.find(t => t.key === topicKey)?.label || topicKey)
-      : 'none';
+    const scope = filters.exam ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`) : 'ALL questions';
+    const label = topicKey ? (topicOptions.find(t => t.key === topicKey)?.label || topicKey) : 'none';
     if (!window.confirm(`Set topic to "${label}" for all ${scope}? (${total} questions)`)) return;
     setBulkLoading(true);
     try {
@@ -844,63 +1046,41 @@ function QuestionsTab() {
   };
 
   const totalPages = Math.ceil(total / 50);
-  const TABLE_COLS = 11; // +1 for checkbox column
+  const TABLE_COLS = 11;
 
   // ── Selection state ────────────────────────────────────────────────────────
   const [selectedIds,      setSelectedIds]      = useState(new Set());
   const [selectAllLoading, setSelectAllLoading] = useState(false);
   const [bulkAssignOpen,   setBulkAssignOpen]   = useState(false);
   const [bulkDeleteOpen,   setBulkDeleteOpen]   = useState(false);
+  const [bulkOpLoading,    setBulkOpLoading]    = useState(false);
 
-  // Clear selection whenever the fetched page changes
-  // (filter/page changes already call fetchQuestions which sets new questions)
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   const toggleSelectRow = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
 
-  const pageIds = questions.map((q) => q.id);
+  const pageIds         = questions.map((q) => q.id);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
   const somePageSelected = pageIds.some((id) => selectedIds.has(id));
 
   const toggleSelectAllPage = () => {
     if (allPageSelected) {
-      // Deselect all on this page
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        pageIds.forEach((id) => next.delete(id));
-        return next;
-      });
+      setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.delete(id)); return next; });
     } else {
-      // Select all on this page
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        pageIds.forEach((id) => next.add(id));
-        return next;
-      });
+      setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.add(id)); return next; });
     }
   };
 
-  // Fetch every matching ID (up to 5000) and add to selection
   const handleSelectAllMatching = async () => {
     setSelectAllLoading(true);
     try {
       const data = await adminApi.listQuestions({ ...filters, page: 1, per_page: 5000 });
       setSelectedIds(new Set(data.questions.map((q) => q.id)));
-    } catch {
-      showFlash('Failed to select all matching.', 'error');
-    } finally {
-      setSelectAllLoading(false);
-    }
+    } catch { showFlash('Failed to select all matching.', 'error'); }
+    finally { setSelectAllLoading(false); }
   };
-
-  // ── Bulk selected: delete ──────────────────────────────────────────────────
-  const [bulkOpLoading, setBulkOpLoading] = useState(false);
 
   const handleBulkDeleteSelected = async () => {
     const ids = Array.from(selectedIds);
@@ -912,32 +1092,34 @@ function QuestionsTab() {
       clearSelection();
       fetchQuestions();
       setRefreshKey((k) => k + 1);
-    } catch (e) {
-      showFlash(e?.error?.message || 'Bulk delete failed.', 'error');
-    } finally {
-      setBulkOpLoading(false);
-    }
+    } catch (e) { showFlash(e?.error?.message || 'Bulk delete failed.', 'error'); }
+    finally { setBulkOpLoading(false); }
   };
 
-  // ── Bulk selected: assign ──────────────────────────────────────────────────
   const handleBulkAssignSelected = async (assign) => {
     const ids = Array.from(selectedIds);
     setBulkOpLoading(true);
     try {
       const result = await adminApi.bulkAssign(ids, assign);
-      const skippedMsg = result.skipped?.length
-        ? ` (${result.skipped.length} skipped — section mismatch)`
-        : '';
+      const skippedMsg = result.skipped?.length ? ` (${result.skipped.length} skipped — section mismatch)` : '';
       showFlash(`${result.updated} question(s) updated.${skippedMsg}`);
       setBulkAssignOpen(false);
       clearSelection();
       fetchQuestions();
       setRefreshKey((k) => k + 1);
-    } catch (e) {
-      showFlash(e?.error?.message || 'Bulk assign failed.', 'error');
-    } finally {
-      setBulkOpLoading(false);
-    }
+    } catch (e) { showFlash(e?.error?.message || 'Bulk assign failed.', 'error'); }
+    finally { setBulkOpLoading(false); }
+  };
+
+  // ── Chunk J: AI review handler ────────────────────────────────────────────
+  const handleAIReviewDone = (summary) => {
+    setAiReviewOpen(false);
+    clearSelection();
+    fetchQuestions();
+    setRefreshKey((k) => k + 1);
+    // Auto-filter to ai_reviewed so admin sees what needs approval
+    setFilters((f) => ({ ...f, review_status: 'ai_reviewed' }));
+    showFlash(`AI review complete: ${summary.processed} reviewed, ${summary.failed} failed. Filtered to pending reviews.`);
   };
 
   return (
@@ -950,12 +1132,11 @@ function QuestionsTab() {
         refreshKey={refreshKey}
         onShowUntagged={() => {
           handleFilterChange('topic', '_untagged');
-          // Scroll to filter bar so user sees the active filter
           document.querySelector('.admin-filter-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }}
       />
 
-      {/* ── Exam tabs ── */}
+      {/* Exam tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 0 }}>
         {Object.entries(SECTION_CONFIG).map(([examKey, cfg]) => (
           <button key={examKey}
@@ -964,8 +1145,7 @@ function QuestionsTab() {
               borderRadius: '8px 8px 0 0',
               borderBottom: filters.exam === examKey ? '2px solid var(--violet)' : '2px solid transparent',
               fontWeight: filters.exam === examKey ? 700 : 500,
-              fontSize: '0.95rem',
-              padding: '10px 24px',
+              fontSize: '0.95rem', padding: '10px 24px',
               color: filters.exam === examKey ? 'var(--violet-light)' : 'var(--text-muted)',
               background: filters.exam === examKey ? 'rgba(139,92,246,0.08)' : 'transparent',
             }}
@@ -975,16 +1155,13 @@ function QuestionsTab() {
         ))}
       </div>
 
-      {/* ── Section tabs ── */}
+      {/* Section tabs */}
       <div style={{ display: 'flex', gap: 4, padding: '10px 0', borderTop: '1px solid var(--border)', marginBottom: 12 }}>
         {examConfig && Object.entries(examConfig.sections).map(([secKey, secCfg]) => (
           <button key={secKey}
             className={`btn btn-sm ${filters.section === secKey ? '' : 'btn-ghost'}`}
             style={{
-              borderRadius: 6,
-              fontWeight: filters.section === secKey ? 700 : 400,
-              fontSize: '0.88rem',
-              padding: '6px 16px',
+              borderRadius: 6, fontWeight: filters.section === secKey ? 700 : 400, fontSize: '0.88rem', padding: '6px 16px',
               color: filters.section === secKey ? '#0891b2' : 'var(--text-muted)',
               background: filters.section === secKey ? 'rgba(34,211,238,0.1)' : 'transparent',
               border: filters.section === secKey ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent',
@@ -1023,6 +1200,15 @@ function QuestionsTab() {
           <option value="true">✓ Reviewed</option>
           <option value="false">⚠ Unreviewed</option>
         </select>
+        {/* ── Chunk J: AI status filter ── */}
+        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.review_status} onChange={(e) => handleFilterChange('review_status', e.target.value)}>
+          <option value="">All AI status</option>
+          <option value="unreviewed">Unreviewed</option>
+          <option value="ai_pending">AI Pending…</option>
+          <option value="ai_reviewed">🤖 Pending approval</option>
+          <option value="approved">✓ Approved</option>
+          <option value="rejected">✗ Rejected</option>
+        </select>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ Add Question</button>
       </div>
@@ -1035,32 +1221,20 @@ function QuestionsTab() {
           {' '}({total} questions)
         </span>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>
-            {bulkLoading ? '…' : 'Activate all'}
-          </button>
-          <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#dc2626' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>
-            {bulkLoading ? '…' : 'Deactivate all'}
-          </button>
-          <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }}
-            onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total === 0}>
-            Bulk topic
-          </button>
+          <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Activate all'}</button>
+          <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#dc2626' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Deactivate all'}</button>
+          <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }} onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total === 0}>Bulk topic</button>
         </div>
       </div>
 
-      {/* Bulk topic selector */}
       {bulkTopicOpen && (
         <div className="bulk-topic-panel">
           <div className="bulk-topic-label">Set topic for all {total} matching questions:</div>
           <div className="bulk-topic-grid">
             {topicOptions.map((t) => (
-              <button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>
-                {t.label}
-              </button>
+              <button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>{t.label}</button>
             ))}
-            <button className="bulk-topic-btn clear" onClick={() => handleBulkTopic('')} disabled={bulkLoading}>
-              ✕ Clear all topics
-            </button>
+            <button className="bulk-topic-btn clear" onClick={() => handleBulkTopic('')} disabled={bulkLoading}>✕ Clear all topics</button>
           </div>
         </div>
       )}
@@ -1071,36 +1245,37 @@ function QuestionsTab() {
           position: 'sticky', top: 0, zIndex: 30,
           display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
           padding: '10px 16px', marginBottom: 8, borderRadius: 8,
-          background: 'rgba(139,92,246,0.12)',
-          border: '1px solid rgba(139,92,246,0.3)',
+          background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)',
           backdropFilter: 'blur(8px)',
         }}>
           <span style={{ fontWeight: 700, color: 'var(--violet-light)', fontSize: '0.92rem' }}>
             {selectedIds.size} selected
           </span>
           {selectedIds.size < total && (
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: '0.82rem', padding: '3px 10px' }}
-              onClick={handleSelectAllMatching}
-              disabled={selectAllLoading}
-            >
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.82rem', padding: '3px 10px' }}
+              onClick={handleSelectAllMatching} disabled={selectAllLoading}>
               {selectAllLoading ? '…' : `Select all ${total} matching`}
             </button>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            {/* ── Chunk J: AI Review button ── */}
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)', fontWeight: 700 }}
+              onClick={() => setAiReviewOpen(true)}
+            >
+              🤖 AI Review
+            </button>
             <button
               className="btn btn-sm"
               style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }}
-              onClick={() => setBulkAssignOpen(true)}
-            >
+              onClick={() => setBulkAssignOpen(true)}>
               Assign…
             </button>
             <button
               className="btn btn-sm"
               style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.25)' }}
-              onClick={() => setBulkDeleteOpen(true)}
-            >
+              onClick={() => setBulkDeleteOpen(true)}>
               Delete…
             </button>
             <button className="btn btn-ghost btn-sm" onClick={clearSelection}>✕ Clear</button>
@@ -1115,14 +1290,10 @@ function QuestionsTab() {
             <thead>
               <tr>
                 <th style={{ width: 36, padding: '0 8px' }}>
-                  <input
-                    type="checkbox"
-                    style={{ cursor: 'pointer', width: 15, height: 15 }}
+                  <input type="checkbox" style={{ cursor: 'pointer', width: 15, height: 15 }}
                     checked={allPageSelected}
                     ref={(el) => { if (el) el.indeterminate = somePageSelected && !allPageSelected; }}
-                    onChange={toggleSelectAllPage}
-                    title={allPageSelected ? 'Deselect page' : 'Select page'}
-                  />
+                    onChange={toggleSelectAllPage} title={allPageSelected ? 'Deselect page' : 'Select page'} />
                 </th>
                 <th>#</th><th>Exam</th><th>World</th><th>Idx</th><th>Question</th><th>Answer</th><th>Topic</th><th>Diff</th><th>Status</th><th>Actions</th>
               </tr>
@@ -1135,12 +1306,8 @@ function QuestionsTab() {
                 <React.Fragment key={q.id}>
                   <tr className={`question-row ${expanded.has(q.id) ? 'expanded-active' : ''} ${selectedIds.has(q.id) ? 'row-selected' : ''}`}>
                     <td style={{ padding: '0 8px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        style={{ cursor: 'pointer', width: 15, height: 15 }}
-                        checked={selectedIds.has(q.id)}
-                        onChange={() => toggleSelectRow(q.id)}
-                      />
+                      <input type="checkbox" style={{ cursor: 'pointer', width: 15, height: 15 }}
+                        checked={selectedIds.has(q.id)} onChange={() => toggleSelectRow(q.id)} />
                     </td>
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{q.id}</td>
                     <td><Pill color="violet">{q.exam}</Pill></td>
@@ -1150,6 +1317,10 @@ function QuestionsTab() {
                       <span className="expand-icon">{expanded.has(q.id) ? '▼' : '▶'}</span>
                       {q.question_text.slice(0, 70)}{q.question_text.length > 70 ? '…' : ''}
                       {q.image_url && <span className="has-image-badge">🖼️</span>}
+                      {/* ── Chunk J: AI status badge on row ── */}
+                      {q.review_status === 'ai_reviewed' && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#a78bfa' }}>🤖</span>}
+                      {q.review_status === 'approved'    && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#4ade80' }}>✓AI</span>}
+                      {q.review_status === 'rejected'    && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#f87171' }}>✗AI</span>}
                     </td>
                     <td><InlineAnswerPicker question={q} onSaved={handleInlineSaved} /></td>
                     <td><InlineTopicPicker question={q} taxonomy={taxonomy} onSaved={handleInlineSaved} /></td>
@@ -1163,7 +1334,14 @@ function QuestionsTab() {
                       </div>
                     </td>
                   </tr>
-                  {expanded.has(q.id) && <ExpandedQuestionRow question={q} colSpan={TABLE_COLS} taxonomy={taxonomy} />}
+                  {expanded.has(q.id) && (
+                    <ExpandedQuestionRow
+                      question={q}
+                      colSpan={TABLE_COLS}
+                      taxonomy={taxonomy}
+                      onQuestionUpdated={handleInlineSaved}  // ← Chunk J
+                    />
+                  )}
                 </React.Fragment>
               ))}
             </tbody>
@@ -1181,41 +1359,29 @@ function QuestionsTab() {
           <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: 12 }}>Go to</span>
           <input type="number" min={1} max={totalPages} className="form-input"
             style={{ width: 64, padding: '4px 8px', fontSize: '0.85rem', textAlign: 'center' }}
-            value={goToPage}
-            onChange={(e) => setGoToPage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10)));
-                if (!isNaN(p)) { setPage(p); setGoToPage(''); }
-              }
-            }}
+            value={goToPage} onChange={(e) => setGoToPage(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10))); if (!isNaN(p)) { setPage(p); setGoToPage(''); } } }}
             placeholder="#" />
-          <button className="btn btn-ghost btn-sm" onClick={() => {
-            const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10)));
-            if (!isNaN(p)) { setPage(p); setGoToPage(''); }
-          }}>Go</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10))); if (!isNaN(p)) { setPage(p); setGoToPage(''); } }}>Go</button>
         </div>
       )}
 
       {editing && <QuestionEditModal question={editing} taxonomy={taxonomy} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
       {creating && <CreateQuestionModal taxonomy={taxonomy} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); setRefreshKey((k) => k + 1); showFlash('Question created.'); }} />}
       {bulkAssignOpen && (
-        <BulkAssignModal
-          count={selectedIds.size}
-          section={filters.section}
-          taxonomy={taxonomy}
-          worldOptions={worldOptions}
-          loading={bulkOpLoading}
-          onAssign={handleBulkAssignSelected}
-          onClose={() => setBulkAssignOpen(false)}
-        />
+        <BulkAssignModal count={selectedIds.size} section={filters.section} taxonomy={taxonomy} worldOptions={worldOptions}
+          loading={bulkOpLoading} onAssign={handleBulkAssignSelected} onClose={() => setBulkAssignOpen(false)} />
       )}
       {bulkDeleteOpen && (
-        <BulkDeleteModal
-          count={selectedIds.size}
-          loading={bulkOpLoading}
-          onConfirm={handleBulkDeleteSelected}
-          onClose={() => setBulkDeleteOpen(false)}
+        <BulkDeleteModal count={selectedIds.size} loading={bulkOpLoading} onConfirm={handleBulkDeleteSelected} onClose={() => setBulkDeleteOpen(false)} />
+      )}
+
+      {/* ── Chunk J: AI Review Modal ── */}
+      {aiReviewOpen && (
+        <AIReviewModal
+          questionIds={Array.from(selectedIds)}
+          onDone={handleAIReviewDone}
+          onClose={() => setAiReviewOpen(false)}
         />
       )}
     </div>
@@ -1228,10 +1394,7 @@ function QuestionsTab() {
 function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAssign, onClose }) {
   const [form, setForm] = useState({ topic: '', difficulty: '', world_key: '' });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
   const topicOptions = (taxonomy && section && taxonomy[section]) || [];
-
-  // At least one field must be set before submitting
   const hasAny = form.topic || form.difficulty || form.world_key;
 
   const handleSubmit = () => {
@@ -1245,24 +1408,15 @@ function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAs
   return (
     <Modal title={`Bulk Assign — ${count} question${count !== 1 ? 's' : ''}`} onClose={onClose} width="480px">
       <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Set one or more fields on all selected questions. Only checked/filled fields will be updated — blank fields are left unchanged.
+        Set one or more fields on all selected questions. Blank fields are left unchanged.
       </p>
-
-      {/* Topic */}
       <div className="form-group">
         <label className="form-label">Topic</label>
         <select className="form-input" value={form.topic} onChange={set('topic')}>
           <option value="">— Leave unchanged —</option>
           {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
         </select>
-        {topicOptions.length === 0 && (
-          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Select a section filter above to see topic options.
-          </p>
-        )}
       </div>
-
-      {/* Difficulty */}
       <div className="form-group" style={{ marginTop: 12 }}>
         <label className="form-label">Difficulty</label>
         <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
@@ -1272,37 +1426,17 @@ function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAs
           <option value="hard">Hard</option>
         </select>
       </div>
-
-      {/* World assignment */}
       <div className="form-group" style={{ marginTop: 12 }}>
         <label className="form-label">Assign to World</label>
         <select className="form-input" value={form.world_key} onChange={set('world_key')}>
           <option value="">— Leave unchanged —</option>
-          {worldOptions.map((w) => (
-            <option key={w} value={w}>{worldDisplayName(w)} ({w})</option>
-          ))}
+          {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)} ({w})</option>)}
         </select>
-        {form.world_key && (
-          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#b45309' }}>
-            ⚠ Questions whose section doesn't match this world will be skipped (reported as skipped in the result).
-          </p>
-        )}
+        {form.world_key && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#b45309' }}>⚠ Section-mismatched questions will be skipped.</p>}
       </div>
-
-      {!hasAny && (
-        <p style={{ margin: '14px 0 0', fontSize: '0.83rem', color: '#b45309' }}>
-          Set at least one field to proceed.
-        </p>
-      )}
-
+      {!hasAny && <p style={{ margin: '14px 0 0', fontSize: '0.83rem', color: '#b45309' }}>Set at least one field to proceed.</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <button
-          className="btn btn-green"
-          onClick={handleSubmit}
-          disabled={loading || !hasAny}
-        >
-          {loading ? 'Updating…' : `Update ${count} Question${count !== 1 ? 's' : ''}`}
-        </button>
+        <button className="btn btn-green" onClick={handleSubmit} disabled={loading || !hasAny}>{loading ? 'Updating…' : `Update ${count} Question${count !== 1 ? 's' : ''}`}</button>
         <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
       </div>
     </Modal>
@@ -1317,23 +1451,14 @@ function BulkDeleteModal({ count, loading, onConfirm, onClose }) {
     <Modal title="Confirm Bulk Delete" onClose={onClose} width="420px">
       <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
         <div style={{ fontSize: '2rem', marginBottom: 12 }}>🗑️</div>
-        <p style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Soft-delete {count} question{count !== 1 ? 's' : ''}?
-        </p>
+        <p style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Soft-delete {count} question{count !== 1 ? 's' : ''}?</p>
         <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
           These questions will be marked as deleted and will not be visible to students.
-          This action can be reversed by Anthropic support but not from the admin panel.
         </p>
       </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
-        <button
-          className="btn"
-          style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
-          onClick={onConfirm}
-          disabled={loading}
-        >
-          {loading ? 'Deleting…' : `Delete ${count} Question${count !== 1 ? 's' : ''}`}
-        </button>
+        <button className="btn" style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
+          onClick={onConfirm} disabled={loading}>{loading ? 'Deleting…' : `Delete ${count} Question${count !== 1 ? 's' : ''}`}</button>
         <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
       </div>
     </Modal>
@@ -1349,8 +1474,7 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
     option_b: question.option_b, option_c: question.option_c, option_d: question.option_d,
     correct_answer: question.correct_answer || 'a', topic: question.topic || '',
     difficulty: question.difficulty || '', image_url: question.image_url || null,
-    hint: question.hint || '',
-    is_active: question.is_active, version: question.version,
+    hint: question.hint || '', is_active: question.is_active, version: question.version,
   });
   const [saving, setSaving] = useState(false);
   const [showMathPreview, setShowMathPreview] = useState(false);
@@ -1363,9 +1487,9 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
     e.preventDefault();
     setSaving(true);
     const payload = { ...form };
-    if (!payload.topic) payload.topic = null;
+    if (!payload.topic)      payload.topic      = null;
     if (!payload.difficulty) payload.difficulty = null;
-    if (!payload.hint) payload.hint = null;
+    if (!payload.hint)       payload.hint       = null;
     onSave(payload);
     setSaving(false);
   };
@@ -1377,26 +1501,17 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
           <label className="form-label">Question Text (supports LaTeX: $...$)</label>
           <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
         </div>
-
         {showMathPreview && (
           <div style={{ padding: '12px 16px', background: 'var(--bg-card-2)', borderRadius: 8, marginBottom: 12, border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview:</div>
             <MathText text={form.question_text} />
           </div>
         )}
-
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowMathPreview(!showMathPreview)}>
-            {showMathPreview ? 'Hide Preview' : 'Preview Math'}
-          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowMathPreview(!showMathPreview)}>{showMathPreview ? 'Hide Preview' : 'Preview Math'}</button>
           <LaTeXCheatsheet />
         </div>
-
-        <ImageUpload
-          value={form.image_url}
-          onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
-        />
-
+        <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
           {['a', 'b', 'c', 'd'].map((opt) => (
             <div key={opt} className="form-group">
@@ -1405,7 +1520,6 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
             </div>
           ))}
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
           <div className="form-group">
             <label className="form-label">Correct Answer</label>
@@ -1429,19 +1543,16 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
             </select>
           </div>
         </div>
-
         <div className="form-group" style={{ marginTop: 12 }}>
           <label className="form-label">Hint (shown after wrong answer)</label>
           <textarea className="form-input" rows={3} value={form.hint} onChange={set('hint')} placeholder="Guide the student toward the right answer without giving it away…" />
         </div>
-
         <div className="form-group" style={{ marginTop: 12 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
             <span className="form-label" style={{ margin: 0 }}>Active</span>
           </label>
         </div>
-
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -1458,8 +1569,7 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
   const [form, setForm] = useState({
     exam: 'qudurat', world_key: 'math_100',
     question_text: '', option_a: '', option_b: '', option_c: '', option_d: '',
-    correct_answer: 'a', topic: '', difficulty: '', is_active: false, image_url: null,
-    hint: '',
+    correct_answer: 'a', topic: '', difficulty: '', is_active: false, image_url: null, hint: '',
   });
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
@@ -1473,18 +1583,11 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
     setSaving(true);
     try {
       const nextIdx = await adminApi.nextIndex(form.exam, form.world_key);
-      const payload = [{
-        ...form,
-        index: nextIdx.next_index,
-        topic: form.topic || null,
-        difficulty: form.difficulty || null,
-        hint: form.hint || null,
-      }];
+      const payload = [{ ...form, index: nextIdx.next_index, topic: form.topic || null, difficulty: form.difficulty || null, hint: form.hint || null }];
       await adminApi.importQuestions(payload);
       onCreated();
-    } catch (err) {
-      alert(err?.error?.message || 'Failed to create question.');
-    } finally { setSaving(false); }
+    } catch (err) { alert(err?.error?.message || 'Failed to create question.'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -1504,19 +1607,12 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
             </select>
           </div>
         </div>
-
         <div className="form-group" style={{ marginTop: 12 }}>
           <label className="form-label">Question Text (supports LaTeX: $...$)</label>
           <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
         </div>
-
         <LaTeXCheatsheet />
-
-        <ImageUpload
-          value={form.image_url}
-          onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
-        />
-
+        <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
           {['a', 'b', 'c', 'd'].map((opt) => (
             <div key={opt} className="form-group">
@@ -1525,7 +1621,6 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
             </div>
           ))}
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
           <div className="form-group">
             <label className="form-label">Correct Answer</label>
@@ -1549,19 +1644,16 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
             </select>
           </div>
         </div>
-
         <div className="form-group" style={{ marginTop: 12 }}>
           <label className="form-label">Hint (shown after wrong answer)</label>
           <textarea className="form-input" rows={3} value={form.hint} onChange={set('hint')} placeholder="Guide the student toward the right answer without giving it away…" />
         </div>
-
         <div className="form-group" style={{ marginTop: 12 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
             <span className="form-label" style={{ margin: 0 }}>Active immediately</span>
           </label>
         </div>
-
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Question'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -1632,19 +1724,14 @@ function OrgsTab() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New Org</button>
       </div>
-
-      {orgs.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>No organisations yet.</p>
-      ) : (
+      {orgs.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No organisations yet.</p> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Students</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
               {orgs.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.id}</td>
-                  <td>{o.name}</td>
-                  <td><code>{o.slug}</code></td>
+                  <td>{o.id}</td><td>{o.name}</td><td><code>{o.slug}</code></td>
                   <td>{o.estimated_student_count || '—'}</td>
                   <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(o.created_at).toLocaleDateString()}</td>
                   <td><button className="admin-action-btn" onClick={() => setSelected(o)}>View</button></td>
@@ -1654,7 +1741,6 @@ function OrgsTab() {
           </table>
         </div>
       )}
-
       {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchOrgs(); showFlash('Org created.'); }} />}
       {selected && <OrgDetailModal org={selected} onClose={() => setSelected(null)} onRefresh={fetchOrgs} />}
     </div>
@@ -1666,8 +1752,7 @@ function CreateOrgModal({ onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
+    e.preventDefault(); setSaving(true);
     try {
       await adminApi.createOrg({ ...form, estimated_student_count: form.estimated_student_count ? parseInt(form.estimated_student_count) : null });
       onCreated();
@@ -1702,31 +1787,21 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
     <Modal title={org.name} onClose={onClose} width="700px">
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 12 }}>{flash.msg}</div>}
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>Slug: <code>{org.slug}</code></p>
-
       <h4 style={{ marginBottom: 8 }}>Leader</h4>
-      {detail.leader ? (
-        <p>{detail.leader.username} (ID: {detail.leader.id})</p>
-      ) : (
-        <p style={{ color: 'var(--text-muted)' }}>No leader assigned yet.</p>
-      )}
-
+      {detail.leader ? <p>{detail.leader.username} (ID: {detail.leader.id})</p> : <p style={{ color: 'var(--text-muted)' }}>No leader assigned yet.</p>}
       <h4 style={{ marginTop: 16, marginBottom: 8 }}>Students ({detail.students?.length || 0})</h4>
-      {detail.students?.length > 0 ? (
-        <div style={{ maxHeight: 200, overflow: 'auto' }}>
-          {detail.students.map((s) => <div key={s.id} style={{ fontSize: '0.85rem', padding: '2px 0' }}>{s.username}</div>)}
-        </div>
-      ) : <p style={{ color: 'var(--text-muted)' }}>No students yet.</p>}
-
+      {detail.students?.length > 0
+        ? <div style={{ maxHeight: 200, overflow: 'auto' }}>{detail.students.map((s) => <div key={s.id} style={{ fontSize: '0.85rem', padding: '2px 0' }}>{s.username}</div>)}</div>
+        : <p style={{ color: 'var(--text-muted)' }}>No students yet.</p>}
       <h4 style={{ marginTop: 16, marginBottom: 8 }}>Entitlements</h4>
-      {detail.entitlements?.length > 0 ? (
-        detail.entitlements.map((e) => (
-          <div key={e.id} className="card" style={{ marginBottom: 8 }}>
-            <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{e.exam} — {e.plan_id}</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Expires: {new Date(e.entitlement_expires_at).toLocaleDateString()}</div>
-          </div>
-        ))
-      ) : <p style={{ color: 'var(--text-muted)' }}>No entitlements.</p>}
-
+      {detail.entitlements?.length > 0
+        ? detail.entitlements.map((e) => (
+            <div key={e.id} className="card" style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{e.exam} — {e.plan_id}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Expires: {new Date(e.entitlement_expires_at).toLocaleDateString()}</div>
+            </div>
+          ))
+        : <p style={{ color: 'var(--text-muted)' }}>No entitlements.</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
         <button className="btn btn-ghost" onClick={onClose}>Close</button>
       </div>
@@ -1788,7 +1863,6 @@ function UsersTab() {
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-
       <div className="admin-filter-row">
         <input className="form-input" style={{ width: 'auto', minWidth: 200 }} placeholder="Search username…" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
         <select className="form-input" style={{ width: 'auto' }} value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}>
@@ -1800,7 +1874,6 @@ function UsersTab() {
         <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} user{total !== 1 ? 's' : ''}</span>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ New Admin</button>
       </div>
-
       {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
@@ -1808,8 +1881,7 @@ function UsersTab() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
-                  <td>{u.id}</td>
-                  <td>{u.username}</td>
+                  <td>{u.id}</td><td>{u.username}</td>
                   <td><Pill color={u.role === 'drfahm_admin' ? 'violet' : u.role === 'school_leader' ? 'blue' : 'gray'}>{u.role}</Pill></td>
                   <td>{u.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}</td>
                   <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(u.created_at).toLocaleDateString()}</td>
@@ -1825,7 +1897,6 @@ function UsersTab() {
           </table>
         </div>
       )}
-
       {totalPages > 1 && (
         <div className="admin-pagination">
           <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
@@ -1833,7 +1904,6 @@ function UsersTab() {
           <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>
       )}
-
       {creating && <CreateAdminModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchUsers(); showFlash('Admin created.'); }} />}
     </div>
   );
@@ -1844,8 +1914,7 @@ function CreateAdminModal({ onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
+    e.preventDefault(); setSaving(true);
     try {
       const result = await adminApi.createUser(form);
       alert(`Admin created!\nUsername: ${result.user.username}\nPassword: ${result.password}\n\nSave this password — it cannot be retrieved later.`);
@@ -1869,142 +1938,79 @@ function CreateAdminModal({ onClose, onCreated }) {
 }
 
 
-// ── ROOT ──────────────────────────────────────────────────────────────────────
-
 // ── BULK UPLOAD TAB ───────────────────────────────────────────────────────────
 
-// CSV columns as of Chunk B — world_key removed, section added, explanation→hint
-const BULK_CSV_COLUMNS = [
-  'exam', 'section', 'question_text',
-  'option_a', 'option_b', 'option_c', 'option_d',
-  'correct_answer', 'hint', 'topic', 'difficulty',
-];
-
-const VALID_EXAM_SECTIONS = {
-  qudurat: ['math', 'verbal'],
-  tahsili: ['math', 'biology', 'chemistry', 'physics'],
-};
+const BULK_CSV_COLUMNS = ['exam','section','question_text','option_a','option_b','option_c','option_d','correct_answer','hint','topic','difficulty'];
+const VALID_EXAM_SECTIONS = { qudurat: ['math','verbal'], tahsili: ['math','biology','chemistry','physics'] };
 
 function BulkUploadTab() {
-  const [step, setStep]             = useState(1);      // 1=upload, 2=review, 3=result
+  const [step, setStep]             = useState(1);
   const [file, setFile]             = useState(null);
   const [dragging, setDragging]     = useState(false);
   const [validating, setValidating] = useState(false);
   const [committing, setCommitting] = useState(false);
-  const [report, setReport]         = useState(null);   // from bulk-validate
-  const [result, setResult]         = useState(null);   // from bulk-commit
+  const [report, setReport]         = useState(null);
+  const [result, setResult]         = useState(null);
   const [forceDupes, setForceDupes] = useState(false);
   const [flash, showFlash]          = useFlash();
   const fileInputRef                = useRef(null);
 
-  // ── Template download ──
   const handleDownloadTemplate = async () => {
     try {
       const res = await adminApi.bulkTemplate();
       if (!res.ok) throw new Error('Download failed');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'drfahm_bulk_template.csv';
-      a.click();
+      const a = document.createElement('a'); a.href = url; a.download = 'drfahm_bulk_template.csv'; a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      showFlash('Failed to download template.', 'error');
-    }
+    } catch { showFlash('Failed to download template.', 'error'); }
   };
 
-  // ── Error CSV download ──
   const handleDownloadErrors = () => {
     if (!report?.errors?.length) return;
     const header = 'row,field,message\n';
-    const rows = report.errors
-      .map((e) => `${e.row},"${e.field}","${String(e.message).replace(/"/g, '""')}"`)
-      .join('\n');
+    const rows = report.errors.map((e) => `${e.row},"${e.field}","${String(e.message).replace(/"/g, '""')}"`).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `drfahm_upload_errors_${Date.now()}.csv`;
-    a.click();
+    const a = document.createElement('a'); a.href = url; a.download = `drfahm_upload_errors_${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
-  // ── File selection ──
   const handleFile = (f) => {
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.csv')) {
-      showFlash('Only .csv files are accepted.', 'error');
-      return;
-    }
-    if (f.size > 10 * 1024 * 1024) {
-      showFlash('File too large. Maximum 10 MB.', 'error');
-      return;
-    }
-    setFile(f);
-    setReport(null);
-    setResult(null);
-    setStep(1);
-    setForceDupes(false);
+    if (!f.name.toLowerCase().endsWith('.csv')) { showFlash('Only .csv files are accepted.', 'error'); return; }
+    if (f.size > 10 * 1024 * 1024) { showFlash('File too large. Maximum 10 MB.', 'error'); return; }
+    setFile(f); setReport(null); setResult(null); setStep(1); setForceDupes(false);
   };
 
-  const onDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    handleFile(e.dataTransfer?.files?.[0]);
-  };
+  const onDrop = (e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer?.files?.[0]); };
   const onDragOver  = (e) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
 
-  // ── Step 1 → 2: Validate ──
   const handleValidate = async () => {
-    if (!file) return;
-    setValidating(true);
-    try {
-      const data = await adminApi.bulkValidate(file);
-      setReport(data);
-      setStep(2);
-    } catch (e) {
-      showFlash(e?.error?.message || 'Validation failed.', 'error');
-    } finally {
-      setValidating(false);
-    }
+    if (!file) return; setValidating(true);
+    try { const data = await adminApi.bulkValidate(file); setReport(data); setStep(2); }
+    catch (e) { showFlash(e?.error?.message || 'Validation failed.', 'error'); }
+    finally { setValidating(false); }
   };
 
-  // ── Step 2 → 3: Commit ──
   const handleCommit = async () => {
-    if (!file) return;
-    setCommitting(true);
-    try {
-      const data = await adminApi.bulkCommit(file, forceDupes);
-      setResult(data);
-      setStep(3);
-    } catch (e) {
-      showFlash(e?.error?.message || 'Import failed.', 'error');
-    } finally {
-      setCommitting(false);
-    }
+    if (!file) return; setCommitting(true);
+    try { const data = await adminApi.bulkCommit(file, forceDupes); setResult(data); setStep(3); }
+    catch (e) { showFlash(e?.error?.message || 'Import failed.', 'error'); }
+    finally { setCommitting(false); }
   };
 
-  // ── Reset ──
   const handleReset = () => {
-    setStep(1);
-    setFile(null);
-    setReport(null);
-    setResult(null);
-    setForceDupes(false);
+    setStep(1); setFile(null); setReport(null); setResult(null); setForceDupes(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const importCount = report
-    ? report.stats.valid_count + (forceDupes ? report.stats.duplicate_count : 0)
-    : 0;
+  const importCount = report ? report.stats.valid_count + (forceDupes ? report.stats.duplicate_count : 0) : 0;
 
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-
-      {/* ── Step Indicator ── */}
       <div className="bulk-steps">
         {[{ n: 1, label: 'Upload CSV' }, { n: 2, label: 'Review' }, { n: 3, label: 'Done' }].map(({ n, label }) => (
           <div key={n} className={`bulk-step ${step >= n ? 'active' : ''} ${step === n ? 'current' : ''}`}>
@@ -2014,37 +2020,25 @@ function BulkUploadTab() {
         ))}
       </div>
 
-      {/* ══════════ STEP 1: Upload ══════════ */}
       {step === 1 && (
         <div className="bulk-section">
           <div className="bulk-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Upload Questions CSV</h3>
-                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Fill in the template, save as CSV, then upload here. Questions go into the bank unassigned — world placement happens after.
-                </p>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fill in the template, save as CSV, then upload here.</p>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>
-                ⬇ Download Template
-              </button>
+              <button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>⬇ Download Template</button>
             </div>
-
-            {/* Drop zone */}
-            <div
-              className={`bulk-dropzone ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
-              onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }}
-                onChange={(e) => handleFile(e.target.files?.[0])} />
+            <div className={`bulk-dropzone ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
+              onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} onClick={() => fileInputRef.current?.click()}>
+              <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
               {file ? (
                 <div className="bulk-dropzone-file">
                   <span className="bulk-dropzone-icon">📄</span>
                   <span className="bulk-dropzone-name">{file.name}</span>
                   <span className="bulk-dropzone-size">({(file.size / 1024).toFixed(1)} KB)</span>
-                  <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }}
-                    onClick={(e) => { e.stopPropagation(); handleReset(); }}>✕ Remove</button>
+                  <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); handleReset(); }}>✕ Remove</button>
                 </div>
               ) : (
                 <div className="bulk-dropzone-empty">
@@ -2054,50 +2048,28 @@ function BulkUploadTab() {
                 </div>
               )}
             </div>
-
-            {/* ── CSV Format Guide ── */}
             <div className="bulk-format-guide">
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>
-                Required Columns (11 total)
-              </div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>Required Columns (11 total)</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {BULK_CSV_COLUMNS.map((c) => (
-                  <Pill key={c} color={c === 'section' || c === 'hint' ? 'green' : 'violet'}>{c}</Pill>
-                ))}
+                {BULK_CSV_COLUMNS.map((c) => <Pill key={c} color={c === 'section' || c === 'hint' ? 'green' : 'violet'}>{c}</Pill>)}
               </div>
-
-              {/* Column notes */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
                 <div><strong style={{ color: 'var(--text-secondary)' }}>exam</strong> — <code>qudurat</code> or <code>tahsili</code></div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>section</strong> — subject within exam (see below)</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>section</strong> — subject within exam</div>
                 <div><strong style={{ color: 'var(--text-secondary)' }}>correct_answer</strong> — <code>a</code>, <code>b</code>, <code>c</code>, or <code>d</code></div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>hint</strong> — shown after a wrong answer; guide don't give away</div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>topic</strong> — must match valid topics for the section</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>hint</strong> — shown after wrong answer</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>topic</strong> — must match valid topics for section</div>
                 <div><strong style={{ color: 'var(--text-secondary)' }}>difficulty</strong> — <code>easy</code>, <code>medium</code>, or <code>hard</code></div>
               </div>
-
-              {/* Valid exam/section combos */}
               <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 8, border: '1px solid rgba(139,92,246,0.15)' }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 6 }}>
-                  Valid exam / section combinations
-                </div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 6 }}>Valid exam / section combinations</div>
                 {Object.entries(VALID_EXAM_SECTIONS).map(([exam, sections]) => (
                   <div key={exam} style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 3 }}>
-                    <strong style={{ textTransform: 'capitalize' }}>{exam}:</strong>{' '}
-                    {sections.map((s) => <code key={s} style={{ marginRight: 6 }}>{s}</code>)}
+                    <strong style={{ textTransform: 'capitalize' }}>{exam}:</strong>{' '}{sections.map((s) => <code key={s} style={{ marginRight: 6 }}>{s}</code>)}
                   </div>
                 ))}
               </div>
-
-              <p style={{ margin: '10px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                <strong>No world_key or index column needed</strong> — questions go into the bank unassigned.
-                Use Bulk Assign after upload to place them into worlds.
-                All questions import as <strong>inactive</strong>.
-                Exact duplicates (same question text + section) are detected and skipped.
-                LaTeX supported everywhere via <code style={{ fontSize: '0.8rem' }}>$...$</code> syntax.
-              </p>
             </div>
-
             {file && (
               <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
                 <button className="btn btn-violet" onClick={handleValidate} disabled={validating}>
@@ -2109,158 +2081,68 @@ function BulkUploadTab() {
         </div>
       )}
 
-      {/* ══════════ STEP 2: Review ══════════ */}
       {step === 2 && report && (
         <div className="bulk-section">
-          {/* Summary cards */}
           <div className="bulk-summary-grid">
-            <div className="bulk-summary-card success">
-              <div className="bulk-summary-number">{report.stats.valid_count}</div>
-              <div className="bulk-summary-label">Valid</div>
-            </div>
-            <div className="bulk-summary-card error">
-              <div className="bulk-summary-number">{report.stats.error_count}</div>
-              <div className="bulk-summary-label">Errors</div>
-            </div>
-            <div className="bulk-summary-card warning">
-              <div className="bulk-summary-number">{report.stats.duplicate_count}</div>
-              <div className="bulk-summary-label">Duplicates</div>
-            </div>
-            <div className="bulk-summary-card neutral">
-              <div className="bulk-summary-number">{report.stats.total_rows}</div>
-              <div className="bulk-summary-label">Total Rows</div>
-            </div>
+            <div className="bulk-summary-card success"><div className="bulk-summary-number">{report.stats.valid_count}</div><div className="bulk-summary-label">Valid</div></div>
+            <div className="bulk-summary-card error"><div className="bulk-summary-number">{report.stats.error_count}</div><div className="bulk-summary-label">Errors</div></div>
+            <div className="bulk-summary-card warning"><div className="bulk-summary-number">{report.stats.duplicate_count}</div><div className="bulk-summary-label">Duplicates</div></div>
+            <div className="bulk-summary-card neutral"><div className="bulk-summary-number">{report.stats.total_rows}</div><div className="bulk-summary-label">Total Rows</div></div>
           </div>
-
-          {/* ── Errors ── */}
           {report.errors.length > 0 && (
             <div className="bulk-card" style={{ marginTop: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h4 style={{ margin: 0, color: '#dc2626', fontSize: '0.95rem' }}>
-                  ✗ {report.errors.length} Error{report.errors.length !== 1 ? 's' : ''} Found
-                </h4>
-                <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}
-                  title="Download full error list as CSV">
-                  ⬇ Download Errors CSV
-                </button>
+                <h4 style={{ margin: 0, color: '#dc2626', fontSize: '0.95rem' }}>✗ {report.errors.length} Error{report.errors.length !== 1 ? 's' : ''} Found</h4>
+                <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>⬇ Download Errors CSV</button>
               </div>
               <div className="bulk-table-wrap">
                 <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 70 }}>Row</th>
-                      <th style={{ width: 130 }}>Field</th>
-                      <th>Message</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th style={{ width: 70 }}>Row</th><th style={{ width: 130 }}>Field</th><th>Message</th></tr></thead>
                   <tbody>
                     {report.errors.slice(0, 50).map((err, i) => (
-                      <tr key={i}>
-                        <td><Pill color="gray">{err.row}</Pill></td>
-                        <td><code style={{ fontSize: '0.82rem', color: '#dc2626' }}>{err.field}</code></td>
-                        <td style={{ fontSize: '0.85rem' }}>{err.message}</td>
-                      </tr>
+                      <tr key={i}><td><Pill color="gray">{err.row}</Pill></td><td><code style={{ fontSize: '0.82rem', color: '#dc2626' }}>{err.field}</code></td><td style={{ fontSize: '0.85rem' }}>{err.message}</td></tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {report.errors.length > 50 && (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 8 }}>
-                  Showing first 50 of {report.errors.length} errors.{' '}
-                  <button className="btn btn-ghost btn-sm" style={{ padding: '2px 8px' }} onClick={handleDownloadErrors}>
-                    Download all errors as CSV
-                  </button>{' '}
-                  to fix them, then re-upload.
-                </p>
-              )}
             </div>
           )}
-
-          {/* ── Duplicates ── */}
           {report.duplicates.length > 0 && (
             <div className="bulk-card" style={{ marginTop: 16 }}>
-              <h4 style={{ margin: '0 0 4px', color: '#b45309', fontSize: '0.95rem' }}>
-                ⚠ {report.duplicates.length} Duplicate{report.duplicates.length !== 1 ? 's' : ''} Detected
-              </h4>
-              <p style={{ margin: '0 0 12px', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
-                These questions match existing records (same text + section). By default they are skipped.
-                Check the box below to include them anyway.
-              </p>
+              <h4 style={{ margin: '0 0 4px', color: '#b45309', fontSize: '0.95rem' }}>⚠ {report.duplicates.length} Duplicate{report.duplicates.length !== 1 ? 's' : ''} Detected</h4>
+              <p style={{ margin: '0 0 12px', fontSize: '0.83rem', color: 'var(--text-muted)' }}>These questions match existing records. By default they are skipped.</p>
               <div className="bulk-table-wrap">
                 <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 70 }}>Row</th>
-                      <th>Question Text (preview)</th>
-                      <th style={{ width: 130 }}>Matches</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th style={{ width: 70 }}>Row</th><th>Question Text (preview)</th><th style={{ width: 130 }}>Matches</th></tr></thead>
                   <tbody>
                     {report.duplicates.slice(0, 30).map((dup, i) => (
-                      <tr key={i}>
-                        <td><Pill color="gray">{dup.row}</Pill></td>
-                        <td style={{ fontSize: '0.85rem', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {dup.question_text}
-                        </td>
-                        <td>
-                          {dup.existing_id
-                            ? <Pill color="amber">DB #{dup.existing_id}</Pill>
-                            : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>
-                          }
-                        </td>
-                      </tr>
+                      <tr key={i}><td><Pill color="gray">{dup.row}</Pill></td><td style={{ fontSize: '0.85rem', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dup.question_text}</td>
+                        <td>{dup.existing_id ? <Pill color="amber">DB #{dup.existing_id}</Pill> : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>}</td></tr>
                     ))}
                   </tbody>
                 </table>
-                {report.duplicates.length > 30 && (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 8 }}>
-                    Showing first 30 of {report.duplicates.length} duplicates.
-                  </p>
-                )}
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 <input type="checkbox" checked={forceDupes} onChange={(e) => setForceDupes(e.target.checked)} />
-                Import duplicates anyway (creates new copies alongside existing records)
+                Import duplicates anyway
               </label>
             </div>
           )}
-
-          {/* ── Preview of valid rows ── */}
           {report.preview && report.preview.length > 0 && (
             <div className="bulk-card" style={{ marginTop: 16 }}>
-              <h4 style={{ margin: '0 0 12px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
-                ✓ Preview — {Math.min(report.preview.length, 20)} of {report.stats.valid_count} valid rows
-              </h4>
+              <h4 style={{ margin: '0 0 12px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>✓ Preview — {Math.min(report.preview.length, 20)} of {report.stats.valid_count} valid rows</h4>
               <div className="bulk-table-wrap">
                 <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 60 }}>Row</th>
-                      <th style={{ width: 90 }}>Exam</th>
-                      <th style={{ width: 100 }}>Section</th>
-                      <th>Question</th>
-                      <th style={{ width: 55 }}>Ans</th>
-                      <th style={{ width: 110 }}>Topic</th>
-                      <th style={{ width: 75 }}>Diff</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th style={{ width: 60 }}>Row</th><th style={{ width: 90 }}>Exam</th><th style={{ width: 100 }}>Section</th><th>Question</th><th style={{ width: 55 }}>Ans</th><th style={{ width: 110 }}>Topic</th><th style={{ width: 75 }}>Diff</th></tr></thead>
                   <tbody>
                     {report.preview.map((row, i) => (
                       <tr key={i}>
-                        <td><Pill color="gray">{row._row}</Pill></td>
-                        <td><Pill color="violet">{row.exam}</Pill></td>
+                        <td><Pill color="gray">{row._row}</Pill></td><td><Pill color="violet">{row.exam}</Pill></td>
                         <td style={{ fontSize: '0.82rem', textTransform: 'capitalize' }}>{row.section}</td>
-                        <td style={{ fontSize: '0.85rem', maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {row.question_text}
-                        </td>
+                        <td style={{ fontSize: '0.85rem', maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.question_text}</td>
                         <td><Pill color="green">{row.correct_answer.toUpperCase()}</Pill></td>
                         <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{row.topic || '—'}</td>
-                        <td>
-                          {row.difficulty
-                            ? <Pill color={row.difficulty === 'easy' ? 'green' : row.difficulty === 'hard' ? 'amber' : 'blue'}>{row.difficulty}</Pill>
-                            : <span style={{ color: 'var(--text-muted)' }}>—</span>
-                          }
-                        </td>
+                        <td>{row.difficulty ? <Pill color={row.difficulty === 'easy' ? 'green' : row.difficulty === 'hard' ? 'amber' : 'blue'}>{row.difficulty}</Pill> : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2268,73 +2150,30 @@ function BulkUploadTab() {
               </div>
             </div>
           )}
-
-          {/* ── Action buttons ── */}
           <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {importCount > 0 ? (
               <button className="btn btn-green" onClick={handleCommit} disabled={committing}>
-                {committing
-                  ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} />Importing…</>
-                  : `Import ${importCount} Question${importCount !== 1 ? 's' : ''} into Bank`
-                }
+                {committing ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} />Importing…</> : `Import ${importCount} Question${importCount !== 1 ? 's' : ''} into Bank`}
               </button>
-            ) : (
-              <button className="btn" disabled style={{ opacity: 0.5 }}>No valid rows to import</button>
-            )}
-            {report.stats.error_count > 0 && (
-              <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>
-                ⬇ Download Errors CSV
-              </button>
-            )}
+            ) : <button className="btn" disabled style={{ opacity: 0.5 }}>No valid rows to import</button>}
+            {report.stats.error_count > 0 && <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>⬇ Download Errors CSV</button>}
             <button className="btn btn-ghost" onClick={handleReset}>← Back to Upload</button>
           </div>
         </div>
       )}
 
-      {/* ══════════ STEP 3: Result ══════════ */}
       {step === 3 && result && (
         <div className="bulk-section">
           <div className="bulk-card" style={{ textAlign: 'center', padding: '40px 32px' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>
-              {result.inserted > 0 ? '✅' : '⚠️'}
-            </div>
+            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>{result.inserted > 0 ? '✅' : '⚠️'}</div>
             <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-              {result.inserted > 0
-                ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Added to Bank`
-                : 'No Questions Imported'
-              }
+              {result.inserted > 0 ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Added to Bank` : 'No Questions Imported'}
             </h3>
-            <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-              {result.message}
-            </p>
-
+            <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>{result.message}</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
-              {result.inserted > 0 && (
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div>
-                </div>
-              )}
-              {result.skipped > 0 && (
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped (duplicates)</div>
-                </div>
-              )}
-              {result.errors?.length > 0 && (
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626' }}>{result.errors.length}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Errors</div>
-                </div>
-              )}
+              {result.inserted > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div></div>}
+              {result.skipped > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped</div></div>}
             </div>
-
-            {result.inserted > 0 && (
-              <p style={{ fontSize: '0.83rem', color: 'var(--text-muted)', marginBottom: 20 }}>
-                Questions are unassigned and inactive. Go to the <strong>Questions</strong> tab → filter <em>Unassigned</em> → use Bulk Assign to place them into worlds.
-              </p>
-            )}
-
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
               <button className="btn btn-violet" onClick={handleReset}>Upload Another File</button>
             </div>
@@ -2345,6 +2184,8 @@ function BulkUploadTab() {
   );
 }
 
+
+// ── ROOT ──────────────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'stats',     icon: '📊', label: 'Stats'      },

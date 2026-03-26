@@ -65,15 +65,15 @@ export const listQuestions = (params = {}) => {
   return adminRequest(`/api/admin/questions${qs ? '?' + qs : ''}`);
 };
 
-export const getQuestion    = (id)       => adminRequest(`/api/admin/questions/${id}`);
-export const updateQuestion = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',    body: JSON.stringify(data) });
-export const deleteQuestion = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
-export const toggleQuestion = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
-export const importQuestions = (arr)     => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
+export const getQuestion     = (id)       => adminRequest(`/api/admin/questions/${id}`);
+export const updateQuestion  = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',    body: JSON.stringify(data) });
+export const deleteQuestion  = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
+export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
+export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
 export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
-export const bulkActivate    = (data)    => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
-export const bulkTopic       = (data)    => adminRequest('/api/admin/questions/bulk-topic',    { method: 'POST', body: JSON.stringify(data) });
-export const reviewProgress  = (exam)    => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
+export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
+export const bulkTopic       = (data)     => adminRequest('/api/admin/questions/bulk-topic',    { method: 'POST', body: JSON.stringify(data) });
+export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
 export const markReviewed    = (id, version) => adminRequest(`/api/admin/questions/${id}/mark-reviewed`, { method: 'PATCH', body: JSON.stringify({ version }) });
 
 /**
@@ -120,6 +120,7 @@ export const bulkAssign = (questionIds, assign) =>
  * Download the CSV template for bulk upload.
  * Columns: exam, section, question_text, option_a–d, correct_answer, hint, topic, difficulty
  * NOTE: world_key is NOT a column — world assignment is done via bulk-assign after upload.
+ * NOTE: hint column may be left empty — AI Review will generate hints later.
  */
 export const bulkTemplate = () =>
   adminRequest('/api/admin/questions/bulk-template', { _raw: true });
@@ -150,17 +151,85 @@ export const bulkCommit = (file, forceDuplicates = false) => {
 };
 
 // ── Orgs ─────────────────────────────────────────────────────────────────────
-export const listOrgs           = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
-export const createOrg          = (data)        => adminRequest('/api/admin/orgs', { method: 'POST', body: JSON.stringify(data) });
-export const getOrg             = (id)          => adminRequest(`/api/admin/orgs/${id}`);
-export const createOrgLeader    = (id, data)    => adminRequest(`/api/admin/orgs/${id}/leader`, { method: 'POST', body: JSON.stringify(data) });
-export const generateStudents   = (id, data)    => adminRequest(`/api/admin/orgs/${id}/students/generate`, { method: 'POST', body: JSON.stringify(data) });
-export const exportStudentsCsv  = (id)          => adminRequest(`/api/admin/orgs/${id}/students/export`, { _raw: true });
-export const grantOrgEntitlement = (id, data)   => adminRequest(`/api/admin/orgs/${id}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
+export const listOrgs            = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
+export const createOrg           = (data)        => adminRequest('/api/admin/orgs', { method: 'POST', body: JSON.stringify(data) });
+export const getOrg              = (id)          => adminRequest(`/api/admin/orgs/${id}`);
+export const createOrgLeader     = (id, data)    => adminRequest(`/api/admin/orgs/${id}/leader`, { method: 'POST', body: JSON.stringify(data) });
+export const generateStudents    = (id, data)    => adminRequest(`/api/admin/orgs/${id}/students/generate`, { method: 'POST', body: JSON.stringify(data) });
+export const exportStudentsCsv   = (id)          => adminRequest(`/api/admin/orgs/${id}/students/export`, { _raw: true });
+export const grantOrgEntitlement = (id, data)    => adminRequest(`/api/admin/orgs/${id}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
 
 // ── Users ────────────────────────────────────────────────────────────────────
 export const listUsers      = (params = {}) => adminRequest('/api/admin/users?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))));
 export const createUser     = (data)        => adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
-export const activateUser   = (id)          => adminRequest(`/api/admin/users/${id}/activate`,     { method: 'PATCH' });
-export const deactivateUser = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`,   { method: 'PATCH' });
+export const activateUser   = (id)          => adminRequest(`/api/admin/users/${id}/activate`,      { method: 'PATCH' });
+export const deactivateUser = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`,    { method: 'PATCH' });
 export const resetPassword  = (id, data)    => adminRequest(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify(data) });
+
+// ── AI Review (Chunk J) ───────────────────────────────────────────────────────
+
+/**
+ * Trigger AI review for a batch of questions (max 20 per call).
+ * The frontend (AIReviewModal) batches larger selections automatically,
+ * calling this function once per batch of 20 with a short pause between calls.
+ *
+ * The LLM proposes: predicted_answer, confidence, review_note, proposed_hint.
+ * Nothing is written to correct_answer or hint until admin explicitly approves.
+ *
+ * @param {number[]} questionIds  — array of integer question IDs, max 20
+ * @param {boolean}  overwrite    — if true, re-reviews already-approved questions
+ * @returns {{
+ *   processed: number,
+ *   failed: number,
+ *   skipped_approved: number[],
+ *   results: Array<{
+ *     question_id: number,
+ *     status: 'reviewed'|'failed',
+ *     predicted_answer: string|null,
+ *     confidence: number|null,
+ *     review_note: string|null,
+ *     proposed_hint: string|null,
+ *     error: string|null
+ *   }>,
+ *   message: string
+ * }}
+ */
+export const aiReview = (questionIds, overwrite = false) =>
+  adminRequest('/api/admin/questions/ai-review', {
+    method: 'POST',
+    body: JSON.stringify({ question_ids: questionIds, overwrite }),
+  });
+
+/**
+ * Approve AI review suggestions for a single question.
+ * Uses optimistic locking — version must match the current DB version.
+ *
+ * @param {number} id
+ * @param {{
+ *   version: number,          — required
+ *   accept_answer?: boolean,  — default true: copies llm_predicted_answer → correct_answer
+ *   accept_hint?: boolean,    — default true: copies llm_proposed_hint → hint
+ *   correct_answer?: string   — optional override ('a'|'b'|'c'|'d'): use instead of AI prediction
+ * }} body
+ * @returns {{ question: object }}
+ */
+export const approveReview = (id, body) =>
+  adminRequest(`/api/admin/questions/${id}/approve-review`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+
+/**
+ * Reject AI review suggestions for a single question.
+ * Sets review_status='rejected'. correct_answer and hint are NOT changed.
+ * Admin should then edit the question manually via the standard edit modal.
+ *
+ * @param {number} id
+ * @param {number} version  — current version for optimistic locking
+ * @returns {{ question: object }}
+ */
+export const rejectReview = (id, version) =>
+  adminRequest(`/api/admin/questions/${id}/reject-review`, {
+    method: 'PATCH',
+    body: JSON.stringify({ version }),
+  });
