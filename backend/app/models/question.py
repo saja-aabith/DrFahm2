@@ -31,6 +31,12 @@ AI review fields (added Chunk J):
 - `llm_proposed_hint`    — AI-drafted hint. Staged here until admin approves;
                            copied to hint column on approval.
 - `llm_reviewed_at`      — timestamp of the most recent LLM call for this question.
+
+AI review fields (added Chunk K1):
+- `llm_predicted_topic`  — AI-predicted topic key (e.g. "algebra", "genetics").
+                           Must be a valid key for the question's section.
+                           Staged here until admin approves; copied to topic on approval.
+                           Stored as None if LLM returns an invalid/hallucinated key.
 """
 
 import enum
@@ -119,7 +125,7 @@ class Question(db.Model):
     difficulty = db.Column(db.Enum(Difficulty), nullable=True, index=True)
     is_active  = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
-    # ── AI review fields ──────────────────────────────────────────────────────
+    # ── AI review fields (Chunk J) ────────────────────────────────────────────
     # These fields are INTERNAL to the admin workflow.
     # None of them are ever included in student-facing serialisation.
     # correct_answer is the single source of truth for gameplay — it is only
@@ -151,6 +157,12 @@ class Question(db.Model):
     # Copied to hint column only on explicit approval (accept_hint=True).
     # Preserves any existing human-written hint until overwritten.
     llm_proposed_hint = db.Column(db.Text, nullable=True)
+
+    # K1: AI-predicted topic key (e.g. "algebra", "genetics").
+    # Must be a valid key for the question's section (see topic_config.py).
+    # Staged here until admin approves — copied to topic column on approval.
+    # Soft-fail: stored as None if LLM returns an invalid/hallucinated key.
+    llm_predicted_topic = db.Column(db.Text, nullable=True)
 
     # Timestamp of the most recent LLM review call for this question.
     llm_reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
@@ -226,11 +238,12 @@ class Question(db.Model):
 
         include_answer=True  → admin view: adds correct_answer, hint, AND all
                                llm_* review fields (predicted_answer, confidence,
-                               review_note, proposed_hint, review_status).
+                               review_note, proposed_hint, predicted_topic,
+                               review_status).
         include_hint=True    → gameplay view: adds hint only. No answer,
                                no llm_* fields ever reach students.
 
-        INVARIANT: llm_review_note and llm_* fields are NEVER included unless
+        INVARIANT: llm_review_note and all llm_* fields are NEVER included unless
         include_answer=True. They are internal admin-only fields.
         """
         d = {
@@ -265,12 +278,13 @@ class Question(db.Model):
             d["hint"]           = self.hint
 
             # AI review workflow fields — admin panel only
-            d["review_status"]        = self.review_status.value if self.review_status else ReviewStatus.UNREVIEWED.value
-            d["llm_predicted_answer"] = self.llm_predicted_answer
-            d["llm_confidence"]       = self.llm_confidence
-            d["llm_review_note"]      = self.llm_review_note        # INTERNAL ONLY
-            d["llm_proposed_hint"]    = self.llm_proposed_hint
-            d["llm_reviewed_at"]      = (
+            d["review_status"]          = self.review_status.value if self.review_status else ReviewStatus.UNREVIEWED.value
+            d["llm_predicted_answer"]   = self.llm_predicted_answer
+            d["llm_confidence"]         = self.llm_confidence
+            d["llm_review_note"]        = self.llm_review_note        # INTERNAL ONLY
+            d["llm_proposed_hint"]      = self.llm_proposed_hint
+            d["llm_predicted_topic"]    = self.llm_predicted_topic    # K1
+            d["llm_reviewed_at"]        = (
                 self.llm_reviewed_at.isoformat() if self.llm_reviewed_at else None
             )
 

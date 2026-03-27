@@ -49,7 +49,9 @@ async function adminUpload(path, formData, queryParams = '') {
 export const getStats = () => adminRequest('/api/admin/stats');
 
 // ── Topics ───────────────────────────────────────────────────────────────────
-export const getTopics     = (section) => adminRequest(`/api/admin/topics${section ? '?section=' + section : ''}`);
+export const getTopics = (section) =>
+  adminRequest(`/api/admin/topics${section ? '?section=' + section : ''}`);
+
 export const topicCoverage = (params = {}) => {
   const qs = new URLSearchParams(
     Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
@@ -65,19 +67,19 @@ export const listQuestions = (params = {}) => {
   return adminRequest(`/api/admin/questions${qs ? '?' + qs : ''}`);
 };
 
-export const getQuestion     = (id)       => adminRequest(`/api/admin/questions/${id}`);
-export const updateQuestion  = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',    body: JSON.stringify(data) });
-export const deleteQuestion  = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
-export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
-export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
+export const getQuestion    = (id)       => adminRequest(`/api/admin/questions/${id}`);
+export const updateQuestion = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',    body: JSON.stringify(data) });
+export const deleteQuestion = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
+export const toggleQuestion = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
+export const importQuestions = (arr)     => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
 export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
-export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
-export const bulkTopic       = (data)     => adminRequest('/api/admin/questions/bulk-topic',    { method: 'POST', body: JSON.stringify(data) });
-export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
+export const bulkActivate    = (data)    => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
+export const bulkTopic       = (data)    => adminRequest('/api/admin/questions/bulk-topic',    { method: 'POST', body: JSON.stringify(data) });
+export const reviewProgress  = (exam)    => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
 export const markReviewed    = (id, version) => adminRequest(`/api/admin/questions/${id}/mark-reviewed`, { method: 'PATCH', body: JSON.stringify({ version }) });
 
 /**
- * Quick inline update — sends only changed field + version for optimistic locking.
+ * Quick inline update — sends only the changed field + version for optimistic locking.
  */
 export const quickUpdate = (id, field, value, version) =>
   adminRequest(`/api/admin/questions/${id}`, {
@@ -120,7 +122,7 @@ export const bulkAssign = (questionIds, assign) =>
  * Download the CSV template for bulk upload.
  * Columns: exam, section, question_text, option_a–d, correct_answer, hint, topic, difficulty
  * NOTE: world_key is NOT a column — world assignment is done via bulk-assign after upload.
- * NOTE: hint column may be left empty — AI Review will generate hints later.
+ * NOTE: hint column may be left empty — AI Review will generate it.
  */
 export const bulkTemplate = () =>
   adminRequest('/api/admin/questions/bulk-template', { _raw: true });
@@ -166,15 +168,15 @@ export const activateUser   = (id)          => adminRequest(`/api/admin/users/${
 export const deactivateUser = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`,    { method: 'PATCH' });
 export const resetPassword  = (id, data)    => adminRequest(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify(data) });
 
-// ── AI Review (Chunk J) ───────────────────────────────────────────────────────
+// ── AI Review ────────────────────────────────────────────────────────────────
 
 /**
  * Trigger AI review for a batch of questions (max 20 per call).
- * The frontend (AIReviewModal) batches larger selections automatically,
- * calling this function once per batch of 20 with a short pause between calls.
+ * The frontend (AIReviewModal) batches larger selections automatically.
  *
- * The LLM proposes: predicted_answer, confidence, review_note, proposed_hint.
- * Nothing is written to correct_answer or hint until admin explicitly approves.
+ * The LLM proposes: predicted_answer, confidence, review_note, proposed_hint,
+ * and (K1) predicted_topic.
+ * Nothing is written to correct_answer, hint, or topic until admin explicitly approves.
  *
  * @param {number[]} questionIds  — array of integer question IDs, max 20
  * @param {boolean}  overwrite    — if true, re-reviews already-approved questions
@@ -189,6 +191,7 @@ export const resetPassword  = (id, data)    => adminRequest(`/api/admin/users/${
  *     confidence: number|null,
  *     review_note: string|null,
  *     proposed_hint: string|null,
+ *     predicted_topic: string|null,
  *     error: string|null
  *   }>,
  *   message: string
@@ -206,10 +209,12 @@ export const aiReview = (questionIds, overwrite = false) =>
  *
  * @param {number} id
  * @param {{
- *   version: number,          — required
- *   accept_answer?: boolean,  — default true: copies llm_predicted_answer → correct_answer
- *   accept_hint?: boolean,    — default true: copies llm_proposed_hint → hint
- *   correct_answer?: string   — optional override ('a'|'b'|'c'|'d'): use instead of AI prediction
+ *   version: number,           — required
+ *   accept_answer?: boolean,   — default true: copies llm_predicted_answer → correct_answer
+ *   accept_hint?: boolean,     — default true: copies llm_proposed_hint → hint
+ *   accept_topic?: boolean,    — default true: copies llm_predicted_topic → topic (K1)
+ *   correct_answer?: string    — optional override ('a'|'b'|'c'|'d')
+ *   topic?: string             — optional override: topic key for the question's section (K1)
  * }} body
  * @returns {{ question: object }}
  */
@@ -221,7 +226,7 @@ export const approveReview = (id, body) =>
 
 /**
  * Reject AI review suggestions for a single question.
- * Sets review_status='rejected'. correct_answer and hint are NOT changed.
+ * Sets review_status='rejected'. correct_answer, hint, and topic are NOT changed.
  * Admin should then edit the question manually via the standard edit modal.
  *
  * @param {number} id

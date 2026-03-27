@@ -15,7 +15,7 @@ if (typeof document !== 'undefined' && !document.getElementById('chunk-e-styles'
     .row-selected { background: rgba(139,92,246,0.07) !important; }
     .row-selected:hover { background: rgba(139,92,246,0.11) !important; }
 
-    /* ── Chunk J: AI review card ── */
+    /* ── AI review card ── */
     .ai-review-card {
       margin-top: 12px; padding: 14px 16px; border-radius: 10px;
       background: rgba(124,58,237,0.06); border: 1px solid rgba(124,58,237,0.2);
@@ -88,11 +88,8 @@ if (typeof document !== 'undefined' && !document.getElementById('chunk-e-styles'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const EXAMS = ['qudurat', 'tahsili'];
-const WORLD_KEYS = {
-  qudurat: ['math_100','math_150','math_200','math_250','math_300','verbal_100','verbal_150','verbal_200','verbal_250','verbal_300'],
-  tahsili: ['math_100','math_150','math_200','math_250','math_300','biology_100','biology_150','biology_200','biology_250','biology_300','chemistry_100','chemistry_150','chemistry_200','chemistry_250','chemistry_300','physics_100','physics_150','physics_200','physics_250','physics_300'],
-};
+const BULK_CSV_COLUMNS = ['exam','section','question_text','option_a','option_b','option_c','option_d','correct_answer','hint','topic','difficulty'];
+const VALID_EXAM_SECTIONS = { qudurat: ['math','verbal'], tahsili: ['math','biology','chemistry','physics'] };
 
 const SECTION_CONFIG = {
   qudurat: {
@@ -122,6 +119,7 @@ const TIER_LABELS = {
 };
 
 function worldDisplayName(worldKey) {
+  if (!worldKey) return '—';
   const band = parseInt(worldKey.split('_')[1], 10);
   return TIER_LABELS[band] || worldKey;
 }
@@ -130,6 +128,8 @@ function getSectionFromWorldKey(wk) {
   if (!wk) return null;
   return wk.replace(/_\d+$/, '');
 }
+
+const TABLE_COLS = 11;
 
 
 // ── Shared Components ─────────────────────────────────────────────────────────
@@ -242,9 +242,9 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
 // ── TOPIC COVERAGE PANEL ──────────────────────────────────────────────────────
 
 function topicBarColor(count) {
-  if (count < 10)  return { bar: '#dc2626', bg: 'rgba(220,38,38,0.12)',  text: '#dc2626' };
-  if (count < 30)  return { bar: '#d97706', bg: 'rgba(217,119,6,0.12)',  text: '#b45309' };
-  return             { bar: '#16a34a', bg: 'rgba(22,163,74,0.1)',   text: '#15803d' };
+  if (count < 10) return { bar: '#dc2626', bg: 'rgba(220,38,38,0.12)', text: '#dc2626' };
+  if (count < 30) return { bar: '#d97706', bg: 'rgba(217,119,6,0.12)',  text: '#b45309' };
+  return               { bar: '#16a34a', bg: 'rgba(22,163,74,0.1)',   text: '#15803d' };
 }
 
 function TopicCoveragePanel({ examFilter, refreshKey, onShowUntagged }) {
@@ -268,77 +268,55 @@ function TopicCoveragePanel({ examFilter, refreshKey, onShowUntagged }) {
   const overallBarColor = overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#16a34a';
 
   return (
-    <div className="topic-coverage-panel" style={{
-      background: 'var(--bg-card, rgba(255,255,255,0.04))', border: '1px solid var(--border)',
-      borderRadius: 10, padding: '14px 16px', marginBottom: 16,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>Topic Coverage</span>
-        <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>
-          {summary.tagged.toLocaleString()} tagged · <span style={{ color: summary.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>{summary.untagged.toLocaleString()} untagged</span>
-          {' · '}<strong style={{ color: overallPct < 50 ? '#dc2626' : overallPct < 80 ? '#d97706' : '#15803d' }}>{overallPct}%</strong>
-        </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          {summary.untagged > 0 && onShowUntagged && (
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
-              onClick={onShowUntagged}>⚠ Show untagged</button>
-          )}
-          <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(!expanded)}>{expanded ? 'Collapse' : 'Details'}</button>
+    <div className="topic-coverage-panel" style={{ marginBottom: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
+        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>📊 Topic Coverage</span>
+        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${overallPct}%`, background: overallBarColor, borderRadius: 4, transition: 'width 0.6s ease' }} />
         </div>
+        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          {summary.tagged}/{summary.total} tagged ({overallPct}%)
+        </span>
+        {summary.untagged > 0 && onShowUntagged && (
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem', padding: '2px 8px', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }}
+            onClick={(e) => { e.stopPropagation(); onShowUntagged(); }}>
+            Show untagged
+          </button>
+        )}
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{expanded ? '▲' : '▼'}</span>
       </div>
-      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{ height: '100%', borderRadius: 3, width: `${overallPct}%`, background: overallBarColor, transition: 'width 0.4s ease' }} />
-      </div>
+
       {expanded && by_section && (
-        <div style={{ marginTop: 16 }}>
-          {Object.entries(by_section).map(([sectionKey, secData]) => {
-            const secPct = secData.total > 0 ? Math.round((secData.tagged / secData.total) * 100) : 0;
-            const secBarColor = secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#16a34a';
-            const topics = secData.topics || [];
-            const maxCount = topics.reduce((m, t) => Math.max(m, t.count), 1);
-            return (
-              <div key={sectionKey} style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.88rem', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{sectionKey}</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {secData.total.toLocaleString()} total · {secData.tagged.toLocaleString()} tagged ·{' '}
-                    <span style={{ color: secData.untagged > 0 ? '#b45309' : 'var(--text-muted)' }}>{secData.untagged.toLocaleString()} untagged</span>
-                  </span>
-                  <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: '0.85rem', color: secPct < 50 ? '#dc2626' : secPct < 80 ? '#d97706' : '#15803d' }}>{secPct}%</span>
-                </div>
-                <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 12 }}>
-                  <div style={{ height: '100%', borderRadius: 2, width: `${secPct}%`, background: secBarColor, transition: 'width 0.4s ease' }} />
-                </div>
-                {topics.length === 0 ? (
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>No topics defined for this section.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {topics.map((t) => {
-                      const clr = topicBarColor(t.count);
-                      const barWidth = maxCount > 0 ? Math.round((t.count / maxCount) * 100) : 0;
-                      return (
-                        <div key={t.topic} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 160, flexShrink: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.label}>{t.label}</span>
-                          <div style={{ flex: 1, height: 14, borderRadius: 3, background: clr.bg, overflow: 'hidden', position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, background: clr.bar, borderRadius: 3, transition: 'width 0.35s ease', opacity: 0.85 }} />
-                          </div>
-                          <span style={{ width: 40, flexShrink: 0, textAlign: 'right', fontSize: '0.78rem', fontWeight: 600, color: clr.text }}>{t.count}</span>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: clr.bar }} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+        <div style={{ marginTop: 14 }}>
+          {Object.entries(by_section).map(([sec, secData]) => (
+            <div key={sec} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary)' }}>{sec}</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{secData.tagged}/{secData.total} tagged</span>
                 {secData.untagged > 0 && (
-                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', fontSize: '0.8rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>⚠</span>
-                    <span>{secData.untagged.toLocaleString()} question{secData.untagged !== 1 ? 's' : ''} in this section have no topic tag.</span>
-                    {onShowUntagged && <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: '0.78rem', padding: '1px 8px', color: '#b45309', borderColor: 'rgba(217,119,6,0.3)' }} onClick={onShowUntagged}>Filter</button>}
-                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#b45309' }}>({secData.untagged} question{secData.untagged !== 1 ? 's' : ''} in this section have no topic tag.</span>
                 )}
               </div>
-            );
-          })}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
+                {secData.topics.map((t) => {
+                  const { bar, bg, text } = topicBarColor(t.count);
+                  const maxCount = Math.max(...secData.topics.map(tt => tt.count), 1);
+                  const pct = Math.round((t.count / maxCount) * 100);
+                  return (
+                    <div key={t.topic} style={{ padding: '6px 8px', borderRadius: 6, background: bg, border: `1px solid ${bar}33` }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: text, marginBottom: 3 }}>{t.label}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, height: 4, background: 'rgba(0,0,0,0.15)', borderRadius: 2 }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: bar, borderRadius: 2 }} />
+                        </div>
+                        <span style={{ fontSize: '0.72rem', color: text, minWidth: 20, textAlign: 'right' }}>{t.count}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
           <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
             {[['#dc2626','<10 questions'],['#d97706','10–29 questions'],['#16a34a','30+ questions']].map(([c,l]) => (
               <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -404,21 +382,16 @@ function InlineAnswerPicker({ question, onSaved }) {
   return (
     <div ref={ref} className="inline-answer-picker">
       {saving ? <span className="inline-answer-saving">…</span> : (
-        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {['a', 'b', 'c', 'd'].map((opt) => (
-            <button key={opt} className={`inline-answer-btn ${opt === question.correct_answer ? 'active' : ''}`}
-              onClick={() => handlePick(opt)} title={`Set correct answer to ${opt.toUpperCase()}`}>
+        <>
+          {['a','b','c','d'].map((opt) => (
+            <button key={opt}
+              className={`inline-answer-btn ${opt === question.correct_answer ? 'current' : ''}`}
+              onClick={() => handlePick(opt)}>
               {opt.toUpperCase()}
             </button>
           ))}
-          {!isReviewed && (
-            <button className="inline-answer-btn confirm" onClick={handleConfirmReview}
-              title="Confirm current answer is correct (mark as reviewed)"
-              style={{ marginLeft: 4, background: 'rgba(34,197,94,0.15)', color: '#15803d', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '2px 6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>
-              ✓
-            </button>
-          )}
-        </div>
+          <button className="inline-confirm-btn" onClick={handleConfirmReview} title="Mark reviewed without changing answer">✓ Confirm</button>
+        </>
       )}
     </div>
   );
@@ -439,14 +412,14 @@ function InlineDifficultyPicker({ question, onSaved }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const handlePick = async (difficulty) => {
-    if (difficulty === (question.difficulty || '')) { setOpen(false); return; }
+  const handlePick = async (diff) => {
+    if (diff === (question.difficulty || '')) { setOpen(false); return; }
     setSaving(true);
     try {
-      const result = await adminApi.quickUpdate(question.id, 'difficulty', difficulty || null, question.version);
+      const result = await adminApi.quickUpdate(question.id, 'difficulty', diff || null, question.version);
       onSaved(result.question);
       setOpen(false);
-    } catch (e) { alert(e?.error?.message || 'Failed to save.'); }
+    } catch (e) { alert(e?.error?.message || 'Failed to save difficulty.'); }
     finally { setSaving(false); }
   };
 
@@ -533,32 +506,52 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
 }
 
 
-// ── AI REVIEW CARD (shown inside ExpandedQuestionRow) ─────────────────────────
+// ── AI REVIEW CARD (shown inside ExpandedQuestionRow) — K1 updated ────────────
 
 function AIReviewCard({ question, onUpdated }) {
-  const [approving,      setApproving]      = useState(false);
-  const [rejecting,      setRejecting]      = useState(false);
-  const [editMode,       setEditMode]       = useState(false);
+  const [approving,     setApproving]     = useState(false);
+  const [rejecting,     setRejecting]     = useState(false);
+  const [editMode,      setEditMode]      = useState(false);
   const [overrideAnswer, setOverrideAnswer] = useState('');
-  const [acceptHint,     setAcceptHint]     = useState(true);
+  const [acceptHint,    setAcceptHint]    = useState(true);
+  // K1 — topic
+  const [acceptTopic,   setAcceptTopic]   = useState(true);
+  const [overrideTopic, setOverrideTopic] = useState('');  // '' = use predicted
+  const [sectionTopics, setSectionTopics] = useState([]);  // [{key, label}]
 
   const status     = question.review_status;
   const confidence = question.llm_confidence;
 
+  // Fetch topic list for this question's section on mount
+  useEffect(() => {
+    if (!question.section) return;
+    adminApi.getTopics(question.section)
+      .then(data => setSectionTopics(data?.taxonomy?.[question.section] || []))
+      .catch(() => setSectionTopics([]));
+  }, [question.section]);
+
   // Confidence colour: high ≥85%, medium 65–84%, low <65%
   const confColor = confidence >= 0.85 ? '#16a34a' : confidence >= 0.65 ? '#d97706' : '#dc2626';
-  const confLabel = confidence >= 0.85 ? 'High' : confidence >= 0.65 ? 'Medium' : 'Low';
-  const confPill  = confidence >= 0.85 ? 'green'  : confidence >= 0.65 ? 'amber'  : 'red';
+  const confLabel = confidence >= 0.85 ? 'High'   : confidence >= 0.65 ? 'Medium'  : 'Low';
+  const confPill  = confidence >= 0.85 ? 'green'  : confidence >= 0.65 ? 'amber'   : 'red';
 
   const cardClass = status === 'rejected' ? 'ai-review-card rejected'
                   : status === 'approved' ? 'ai-review-card approved'
                   : 'ai-review-card';
 
+  const isReadOnly = status === 'approved';
+
   const handleApprove = async () => {
     setApproving(true);
     try {
-      const body = { version: question.version, accept_answer: true, accept_hint: acceptHint };
-      if (editMode && overrideAnswer) body.correct_answer = overrideAnswer;
+      const body = {
+        version:       question.version,
+        accept_answer: true,
+        accept_hint:   acceptHint,
+        accept_topic:  acceptTopic,   // K1
+      };
+      if (editMode && overrideAnswer)  body.correct_answer = overrideAnswer;
+      if (acceptTopic && overrideTopic) body.topic = overrideTopic;  // K1 override
       const result = await adminApi.approveReview(question.id, body);
       onUpdated(result.question);
     } catch (e) { alert(e?.error?.message || 'Approval failed. Reload and try again.'); }
@@ -574,12 +567,16 @@ function AIReviewCard({ question, onUpdated }) {
     finally { setRejecting(false); }
   };
 
-  // Don't render if no AI data
-  if (!question.llm_predicted_answer && !question.llm_review_note && !question.llm_proposed_hint) return null;
+  // Don't render if no AI data at all
+  if (!question.llm_predicted_answer && !question.llm_review_note && !question.llm_proposed_hint && !question.llm_predicted_topic) return null;
+
+  // Resolved topic for display
+  const resolvedTopicKey   = overrideTopic || question.llm_predicted_topic;
+  const resolvedTopicLabel = sectionTopics.find(t => t.key === resolvedTopicKey)?.label || resolvedTopicKey;
 
   return (
     <div className={cardClass}>
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <span style={{ fontWeight: 700, fontSize: '0.87rem', color: 'var(--text-secondary)' }}>🤖 AI Review</span>
         {status === 'ai_reviewed' && <Pill color="violet">Pending approval</Pill>}
@@ -592,94 +589,126 @@ function AIReviewCard({ question, onUpdated }) {
         )}
       </div>
 
-      {/* Predicted answer + confidence */}
+      {/* ── Predicted answer + confidence ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Predicted Answer</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div className="ai-review-predicted">{question.llm_predicted_answer?.toUpperCase() || '?'}</div>
-            {question.correct_answer !== question.llm_predicted_answer && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                current: <strong style={{ color: 'var(--text-secondary)' }}>{question.correct_answer?.toUpperCase()}</strong>
-              </span>
-            )}
-            {question.correct_answer === question.llm_predicted_answer && (
-              <span style={{ fontSize: '0.75rem', color: '#15803d' }}>matches current ✓</span>
+            {confidence != null && (
+              <div style={{ fontSize: '0.8rem' }}>
+                <Pill color={confPill}>{confLabel} — {Math.round(confidence * 100)}%</Pill>
+              </div>
             )}
           </div>
         </div>
 
-        {confidence != null && (
+        {/* Edit mode: pick a different answer */}
+        {!isReadOnly && editMode && (
           <div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Confidence</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: confColor }}>{Math.round(confidence * 100)}%</span>
-              <Pill color={confPill}>{confLabel}</Pill>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Override Answer</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['a','b','c','d'].map(letter => (
+                <button
+                  key={letter}
+                  className={`ai-override-btn ${overrideAnswer === letter ? 'selected' : ''}`}
+                  onClick={() => setOverrideAnswer(prev => prev === letter ? '' : letter)}
+                >
+                  {letter.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Review note — internal admin only */}
+      {/* ── Admin note (internal only) ── */}
       {question.llm_review_note && (
-        <div className="ai-review-note">
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-muted)', marginBottom: 4 }}>
-            🔒 Admin Note (never shown to students)
-          </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-            {question.llm_review_note}
-          </div>
+        <div className="ai-review-note" style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>🔒 Admin Note (internal)</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{question.llm_review_note}</div>
         </div>
       )}
 
-      {/* Proposed hint */}
+      {/* ── Proposed hint ── */}
       {question.llm_proposed_hint && (
-        <div className="ai-review-hint">
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#b45309', marginBottom: 4 }}>
-            💡 Proposed Hint (shown to student after wrong answer)
-          </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            <MathText text={question.llm_proposed_hint} />
-          </div>
-          {status !== 'approved' && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+        <div className="ai-review-hint" style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>💡 Proposed Hint</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{question.llm_proposed_hint}</div>
+          {!isReadOnly && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
               <input type="checkbox" checked={acceptHint} onChange={e => setAcceptHint(e.target.checked)} />
-              Accept this hint (copies to live hint field on approval)
+              Accept hint on approval
             </label>
           )}
         </div>
       )}
 
-      {/* Answer override (edit mode) */}
-      {editMode && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>Override answer:</span>
-          {['a', 'b', 'c', 'd'].map(opt => (
-            <button key={opt}
-              className={`ai-override-btn ${overrideAnswer === opt ? 'selected' : ''}`}
-              onClick={() => setOverrideAnswer(overrideAnswer === opt ? '' : opt)}>
-              {opt.toUpperCase()}
-            </button>
-          ))}
-          {overrideAnswer ? (
-            <span style={{ fontSize: '0.78rem', color: '#4ade80' }}>Will approve as {overrideAnswer.toUpperCase()}</span>
-          ) : (
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No override — will use AI prediction ({question.llm_predicted_answer?.toUpperCase()})</span>
+      {/* ── K1: Predicted topic ── */}
+      {(question.llm_predicted_topic || sectionTopics.length > 0) && (
+        <div style={{
+          padding: '10px 12px', borderRadius: 6, marginBottom: 10,
+          background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.2)',
+        }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 6 }}>
+            🏷️ Predicted Topic
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: (!isReadOnly && sectionTopics.length > 0) ? 8 : 0 }}>
+            {resolvedTopicKey
+              ? <Pill color="cyan">{resolvedTopicLabel}</Pill>
+              : <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>None predicted</span>
+            }
+            {overrideTopic && overrideTopic !== question.llm_predicted_topic && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(overridden)</span>
+            )}
+          </div>
+
+          {!isReadOnly && sectionTopics.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <select
+                value={overrideTopic || question.llm_predicted_topic || ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  setOverrideTopic(val === question.llm_predicted_topic ? '' : val);
+                }}
+                style={{
+                  fontSize: '0.82rem', padding: '4px 8px', borderRadius: 6,
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)', cursor: 'pointer',
+                }}
+              >
+                {!question.llm_predicted_topic && <option value="">— select topic —</option>}
+                {sectionTopics.map(t => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={acceptTopic}
+                  onChange={e => setAcceptTopic(e.target.checked)}
+                />
+                Accept topic on approval
+              </label>
+            </div>
           )}
         </div>
       )}
 
-      {/* Action buttons — only show for pending/rejected */}
-      {['ai_reviewed', 'rejected'].includes(status) && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {/* ── Action buttons ── */}
+      {!isReadOnly && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
           <button className="ai-review-btn approve" onClick={handleApprove} disabled={approving || rejecting}>
             {approving ? '…' : '✓ Approve'}
           </button>
           <button
             className={`ai-review-btn edit ${editMode ? 'active' : ''}`}
-            onClick={() => { setEditMode(!editMode); if (editMode) setOverrideAnswer(''); }}
+            onClick={() => { setEditMode(m => !m); setOverrideAnswer(''); }}
+            disabled={approving || rejecting}
           >
-            ✏ {editMode ? 'Cancel Edit' : 'Edit & Approve'}
+            ✏ Edit & Approve
           </button>
           <button className="ai-review-btn reject" onClick={handleReject} disabled={approving || rejecting}>
             {rejecting ? '…' : '✗ Reject'}
@@ -720,45 +749,37 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy, onQuestionUpdated })
               return (
                 <div key={opt} className={`expanded-option ${isCorrect ? 'correct' : ''}`}>
                   <span className="expanded-option-letter">{opt.toUpperCase()}</span>
-                  <span className="expanded-option-text"><MathText text={question[`option_${opt}`]} /></span>
+                  <MathText text={question[`option_${opt}`]} />
                   {isCorrect && <span className="expanded-correct-badge">✓ Correct</span>}
                 </div>
               );
             })}
           </div>
 
-          {question.hint && (
-            <div className="expanded-explanation">
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Hint</span>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginTop: 4 }}>
+          <div className="expanded-meta">
+            {question.hint && (
+              <div className="expanded-hint">
+                <span className="expanded-hint-label">💡 Hint:</span>
                 <MathText text={question.hint} />
               </div>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              {topicLabel && <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>Topic: <strong>{topicLabel}</strong></span>}
+              {question.difficulty && <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>Difficulty: <strong style={{ textTransform: 'capitalize' }}>{question.difficulty}</strong></span>}
+              {question.qid && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>QID: {question.qid}</span>}
+              {question.review_status && (
+                <span style={{ fontSize: '0.83rem' }}>
+                  <Pill color={
+                    question.review_status === 'approved'    ? 'green'  :
+                    question.review_status === 'rejected'    ? 'red'    :
+                    question.review_status === 'ai_reviewed' ? 'violet' : 'gray'
+                  }>{question.review_status}</Pill>
+                </span>
+              )}
             </div>
-          )}
-
-          <div className="expanded-meta-row">
-            {topicLabel && (
-              <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Topic:</span> <Pill color="cyan">{topicLabel}</Pill></span>
-            )}
-            {question.difficulty && (
-              <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Difficulty:</span> <Pill color={question.difficulty === 'easy' ? 'green' : 'amber'}>{question.difficulty}</Pill></span>
-            )}
-            <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>ID:</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{question.id}</span></span>
-            <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Version:</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>v{question.version}</span></span>
-            {question.review_status && question.review_status !== 'unreviewed' && (
-              <span className="expanded-meta-item">
-                <span style={{ color: 'var(--text-muted)' }}>AI Status:</span>{' '}
-                <Pill color={
-                  question.review_status === 'approved'    ? 'green'  :
-                  question.review_status === 'rejected'    ? 'red'    :
-                  question.review_status === 'ai_reviewed' ? 'violet' : 'gray'
-                }>{question.review_status}</Pill>
-              </span>
-            )}
           </div>
 
-          {/* ── Chunk J: AI review card ── */}
-          {/* Shows for ai_reviewed, rejected, and approved (approved = read-only view) */}
+          {/* AI review card — shows for ai_reviewed, rejected, and approved (approved = read-only view) */}
           {['ai_reviewed', 'rejected', 'approved'].includes(question.review_status) && onQuestionUpdated && (
             <AIReviewCard question={question} onUpdated={onQuestionUpdated} />
           )}
@@ -797,10 +818,7 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
     let totalProcessed = 0, totalFailed = 0, totalSkipped = 0;
 
     for (let i = 0; i < batches.length; i++) {
-      if (cancelRef.current) {
-        addLog('Cancelled.', 'fail');
-        break;
-      }
+      if (cancelRef.current) { addLog('Cancelled.', 'fail'); break; }
       const batch = batches[i];
       addLog(`Batch ${i + 1}/${batches.length}  (${batch.length} questions)…`);
       try {
@@ -812,90 +830,755 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
         setSummary({ processed: totalProcessed, failed: totalFailed, skipped: totalSkipped });
         addLog(
           `  ✓  ${result.processed} reviewed, ${result.failed} failed${(result.skipped_approved || []).length ? `, ${result.skipped_approved.length} skipped` : ''}`,
-          result.failed > 0 ? 'fail' : 'ok',
+          result.failed > 0 ? 'fail' : 'ok'
         );
+        if (i < batches.length - 1) await new Promise(r => setTimeout(r, 300));
       } catch (e) {
-        const msg = e?.error?.message || 'Request failed';
-        addLog(`  ✗  Batch failed: ${msg}`, 'fail');
+        addLog(`  ✗  Batch ${i + 1} error: ${e?.error?.message || String(e)}`, 'fail');
         totalFailed += batch.length;
-        setSummary({ processed: totalProcessed, failed: totalFailed, skipped: totalSkipped });
-      }
-      // Pause between batches — avoids hammering OpenAI rate limits
-      if (i < batches.length - 1 && !cancelRef.current) {
-        await new Promise(r => setTimeout(r, 350));
+        setSummary(s => ({ ...s, failed: totalFailed }));
       }
     }
 
-    setDone(true);
     setRunning(false);
+    setDone(true);
   };
 
-  const pct = total > 0 ? Math.round((Math.min(progress, total) / total) * 100) : 0;
-  const progressBarColor = done ? '#16a34a' : '#7c3aed';
+  const progressPct = total > 0 ? Math.round((progress / total) * 100) : 0;
 
   return (
-    <Modal title="🤖 AI Question Review" onClose={running ? undefined : onClose} width="560px">
-      {/* ── Pre-run config ── */}
+    <Modal title={`🤖 AI Review — ${total} question${total !== 1 ? 's' : ''}`} onClose={running ? undefined : onClose} width="520px">
       {!running && !done && (
-        <div>
-          <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Run AI review on <strong>{total}</strong> selected question{total !== 1 ? 's' : ''}.
-            The AI (GPT-4o-mini) will predict the correct answer, generate a student hint,
-            and write an internal review note. You then approve or reject each suggestion.
+        <>
+          <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            GPT-4o-mini will analyse each question and propose: predicted answer, confidence, hint, and (K1) topic.
+            Nothing is applied until you approve each question individually.
           </p>
-          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(217,119,6,0.07)', border: '1px solid rgba(217,119,6,0.2)', marginBottom: 14, fontSize: '0.83rem', color: '#b45309' }}>
-            ⚠ AI predictions are suggestions only — no question is changed until you explicitly approve.
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 20, cursor: 'pointer' }}>
             <input type="checkbox" checked={overwrite} onChange={e => setOverwrite(e.target.checked)} />
-            Re-review already approved questions
+            Re-review already-approved questions (overwrite)
           </label>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-violet" onClick={runReview}>Start AI Review ({total} questions)</button>
+            <button className="btn btn-violet" onClick={runReview}>▶ Start Review</button>
             <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── Running / done ── */}
-      {(running || done) && (
-        <div>
-          {/* Progress bar */}
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              <span style={{ fontWeight: 600 }}>{done ? '✓ Complete' : 'Processing…'}</span>
-              <span>{Math.min(progress, total)} / {total}</span>
-            </div>
-            <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: progressBarColor, borderRadius: 4, transition: 'width 0.35s' }} />
-            </div>
+      {running && (
+        <>
+          <div style={{ marginBottom: 10, fontSize: '0.88rem', color: 'var(--text-muted)' }}>{progress}/{total} questions processed ({progressPct}%)</div>
+          <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 14, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${progressPct}%`, background: '#7c3aed', borderRadius: 4, transition: 'width 0.3s ease' }} />
           </div>
-
-          {/* Summary stats */}
-          <div style={{ display: 'flex', gap: 20, marginBottom: 12, fontSize: '0.87rem' }}>
-            <span style={{ color: '#4ade80', fontWeight: 600 }}>✓ {summary.processed} reviewed</span>
-            {summary.failed  > 0 && <span style={{ color: '#f87171', fontWeight: 600 }}>✗ {summary.failed} failed</span>}
-            {summary.skipped > 0 && <span style={{ color: '#b45309', fontWeight: 600 }}>⟳ {summary.skipped} skipped (approved)</span>}
-          </div>
-
-          {/* Log output */}
           <div className="ai-log">
-            {log.map((entry, i) => (
-              <div key={i} className={`ai-log-line ${entry.cls}`}>{entry.line}</div>
-            ))}
-            {running && <div style={{ color: '#a78bfa' }}>▌</div>}
+            {log.map((l, i) => <div key={i} className={`ai-log-line ${l.cls}`}>{l.line}</div>)}
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { cancelRef.current = true; }}>Cancel</button>
+          </div>
+        </>
+      )}
+
+      {done && (
+        <>
+          <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+            <div style={{ fontSize: '2rem', marginBottom: 8 }}>✅</div>
+            <p style={{ margin: '0 0 6px', fontWeight: 700, color: 'var(--text-primary)' }}>AI Review Complete</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 10 }}>
+              <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{summary.processed}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Reviewed</div></div>
+              {summary.failed > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626' }}>{summary.failed}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Failed</div></div>}
+              {summary.skipped > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{summary.skipped}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped</div></div>}
+            </div>
+          </div>
+          <div className="ai-log" style={{ marginBottom: 16 }}>
+            {log.map((l, i) => <div key={i} className={`ai-log-line ${l.cls}`}>{l.line}</div>)}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button className="btn btn-violet" onClick={() => onDone(summary)}>Done — Show Results</button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+
+// ── BULK ASSIGN MODAL ─────────────────────────────────────────────────────────
+
+function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAssign, onClose }) {
+  const [form, setForm] = useState({ topic: '', difficulty: '', world_key: '' });
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
+  const hasAny = form.topic || form.difficulty || form.world_key;
+
+  const handleSubmit = () => {
+    const assign = {};
+    if (form.topic)      assign.topic      = form.topic;
+    if (form.difficulty) assign.difficulty = form.difficulty;
+    if (form.world_key)  assign.world_key  = form.world_key;
+    onAssign(assign);
+  };
+
+  return (
+    <Modal title={`Bulk Assign — ${count} question${count !== 1 ? 's' : ''}`} onClose={onClose} width="480px">
+      <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        Set one or more fields on all selected questions. Blank fields are left unchanged.
+      </p>
+      <div className="form-group">
+        <label className="form-label">Topic</label>
+        <select className="form-input" value={form.topic} onChange={set('topic')}>
+          <option value="">— Leave unchanged —</option>
+          {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+      </div>
+      <div className="form-group" style={{ marginTop: 12 }}>
+        <label className="form-label">Difficulty</label>
+        <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
+          <option value="">— Leave unchanged —</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div className="form-group" style={{ marginTop: 12 }}>
+        <label className="form-label">Assign to World</label>
+        <select className="form-input" value={form.world_key} onChange={set('world_key')}>
+          <option value="">— Leave unchanged —</option>
+          {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)} ({w})</option>)}
+        </select>
+        {form.world_key && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#b45309' }}>⚠ Section-mismatched questions will be skipped.</p>}
+      </div>
+      {!hasAny && <p style={{ margin: '14px 0 0', fontSize: '0.83rem', color: '#b45309' }}>Set at least one field to proceed.</p>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button className="btn btn-green" onClick={handleSubmit} disabled={loading || !hasAny}>{loading ? 'Updating…' : `Update ${count} Question${count !== 1 ? 's' : ''}`}</button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+// ── BULK DELETE MODAL ─────────────────────────────────────────────────────────
+
+function BulkDeleteModal({ count, loading, onConfirm, onClose }) {
+  return (
+    <Modal title="Confirm Bulk Delete" onClose={onClose} width="420px">
+      <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+        <div style={{ fontSize: '2rem', marginBottom: 12 }}>🗑️</div>
+        <p style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Soft-delete {count} question{count !== 1 ? 's' : ''}?</p>
+        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          These questions will be marked as deleted and will not be visible to students.
+          This action is reversible from the database but not from this panel.
+        </p>
+      </div>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+        <button className="btn" style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.35)' }} onClick={onConfirm} disabled={loading}>
+          {loading ? 'Deleting…' : `Delete ${count} Question${count !== 1 ? 's' : ''}`}
+        </button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+// ── EDIT QUESTION MODAL ───────────────────────────────────────────────────────
+
+function EditQuestionModal({ question, taxonomy, onSave, onClose }) {
+  const section = question?.section || getSectionFromWorldKey(question?.world_key);
+  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
+
+  const [form, setForm] = useState({
+    question_text:  question?.question_text  || '',
+    option_a:       question?.option_a       || '',
+    option_b:       question?.option_b       || '',
+    option_c:       question?.option_c       || '',
+    option_d:       question?.option_d       || '',
+    correct_answer: question?.correct_answer || 'a',
+    hint:           question?.hint           || '',
+    topic:          question?.topic          || '',
+    difficulty:     question?.difficulty     || '',
+    is_active:      question?.is_active      ?? false,
+    image_url:      question?.image_url      || '',
+    version:        question?.version        ?? 1,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setBool = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try { await onSave(form); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal title={question ? `Edit Question #${question.id}` : 'Create Question'} onClose={onClose}>
+      <div className="form-group">
+        <label className="form-label">Question Text</label>
+        <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} />
+        <LaTeXCheatsheet />
+      </div>
+      {['a','b','c','d'].map(opt => (
+        <div className="form-group" key={opt} style={{ marginTop: 8 }}>
+          <label className="form-label">Option {opt.toUpperCase()}</label>
+          <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} />
+        </div>
+      ))}
+      <div className="form-group" style={{ marginTop: 8 }}>
+        <label className="form-label">Correct Answer</label>
+        <select className="form-input" value={form.correct_answer} onChange={set('correct_answer')}>
+          {['a','b','c','d'].map(o => <option key={o} value={o}>{o.toUpperCase()}</option>)}
+        </select>
+      </div>
+      <div className="form-group" style={{ marginTop: 8 }}>
+        <label className="form-label">Hint (shown after wrong answer)</label>
+        <textarea className="form-input" rows={2} value={form.hint} onChange={set('hint')} />
+      </div>
+      <div className="form-group" style={{ marginTop: 8 }}>
+        <label className="form-label">Topic</label>
+        <select className="form-input" value={form.topic} onChange={set('topic')}>
+          <option value="">— None —</option>
+          {topicOptions.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+      </div>
+      <div className="form-group" style={{ marginTop: 8 }}>
+        <label className="form-label">Difficulty</label>
+        <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
+          <option value="">— None —</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.9rem' }}>
+          <input type="checkbox" checked={form.is_active} onChange={setBool('is_active')} />
+          Active (visible to students)
+        </label>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label className="form-label">Image</label>
+        <ImageUpload value={form.image_url} onChange={(url) => setForm(f => ({ ...f, image_url: url }))} />
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button className="btn btn-violet" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Question'}</button>
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+// ── CREATE ADMIN MODAL ────────────────────────────────────────────────────────
+
+function CreateAdminModal({ onSave, onClose }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try { await onSave({ username, password: password || undefined }); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal title="Create Admin User" onClose={onClose} width="400px">
+      <div className="form-group">
+        <label className="form-label">Username</label>
+        <input className="form-input" value={username} onChange={e => setUsername(e.target.value)} placeholder="admin_username" />
+      </div>
+      <div className="form-group" style={{ marginTop: 12 }}>
+        <label className="form-label">Password (optional — auto-generated if blank)</label>
+        <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" />
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button className="btn btn-violet" onClick={handleSave} disabled={saving || !username}>{saving ? 'Creating…' : 'Create Admin'}</button>
+        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+// ── BULK UPLOAD TAB ───────────────────────────────────────────────────────────
+
+function BulkUploadTab() {
+  const [step, setStep]             = useState(1);
+  const [file, setFile]             = useState(null);
+  const [dragging, setDragging]     = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [report, setReport]         = useState(null);
+  const [result, setResult]         = useState(null);
+  const [forceDupes, setForceDupes] = useState(false);
+  const [flash, showFlash]          = useFlash();
+  const fileInputRef                = useRef(null);
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await adminApi.bulkTemplate();
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'drfahm_bulk_template.csv'; a.click();
+      URL.revokeObjectURL(url);
+    } catch { showFlash('Failed to download template.', 'error'); }
+  };
+
+  const handleDownloadErrors = () => {
+    if (!report?.errors?.length) return;
+    const header = 'row,field,message\n';
+    const rows = report.errors.map((e) => `${e.row},"${e.field}","${String(e.message).replace(/"/g, '""')}"`).join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `drfahm_upload_errors_${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFile = (f) => {
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith('.csv')) { showFlash('Only .csv files are accepted.', 'error'); return; }
+    if (f.size > 10 * 1024 * 1024) { showFlash('File too large. Maximum 10 MB.', 'error'); return; }
+    setFile(f); setReport(null); setResult(null); setStep(1); setForceDupes(false);
+  };
+
+  const onDrop = (e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer?.files?.[0]); };
+  const onDragOver  = (e) => { e.preventDefault(); setDragging(true); };
+  const onDragLeave = () => setDragging(false);
+
+  const handleValidate = async () => {
+    if (!file) return; setValidating(true);
+    try { const data = await adminApi.bulkValidate(file); setReport(data); setStep(2); }
+    catch (e) { showFlash(e?.error?.message || 'Validation failed.', 'error'); }
+    finally { setValidating(false); }
+  };
+
+  const handleCommit = async () => {
+    if (!file) return; setCommitting(true);
+    try { const data = await adminApi.bulkCommit(file, forceDupes); setResult(data); setStep(3); }
+    catch (e) { showFlash(e?.error?.message || 'Commit failed.', 'error'); }
+    finally { setCommitting(false); }
+  };
+
+  const handleReset = () => { setFile(null); setReport(null); setResult(null); setStep(1); setForceDupes(false); };
+
+  return (
+    <div>
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+
+      {/* Step indicator */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20 }}>
+        {['Upload', 'Validate', 'Commit'].map((label, i) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: step === i+1 ? 'rgba(124,58,237,0.12)' : 'transparent', border: step === i+1 ? '1px solid rgba(124,58,237,0.3)' : '1px solid transparent' }}>
+              <span style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, background: step > i ? '#7c3aed' : step === i+1 ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.05)', color: step > i ? '#fff' : 'var(--text-muted)' }}>{step > i ? '✓' : i+1}</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: step === i+1 ? 700 : 400, color: step === i+1 ? 'var(--violet-light)' : 'var(--text-muted)' }}>{label}</span>
+            </div>
+            {i < 2 && <span style={{ color: 'var(--border)', padding: '0 4px' }}>›</span>}
+          </div>
+        ))}
+      </div>
+
+      {step < 3 && (
+        <div style={{ marginBottom: 20 }}>
+          <div className={`bulk-dropzone ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
+            onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} onClick={() => fileInputRef.current?.click()}>
+            <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
+            {file ? (
+              <div className="bulk-dropzone-file">
+                <span className="bulk-dropzone-icon">📄</span>
+                <span className="bulk-dropzone-name">{file.name}</span>
+                <span className="bulk-dropzone-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); handleReset(); }}>✕ Remove</button>
+              </div>
+            ) : (
+              <div className="bulk-dropzone-empty">
+                <span className="bulk-dropzone-icon">📁</span>
+                <p style={{ margin: '8px 0 4px', fontWeight: 600, color: 'var(--text-primary)' }}>Drag & drop CSV file here</p>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>or click to browse</p>
+              </div>
+            )}
           </div>
 
-          {done && (
+          <div className="bulk-format-guide">
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>Required Columns (11 total)</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {BULK_CSV_COLUMNS.map((c) => <Pill key={c} color={c === 'section' || c === 'hint' ? 'green' : 'violet'}>{c}</Pill>)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              <div><strong style={{ color: 'var(--text-secondary)' }}>exam</strong> — <code>qudurat</code> or <code>tahsili</code></div>
+              <div><strong style={{ color: 'var(--text-secondary)' }}>section</strong> — subject within exam</div>
+              <div><strong style={{ color: 'var(--text-secondary)' }}>correct_answer</strong> — <code>a</code>, <code>b</code>, <code>c</code>, or <code>d</code></div>
+              <div><strong style={{ color: 'var(--text-secondary)' }}>hint</strong> — shown after wrong answer (optional)</div>
+              <div><strong style={{ color: 'var(--text-secondary)' }}>topic</strong> — must match valid topics for section</div>
+              <div><strong style={{ color: 'var(--text-secondary)' }}>difficulty</strong> — <code>easy</code>, <code>medium</code>, or <code>hard</code></div>
+            </div>
+            <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 8, border: '1px solid rgba(139,92,246,0.15)' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 6 }}>Valid exam / section combinations</div>
+              {Object.entries(VALID_EXAM_SECTIONS).map(([exam, sections]) => (
+                <div key={exam} style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 3 }}>
+                  <strong style={{ textTransform: 'capitalize' }}>{exam}:</strong>{' '}{sections.map((s) => <code key={s} style={{ marginRight: 6 }}>{s}</code>)}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {file && (
             <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-              <button className="btn btn-violet" onClick={() => onDone(summary)}>
-                Done — filter to review results
+              <button className="btn btn-violet" onClick={handleValidate} disabled={validating}>
+                {validating ? '⏳ Validating…' : '→ Validate CSV'}
               </button>
+              <button className="btn btn-ghost" onClick={handleDownloadTemplate}>⬇ Download Template</button>
+            </div>
+          )}
+          {!file && (
+            <div style={{ marginTop: 12 }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>⬇ Download Template CSV</button>
             </div>
           )}
         </div>
       )}
+
+      {step === 2 && report && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#15803d' }}>{report.stats?.valid_count}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Valid</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: report.stats?.error_count > 0 ? '#dc2626' : 'var(--text-muted)' }}>{report.stats?.error_count}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Errors</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#b45309' }}>{report.stats?.duplicate_count}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Duplicates</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{report.stats?.total_rows}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Rows</div></div>
+          </div>
+          {report.errors?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>⚠ Validation Errors</span>
+                <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>⬇ Download Errors CSV</button>
+              </div>
+              <div style={{ maxHeight: 200, overflow: 'auto' }}>
+                {report.errors.slice(0, 20).map((e, i) => (
+                  <div key={i} style={{ fontSize: '0.83rem', padding: '4px 0', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                    Row {e.row} · <strong>{e.field}</strong>: {e.message}
+                  </div>
+                ))}
+                {report.errors.length > 20 && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>… and {report.errors.length - 20} more (download CSV for full list)</div>}
+              </div>
+            </div>
+          )}
+          {report.duplicates?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, color: '#b45309', marginBottom: 6 }}>⚠ {report.duplicates.length} Duplicate(s) Detected</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={forceDupes} onChange={e => setForceDupes(e.target.checked)} />
+                Insert duplicates anyway
+              </label>
+            </div>
+          )}
+          {report.stats?.error_count === 0 && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <button className="btn btn-green" onClick={handleCommit} disabled={committing}>
+                {committing ? '⏳ Importing…' : `✓ Import ${report.stats?.valid_count} Question${report.stats?.valid_count !== 1 ? 's' : ''}`}
+              </button>
+              <button className="btn btn-ghost" onClick={handleReset}>✕ Cancel</button>
+            </div>
+          )}
+          {report.stats?.error_count > 0 && (
+            <p style={{ color: '#dc2626', fontSize: '0.88rem' }}>Fix the {report.stats.error_count} error(s) above and re-upload to proceed.</p>
+          )}
+        </div>
+      )}
+
+      {step === 3 && result && (
+        <div style={{ textAlign: 'center', padding: '16px 0' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>{result.inserted > 0 ? '✅' : '⚠️'}</div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+            {result.inserted > 0 ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Added to Bank` : 'No Questions Imported'}
+          </h3>
+          <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>{result.message}</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
+            {result.inserted > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div></div>}
+            {result.skipped > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped</div></div>}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+            <button className="btn btn-violet" onClick={handleReset}>Upload Another File</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── STATS TAB ─────────────────────────────────────────────────────────────────
+
+function StatsTab() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => { adminApi.getStats().then(setStats).catch(() => {}); }, []);
+
+  if (!stats) return <div className="admin-loading"><div className="spinner" /></div>;
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      {[
+        { label: 'Total Questions', val: stats.questions?.total || 0 },
+        { label: 'Active Questions', val: stats.questions?.active || 0 },
+        { label: 'Unassigned Questions', val: stats.questions?.unassigned || 0 },
+        { label: 'Students', val: stats.users?.students || 0 },
+        { label: 'Organisations', val: stats.orgs?.total || 0 },
+        { label: 'Active Entitlements', val: stats.entitlements?.active || 0 },
+      ].map((s) => (
+        <div key={s.label} className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.val.toLocaleString()}</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s.label}</div>
+        </div>
+      ))}
+      {stats.questions?.per_exam && Object.entries(stats.questions.per_exam).map(([exam, count]) => (
+        <div key={exam} className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>{count.toLocaleString()}</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{exam} Questions</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+// ── ORGS TAB ──────────────────────────────────────────────────────────────────
+
+function OrgDetailModal({ orgId, onClose }) {
+  const [detail, setDetail] = useState(null);
+  const [flash, showFlash]  = useFlash();
+
+  useEffect(() => {
+    adminApi.getOrg(orgId).then(setDetail).catch(() => showFlash('Failed to load org.', 'error'));
+  }, [orgId, showFlash]);
+
+  if (!detail) return (
+    <Modal title="Org Details" onClose={onClose}>
+      <div className="admin-loading"><div className="spinner" /></div>
     </Modal>
+  );
+
+  return (
+    <Modal title={detail.org.name} onClose={onClose}>
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 12 }}>{flash.msg}</div>}
+      <div className="admin-detail-row"><span>Slug</span><span>{detail.org.slug}</span></div>
+      <div className="admin-detail-row"><span>Leader</span><span>{detail.leader?.username || '—'}</span></div>
+      <div className="admin-detail-row"><span>Students</span><span>{detail.students?.length || 0}</span></div>
+      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Students</h4>
+      {detail.students?.length > 0
+        ? <div style={{ maxHeight: 200, overflow: 'auto' }}>{detail.students.map((s) => <div key={s.id} style={{ fontSize: '0.85rem', padding: '2px 0' }}>{s.username}</div>)}</div>
+        : <p style={{ color: 'var(--text-muted)' }}>No students yet.</p>}
+      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Entitlements</h4>
+      {detail.entitlements?.length > 0
+        ? detail.entitlements.map((e) => (
+            <div key={e.id} className="card" style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{e.exam} — {e.plan_id}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Expires: {new Date(e.entitlement_expires_at).toLocaleDateString()}</div>
+            </div>
+          ))
+        : <p style={{ color: 'var(--text-muted)' }}>No entitlements.</p>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+        <button className="btn btn-ghost" onClick={onClose}>Close</button>
+      </div>
+    </Modal>
+  );
+}
+
+function OrgsTab() {
+  const [orgs, setOrgs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [flash, showFlash] = useFlash();
+  const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [createForm, setCreateForm] = useState({ name: '', slug: '', estimated_student_count: '' });
+
+  const fetchOrgs = useCallback(() => {
+    setLoading(true);
+    adminApi.listOrgs({ per_page: 100 })
+      .then((d) => setOrgs(d.orgs))
+      .catch(() => showFlash('Failed to load orgs.', 'error'))
+      .finally(() => setLoading(false));
+  }, [showFlash]);
+
+  useEffect(() => { fetchOrgs(); }, [fetchOrgs]);
+
+  const handleCreate = async () => {
+    try {
+      await adminApi.createOrg({
+        name: createForm.name,
+        slug: createForm.slug,
+        estimated_student_count: createForm.estimated_student_count ? parseInt(createForm.estimated_student_count) : null,
+      });
+      showFlash('Org created.');
+      setCreating(false);
+      setCreateForm({ name: '', slug: '', estimated_student_count: '' });
+      fetchOrgs();
+    } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
+  };
+
+  if (loading) return <div className="admin-loading"><div className="spinner" /></div>;
+
+  return (
+    <div>
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New Org</button>
+      </div>
+      {creating && (
+        <Modal title="Create Organisation" onClose={() => setCreating(false)} width="440px">
+          <div className="form-group">
+            <label className="form-label">Name</label>
+            <input className="form-input" value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} placeholder="King Abdulaziz School" />
+          </div>
+          <div className="form-group" style={{ marginTop: 12 }}>
+            <label className="form-label">Slug (URL-safe)</label>
+            <input className="form-input" value={createForm.slug} onChange={e => setCreateForm(f => ({ ...f, slug: e.target.value }))} placeholder="ka_school" />
+          </div>
+          <div className="form-group" style={{ marginTop: 12 }}>
+            <label className="form-label">Estimated Students (optional)</label>
+            <input className="form-input" type="number" value={createForm.estimated_student_count} onChange={e => setCreateForm(f => ({ ...f, estimated_student_count: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+            <button className="btn btn-green" onClick={handleCreate} disabled={!createForm.name || !createForm.slug}>Create</button>
+            <button className="btn btn-ghost" onClick={() => setCreating(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+      {selected && <OrgDetailModal orgId={selected} onClose={() => setSelected(null)} />}
+      {orgs.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 32 }}>No organisations yet.</p>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Est. Students</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody>
+              {orgs.map((o) => (
+                <tr key={o.id}>
+                  <td>{o.id}</td>
+                  <td style={{ fontWeight: 600 }}>{o.name}</td>
+                  <td><code>{o.slug}</code></td>
+                  <td>{o.estimated_student_count ?? '—'}</td>
+                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(o.created_at).toLocaleDateString()}</td>
+                  <td><button className="admin-action-btn" onClick={() => setSelected(o.id)}>View</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── USERS TAB ─────────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const [users, setUsers] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage]   = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [flash, showFlash]    = useFlash();
+  const [creating, setCreating] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const searchTimeout = useRef(null);
+
+  const fetchUsers = useCallback(() => {
+    setLoading(true);
+    adminApi.listUsers({ page, per_page: 50, role: roleFilter, search })
+      .then((d) => { setUsers(d.users); setTotal(d.total); })
+      .catch(() => showFlash('Failed to load users.', 'error'))
+      .finally(() => setLoading(false));
+  }, [page, roleFilter, search, showFlash]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const handleSearchChange = (val) => {
+    setSearchInput(val);
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => { setSearch(val); setPage(1); }, 400);
+  };
+
+  const handleToggleActive = async (u) => {
+    try {
+      if (u.is_active) await adminApi.deactivateUser(u.id);
+      else await adminApi.activateUser(u.id);
+      showFlash(`User ${u.username} ${u.is_active ? 'deactivated' : 'activated'}.`);
+      fetchUsers();
+    } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
+  };
+
+  const handleResetPassword = async (u) => {
+    const newPass = window.prompt(`New password for ${u.username}:`);
+    if (!newPass) return;
+    try {
+      const result = await adminApi.resetPassword(u.id, { password: newPass });
+      showFlash(`Password reset for ${u.username}. New: ${result.password}`);
+    } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
+  };
+
+  const handleCreateAdmin = async (data) => {
+    try {
+      const result = await adminApi.createUser(data);
+      showFlash(`Admin ${result.user.username} created. Password: ${result.password}`);
+      setCreating(false);
+      fetchUsers();
+    } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
+  };
+
+  const totalPages = Math.ceil(total / 50);
+
+  return (
+    <div>
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+      {creating && <CreateAdminModal onSave={handleCreateAdmin} onClose={() => setCreating(false)} />}
+      <div className="admin-filter-row">
+        <input className="form-input" style={{ width: 'auto', minWidth: 200 }} placeholder="Search username…" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
+        <select className="form-input" style={{ width: 'auto' }} value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}>
+          <option value="">All roles</option>
+          <option value="student">Student</option>
+          <option value="school_leader">School Leader</option>
+          <option value="drfahm_admin">Admin</option>
+        </select>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} user{total !== 1 ? 's' : ''}</span>
+        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ New Admin</button>
+      </div>
+      {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.id}</td><td>{u.username}</td>
+                  <td><Pill color={u.role === 'drfahm_admin' ? 'violet' : u.role === 'school_leader' ? 'blue' : 'gray'}>{u.role}</Pill></td>
+                  <td>{u.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}</td>
+                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="admin-action-btn" onClick={() => handleToggleActive(u)}>{u.is_active ? 'Deactivate' : 'Activate'}</button>
+                      <button className="admin-action-btn" onClick={() => handleResetPassword(u)}>Reset PW</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {totalPages > 1 && (
+        <div className="admin-pagination">
+          <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Page {page} / {totalPages}</span>
+          <button className="btn btn-ghost btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -903,49 +1586,46 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
 // ── QUESTIONS TAB ─────────────────────────────────────────────────────────────
 
 function QuestionsTab() {
-  const [questions,  setQuestions]  = useState([]);
-  const [total,      setTotal]      = useState(0);
-  const [page,       setPage]       = useState(1);
-  const [loading,    setLoading]    = useState(false);
-  const [editing,    setEditing]    = useState(null);
-  const [flash,      showFlash]     = useFlash();
-  const [filters,    setFilters]    = useState({
-    exam: 'qudurat', section: 'math', world_key: '',
-    is_active: '', difficulty: '', topic: '', reviewed: '',
-    search: '',
-    review_status: '',  // ← Chunk J
-  });
-  const [creating,   setCreating]   = useState(false);
-  const [expanded,   setExpanded]   = useState(new Set());
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [taxonomy,   setTaxonomy]   = useState(null);
-  const [bulkTopicOpen, setBulkTopicOpen] = useState(false);
-  const [goToPage,   setGoToPage]   = useState('');
+  const [questions,         setQuestions]         = useState([]);
+  const [total,             setTotal]             = useState(0);
+  const [page,              setPage]              = useState(1);
+  const [loading,           setLoading]           = useState(true);
+  const [expanded,          setExpanded]          = useState(new Set());
+  const [editing,           setEditing]           = useState(null);
+  const [taxonomy,          setTaxonomy]          = useState(null);
+  const [flash,             showFlash]            = useFlash();
+  const [refreshKey,        setRefreshKey]        = useState(0);
+  const [searchInput,       setSearchInput]       = useState('');
+  const [selectedIds,       setSelectedIds]       = useState(new Set());
+  const [selectAllLoading,  setSelectAllLoading]  = useState(false);
+  const [bulkAssignOpen,    setBulkAssignOpen]    = useState(false);
+  const [bulkDeleteOpen,    setBulkDeleteOpen]    = useState(false);
+  const [bulkOpLoading,     setBulkOpLoading]     = useState(false);
+  const [aiReviewOpen,      setAiReviewOpen]      = useState(false);
+  const searchTimeout = useRef(null);
 
-  // ── Chunk J: AI review modal state ──
-  const [aiReviewOpen, setAiReviewOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    exam:          'qudurat',
+    section:       'math',
+    world_key:     '',
+    topic:         '',
+    difficulty:    '',
+    is_active:     '',
+    unassigned:    '',
+    review_status: '',
+    search:        '',
+  });
 
   useEffect(() => {
-    adminApi.getTopics().then((d) => setTaxonomy(d.taxonomy)).catch(() => {});
+    adminApi.getTopics().then(d => setTaxonomy(d.taxonomy)).catch(() => {});
   }, []);
 
   const examConfig    = SECTION_CONFIG[filters.exam];
   const sectionConfig = examConfig?.sections?.[filters.section];
   const worldOptions  = sectionConfig?.worlds || [];
-
-  const currentSection = filters.section;
-  const topicOptions   = currentSection && taxonomy && taxonomy[currentSection]
-    ? taxonomy[currentSection]
+  const topicOptions  = filters.section && taxonomy && taxonomy[filters.section]
+    ? taxonomy[filters.section]
     : (taxonomy ? Object.entries(taxonomy).flatMap(([, topics]) => topics) : []);
-
-  const searchTimeout = useRef(null);
-  const [searchInput, setSearchInput] = useState('');
-
-  const handleSearchChange = (val) => {
-    setSearchInput(val);
-    clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => { setFilters((f) => ({ ...f, search: val })); setPage(1); }, 400);
-  };
 
   const fetchQuestions = useCallback(() => {
     setLoading(true);
@@ -963,16 +1643,45 @@ function QuestionsTab() {
     setPage(1); setExpanded(new Set()); clearSelection();
   };
 
-  const handleSectionChange = (section) => {
-    setFilters((f) => ({ ...f, section, world_key: '', topic: '' }));
-    setPage(1); setExpanded(new Set()); clearSelection();
-  };
-
   const handleFilterChange = (k, v) => {
     const updates = { [k]: v };
     if (k === 'world_key') updates.topic = '';
     setFilters((f) => ({ ...f, ...updates }));
     setPage(1); setExpanded(new Set()); clearSelection();
+  };
+
+  const handleSearchChange = (val) => {
+    setSearchInput(val);
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => { setFilters((f) => ({ ...f, search: val })); setPage(1); }, 400);
+  };
+
+  // ── Selection ──────────────────────────────────────────────────────────────
+  const clearSelection = () => setSelectedIds(new Set());
+  const toggleSelectRow = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const pageIds = questions.map(q => q.id);
+  const allPageSelected  = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id));
+  const somePageSelected = pageIds.some(id => selectedIds.has(id));
+  const toggleSelectAllPage = () => {
+    if (allPageSelected) { setSelectedIds(prev => { const n = new Set(prev); pageIds.forEach(id => n.delete(id)); return n; }); }
+    else                 { setSelectedIds(prev => { const n = new Set(prev); pageIds.forEach(id => n.add(id)); return n; }); }
+  };
+  const handleSelectAllMatching = async () => {
+    setSelectAllLoading(true);
+    try {
+      const data = await adminApi.listQuestions({ ...filters, page: 1, per_page: 2000 });
+      setSelectedIds(new Set(data.questions.map(q => q.id)));
+    } catch (e) { showFlash(e?.error?.message || 'Failed to select all.', 'error'); }
+    finally { setSelectAllLoading(false); }
+  };
+
+  // ── Inline save handler ────────────────────────────────────────────────────
+  const handleInlineSaved = (updatedQuestion) => {
+    setQuestions((prev) => prev.map((q) => q.id === updatedQuestion.id ? updatedQuestion : q));
   };
 
   const handleToggle = async (q) => {
@@ -1006,82 +1715,11 @@ function QuestionsTab() {
     }
   };
 
-  const handleInlineSaved = (updatedQuestion) => {
-    setQuestions((prev) => prev.map((q) => q.id === updatedQuestion.id ? updatedQuestion : q));
-    setRefreshKey((k) => k + 1);
-  };
-
   const toggleExpanded = (id) => {
-    setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+    setExpanded(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
 
-  const [bulkLoading, setBulkLoading] = useState(false);
-
-  const handleBulkActivate = async (is_active) => {
-    const scope = filters.exam ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`) : 'ALL questions';
-    const action = is_active ? 'activate' : 'deactivate';
-    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} all ${scope}?`)) return;
-    setBulkLoading(true);
-    try {
-      const result = await adminApi.bulkActivate({ is_active, exam: filters.exam || undefined, world_key: filters.world_key || undefined });
-      showFlash(`${result.affected} question(s) ${is_active ? 'activated' : 'deactivated'}.`);
-      fetchQuestions();
-    } catch (e) { showFlash(e?.error?.message || 'Bulk action failed.', 'error'); }
-    finally { setBulkLoading(false); }
-  };
-
-  const handleBulkTopic = async (topicKey) => {
-    const scope = filters.exam ? (filters.world_key ? `world ${filters.world_key}` : `exam ${filters.exam}`) : 'ALL questions';
-    const label = topicKey ? (topicOptions.find(t => t.key === topicKey)?.label || topicKey) : 'none';
-    if (!window.confirm(`Set topic to "${label}" for all ${scope}? (${total} questions)`)) return;
-    setBulkLoading(true);
-    try {
-      const result = await adminApi.bulkTopic({ topic: topicKey || null, exam: filters.exam || undefined, world_key: filters.world_key || undefined });
-      showFlash(`${result.affected} question(s) topic set to ${label}.`);
-      fetchQuestions();
-      setRefreshKey((k) => k + 1);
-      setBulkTopicOpen(false);
-    } catch (e) { showFlash(e?.error?.message || 'Bulk topic failed.', 'error'); }
-    finally { setBulkLoading(false); }
-  };
-
-  const totalPages = Math.ceil(total / 50);
-  const TABLE_COLS = 11;
-
-  // ── Selection state ────────────────────────────────────────────────────────
-  const [selectedIds,      setSelectedIds]      = useState(new Set());
-  const [selectAllLoading, setSelectAllLoading] = useState(false);
-  const [bulkAssignOpen,   setBulkAssignOpen]   = useState(false);
-  const [bulkDeleteOpen,   setBulkDeleteOpen]   = useState(false);
-  const [bulkOpLoading,    setBulkOpLoading]    = useState(false);
-
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
-
-  const toggleSelectRow = (id) => {
-    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-  };
-
-  const pageIds         = questions.map((q) => q.id);
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
-  const somePageSelected = pageIds.some((id) => selectedIds.has(id));
-
-  const toggleSelectAllPage = () => {
-    if (allPageSelected) {
-      setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.delete(id)); return next; });
-    } else {
-      setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.add(id)); return next; });
-    }
-  };
-
-  const handleSelectAllMatching = async () => {
-    setSelectAllLoading(true);
-    try {
-      const data = await adminApi.listQuestions({ ...filters, page: 1, per_page: 5000 });
-      setSelectedIds(new Set(data.questions.map((q) => q.id)));
-    } catch { showFlash('Failed to select all matching.', 'error'); }
-    finally { setSelectAllLoading(false); }
-  };
-
+  // ── Bulk handlers ──────────────────────────────────────────────────────────
   const handleBulkDeleteSelected = async () => {
     const ids = Array.from(selectedIds);
     setBulkOpLoading(true);
@@ -1102,7 +1740,7 @@ function QuestionsTab() {
     try {
       const result = await adminApi.bulkAssign(ids, assign);
       const skippedMsg = result.skipped?.length ? ` (${result.skipped.length} skipped — section mismatch)` : '';
-      showFlash(`${result.updated} question(s) updated.${skippedMsg}`);
+      showFlash(`${result.affected} question(s) updated.${skippedMsg}`);
       setBulkAssignOpen(false);
       clearSelection();
       fetchQuestions();
@@ -1111,16 +1749,16 @@ function QuestionsTab() {
     finally { setBulkOpLoading(false); }
   };
 
-  // ── Chunk J: AI review handler ────────────────────────────────────────────
   const handleAIReviewDone = (summary) => {
     setAiReviewOpen(false);
     clearSelection();
     fetchQuestions();
     setRefreshKey((k) => k + 1);
-    // Auto-filter to ai_reviewed so admin sees what needs approval
     setFilters((f) => ({ ...f, review_status: 'ai_reviewed' }));
     showFlash(`AI review complete: ${summary.processed} reviewed, ${summary.failed} failed. Filtered to pending reviews.`);
   };
+
+  const totalPages = Math.ceil(total / 50);
 
   return (
     <div>
@@ -1164,101 +1802,62 @@ function QuestionsTab() {
               borderRadius: 6, fontWeight: filters.section === secKey ? 700 : 400, fontSize: '0.88rem', padding: '6px 16px',
               color: filters.section === secKey ? '#0891b2' : 'var(--text-muted)',
               background: filters.section === secKey ? 'rgba(34,211,238,0.1)' : 'transparent',
-              border: filters.section === secKey ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent',
+              border: filters.section === secKey ? '1px solid rgba(34,211,238,0.3)' : '1px solid transparent',
             }}
-            onClick={() => handleSectionChange(secKey)}>
+            onClick={() => handleFilterChange('section', secKey)}>
             {secCfg.label}
           </button>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="admin-filter-row">
-        <input className="form-input" style={{ width: 'auto', minWidth: 220 }} placeholder="Search question text…"
-          value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
-        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.world_key} onChange={(e) => handleFilterChange('world_key', e.target.value)}>
+      {/* Filter row */}
+      <div className="admin-filter-row" style={{ marginBottom: 12 }}>
+        <select className="form-input" style={{ width: 'auto' }} value={filters.world_key} onChange={(e) => handleFilterChange('world_key', e.target.value)}>
           <option value="">All worlds</option>
           {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)}</option>)}
         </select>
-        <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.is_active} onChange={(e) => handleFilterChange('is_active', e.target.value)}>
-          <option value="">All status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
+        <select className="form-input" style={{ width: 'auto' }} value={filters.topic} onChange={(e) => handleFilterChange('topic', e.target.value)}>
+          <option value="">All topics</option>
+          {topicOptions.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
         </select>
-        <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.difficulty} onChange={(e) => handleFilterChange('difficulty', e.target.value)}>
-          <option value="">All difficulty</option>
+        <select className="form-input" style={{ width: 'auto' }} value={filters.difficulty} onChange={(e) => handleFilterChange('difficulty', e.target.value)}>
+          <option value="">All difficulties</option>
           <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
-        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.topic} onChange={(e) => handleFilterChange('topic', e.target.value)}>
-          <option value="">All topics</option>
-          <option value="_untagged">⚠ Untagged</option>
-          {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        <select className="form-input" style={{ width: 'auto' }} value={filters.is_active} onChange={(e) => handleFilterChange('is_active', e.target.value)}>
+          <option value="">Active + Inactive</option>
+          <option value="true">Active only</option>
+          <option value="false">Inactive only</option>
         </select>
-        <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.reviewed} onChange={(e) => handleFilterChange('reviewed', e.target.value)}>
-          <option value="">All review</option>
-          <option value="true">✓ Reviewed</option>
-          <option value="false">⚠ Unreviewed</option>
+        <select className="form-input" style={{ width: 'auto' }} value={filters.unassigned} onChange={(e) => handleFilterChange('unassigned', e.target.value)}>
+          <option value="">All assignment</option>
+          <option value="true">Unassigned only</option>
+          <option value="false">Assigned only</option>
         </select>
-        {/* ── Chunk J: AI status filter ── */}
-        <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.review_status} onChange={(e) => handleFilterChange('review_status', e.target.value)}>
-          <option value="">All AI status</option>
+        <select className="form-input" style={{ width: 'auto' }} value={filters.review_status} onChange={(e) => handleFilterChange('review_status', e.target.value)}>
+          <option value="">All review status</option>
           <option value="unreviewed">Unreviewed</option>
-          <option value="ai_pending">AI Pending…</option>
-          <option value="ai_reviewed">🤖 Pending approval</option>
-          <option value="approved">✓ Approved</option>
-          <option value="rejected">✗ Rejected</option>
+          <option value="ai_pending">AI Pending</option>
+          <option value="ai_reviewed">AI Reviewed</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
         </select>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
-        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ Add Question</button>
+        <input className="form-input" style={{ width: 'auto', minWidth: 180 }} placeholder="Search question…" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginLeft: 'auto' }}>{total} question{total !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Bulk actions */}
-      <div className="admin-bulk-bar">
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Bulk actions
-          {filters.exam && <strong style={{ color: 'var(--text-secondary)' }}> · {SECTION_CONFIG[filters.exam]?.label} {examConfig?.sections?.[filters.section]?.label}{filters.world_key ? ` / ${worldDisplayName(filters.world_key)}` : ''}</strong>}
-          {' '}({total} questions)
-        </span>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Activate all'}</button>
-          <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#dc2626' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Deactivate all'}</button>
-          <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }} onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total === 0}>Bulk topic</button>
-        </div>
-      </div>
-
-      {bulkTopicOpen && (
-        <div className="bulk-topic-panel">
-          <div className="bulk-topic-label">Set topic for all {total} matching questions:</div>
-          <div className="bulk-topic-grid">
-            {topicOptions.map((t) => (
-              <button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>{t.label}</button>
-            ))}
-            <button className="bulk-topic-btn clear" onClick={() => handleBulkTopic('')} disabled={bulkLoading}>✕ Clear all topics</button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Sticky selection action bar ── */}
+      {/* Bulk selection action bar */}
       {selectedIds.size > 0 && (
-        <div style={{
-          position: 'sticky', top: 0, zIndex: 30,
-          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-          padding: '10px 16px', marginBottom: 8, borderRadius: 8,
-          background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)',
-          backdropFilter: 'blur(8px)',
-        }}>
-          <span style={{ fontWeight: 700, color: 'var(--violet-light)', fontSize: '0.92rem' }}>
-            {selectedIds.size} selected
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 10, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, color: 'var(--violet-light)', fontSize: '0.9rem' }}>{selectedIds.size} selected</span>
           {selectedIds.size < total && (
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.82rem', padding: '3px 10px' }}
-              onClick={handleSelectAllMatching} disabled={selectAllLoading}>
+            <button className="btn btn-ghost btn-sm" onClick={handleSelectAllMatching} disabled={selectAllLoading}>
               {selectAllLoading ? '…' : `Select all ${total} matching`}
             </button>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            {/* ── Chunk J: AI Review button ── */}
             <button
               className="btn btn-sm"
               style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)', fontWeight: 700 }}
@@ -1317,7 +1916,6 @@ function QuestionsTab() {
                       <span className="expand-icon">{expanded.has(q.id) ? '▼' : '▶'}</span>
                       {q.question_text.slice(0, 70)}{q.question_text.length > 70 ? '…' : ''}
                       {q.image_url && <span className="has-image-badge">🖼️</span>}
-                      {/* ── Chunk J: AI status badge on row ── */}
                       {q.review_status === 'ai_reviewed' && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#a78bfa' }}>🤖</span>}
                       {q.review_status === 'approved'    && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#4ade80' }}>✓AI</span>}
                       {q.review_status === 'rejected'    && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#f87171' }}>✗AI</span>}
@@ -1329,8 +1927,8 @@ function QuestionsTab() {
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="admin-action-btn" onClick={() => setEditing(q)} title="Edit">✏️</button>
-                        <button className="admin-action-btn" onClick={() => handleToggle(q)} title={q.is_active ? 'Deactivate' : 'Activate'}>{q.is_active ? '🔴' : '🟢'}</button>
-                        <button className="admin-action-btn danger" onClick={() => handleDelete(q)} title="Delete">🗑️</button>
+                        <button className="admin-action-btn" onClick={() => handleToggle(q)} title={q.is_active ? 'Deactivate' : 'Activate'}>{q.is_active ? '⏸' : '▶'}</button>
+                        <button className="admin-action-btn danger" onClick={() => handleDelete(q)} title="Delete">🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -1339,7 +1937,7 @@ function QuestionsTab() {
                       question={q}
                       colSpan={TABLE_COLS}
                       taxonomy={taxonomy}
-                      onQuestionUpdated={handleInlineSaved}  // ← Chunk J
+                      onQuestionUpdated={handleInlineSaved}
                     />
                   )}
                 </React.Fragment>
@@ -1349,25 +1947,19 @@ function QuestionsTab() {
         </div>
       )}
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="admin-pagination">
-          <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(1)}>«</button>
           <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Page {page} of {totalPages}</span>
-          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
-          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>»</button>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: 12 }}>Go to</span>
-          <input type="number" min={1} max={totalPages} className="form-input"
-            style={{ width: 64, padding: '4px 8px', fontSize: '0.85rem', textAlign: 'center' }}
-            value={goToPage} onChange={(e) => setGoToPage(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10))); if (!isNaN(p)) { setPage(p); setGoToPage(''); } } }}
-            placeholder="#" />
-          <button className="btn btn-ghost btn-sm" onClick={() => { const p = Math.max(1, Math.min(totalPages, parseInt(goToPage, 10))); if (!isNaN(p)) { setPage(p); setGoToPage(''); } }}>Go</button>
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Page {page} / {totalPages}</span>
+          <button className="btn btn-ghost btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>
       )}
 
-      {editing && <QuestionEditModal question={editing} taxonomy={taxonomy} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
-      {creating && <CreateQuestionModal taxonomy={taxonomy} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); setRefreshKey((k) => k + 1); showFlash('Question created.'); }} />}
+      {/* Modals */}
+      {editing && (
+        <EditQuestionModal question={editing} taxonomy={taxonomy} onSave={handleSaveEdit} onClose={() => setEditing(null)} />
+      )}
       {bulkAssignOpen && (
         <BulkAssignModal count={selectedIds.size} section={filters.section} taxonomy={taxonomy} worldOptions={worldOptions}
           loading={bulkOpLoading} onAssign={handleBulkAssignSelected} onClose={() => setBulkAssignOpen(false)} />
@@ -1375,810 +1967,12 @@ function QuestionsTab() {
       {bulkDeleteOpen && (
         <BulkDeleteModal count={selectedIds.size} loading={bulkOpLoading} onConfirm={handleBulkDeleteSelected} onClose={() => setBulkDeleteOpen(false)} />
       )}
-
-      {/* ── Chunk J: AI Review Modal ── */}
       {aiReviewOpen && (
         <AIReviewModal
           questionIds={Array.from(selectedIds)}
           onDone={handleAIReviewDone}
           onClose={() => setAiReviewOpen(false)}
         />
-      )}
-    </div>
-  );
-}
-
-
-// ── BULK ASSIGN MODAL ─────────────────────────────────────────────────────────
-
-function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAssign, onClose }) {
-  const [form, setForm] = useState({ topic: '', difficulty: '', world_key: '' });
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
-  const hasAny = form.topic || form.difficulty || form.world_key;
-
-  const handleSubmit = () => {
-    const assign = {};
-    if (form.topic)     assign.topic      = form.topic;
-    if (form.difficulty) assign.difficulty = form.difficulty;
-    if (form.world_key) assign.world_key  = form.world_key;
-    onAssign(assign);
-  };
-
-  return (
-    <Modal title={`Bulk Assign — ${count} question${count !== 1 ? 's' : ''}`} onClose={onClose} width="480px">
-      <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Set one or more fields on all selected questions. Blank fields are left unchanged.
-      </p>
-      <div className="form-group">
-        <label className="form-label">Topic</label>
-        <select className="form-input" value={form.topic} onChange={set('topic')}>
-          <option value="">— Leave unchanged —</option>
-          {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-        </select>
-      </div>
-      <div className="form-group" style={{ marginTop: 12 }}>
-        <label className="form-label">Difficulty</label>
-        <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-          <option value="">— Leave unchanged —</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
-      <div className="form-group" style={{ marginTop: 12 }}>
-        <label className="form-label">Assign to World</label>
-        <select className="form-input" value={form.world_key} onChange={set('world_key')}>
-          <option value="">— Leave unchanged —</option>
-          {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)} ({w})</option>)}
-        </select>
-        {form.world_key && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#b45309' }}>⚠ Section-mismatched questions will be skipped.</p>}
-      </div>
-      {!hasAny && <p style={{ margin: '14px 0 0', fontSize: '0.83rem', color: '#b45309' }}>Set at least one field to proceed.</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <button className="btn btn-green" onClick={handleSubmit} disabled={loading || !hasAny}>{loading ? 'Updating…' : `Update ${count} Question${count !== 1 ? 's' : ''}`}</button>
-        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
-      </div>
-    </Modal>
-  );
-}
-
-
-// ── BULK DELETE MODAL ─────────────────────────────────────────────────────────
-
-function BulkDeleteModal({ count, loading, onConfirm, onClose }) {
-  return (
-    <Modal title="Confirm Bulk Delete" onClose={onClose} width="420px">
-      <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-        <div style={{ fontSize: '2rem', marginBottom: 12 }}>🗑️</div>
-        <p style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Soft-delete {count} question{count !== 1 ? 's' : ''}?</p>
-        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          These questions will be marked as deleted and will not be visible to students.
-        </p>
-      </div>
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
-        <button className="btn" style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
-          onClick={onConfirm} disabled={loading}>{loading ? 'Deleting…' : `Delete ${count} Question${count !== 1 ? 's' : ''}`}</button>
-        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
-      </div>
-    </Modal>
-  );
-}
-
-
-// ── QUESTION EDIT MODAL ───────────────────────────────────────────────────────
-
-function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
-  const [form, setForm] = useState({
-    question_text: question.question_text, option_a: question.option_a,
-    option_b: question.option_b, option_c: question.option_c, option_d: question.option_d,
-    correct_answer: question.correct_answer || 'a', topic: question.topic || '',
-    difficulty: question.difficulty || '', image_url: question.image_url || null,
-    hint: question.hint || '', is_active: question.is_active, version: question.version,
-  });
-  const [saving, setSaving] = useState(false);
-  const [showMathPreview, setShowMathPreview] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
-
-  const section = question.section || getSectionFromWorldKey(question.world_key);
-  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSaving(true);
-    const payload = { ...form };
-    if (!payload.topic)      payload.topic      = null;
-    if (!payload.difficulty) payload.difficulty = null;
-    if (!payload.hint)       payload.hint       = null;
-    onSave(payload);
-    setSaving(false);
-  };
-
-  return (
-    <Modal title={`Edit Question #${question.id}`} onClose={onClose} width="720px">
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label className="form-label">Question Text (supports LaTeX: $...$)</label>
-          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
-        </div>
-        {showMathPreview && (
-          <div style={{ padding: '12px 16px', background: 'var(--bg-card-2)', borderRadius: 8, marginBottom: 12, border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview:</div>
-            <MathText text={form.question_text} />
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowMathPreview(!showMathPreview)}>{showMathPreview ? 'Hide Preview' : 'Preview Math'}</button>
-          <LaTeXCheatsheet />
-        </div>
-        <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-          {['a', 'b', 'c', 'd'].map((opt) => (
-            <div key={opt} className="form-group">
-              <label className="form-label">Option {opt.toUpperCase()}</label>
-              <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required />
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
-          <div className="form-group">
-            <label className="form-label">Correct Answer</label>
-            <select className="form-input" value={form.correct_answer} onChange={set('correct_answer')}>
-              {['a','b','c','d'].map((o) => <option key={o} value={o}>{o.toUpperCase()}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Topic</label>
-            <select className="form-input" value={form.topic} onChange={set('topic')}>
-              <option value="">— None —</option>
-              {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Difficulty</label>
-            <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-              <option value="">— None —</option>
-              <option value="easy">Easy</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}>
-          <label className="form-label">Hint (shown after wrong answer)</label>
-          <textarea className="form-input" rows={3} value={form.hint} onChange={set('hint')} placeholder="Guide the student toward the right answer without giving it away…" />
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
-            <span className="form-label" style={{ margin: 0 }}>Active</span>
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-
-// ── CREATE QUESTION MODAL ─────────────────────────────────────────────────────
-
-function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
-  const [form, setForm] = useState({
-    exam: 'qudurat', world_key: 'math_100',
-    question_text: '', option_a: '', option_b: '', option_c: '', option_d: '',
-    correct_answer: 'a', topic: '', difficulty: '', is_active: false, image_url: null, hint: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
-
-  const worldOptions = WORLD_KEYS[form.exam] || [];
-  const section = getSectionFromWorldKey(form.world_key);
-  const topicOptions = (taxonomy && section && taxonomy[section]) || [];
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const nextIdx = await adminApi.nextIndex(form.exam, form.world_key);
-      const payload = [{ ...form, index: nextIdx.next_index, topic: form.topic || null, difficulty: form.difficulty || null, hint: form.hint || null }];
-      await adminApi.importQuestions(payload);
-      onCreated();
-    } catch (err) { alert(err?.error?.message || 'Failed to create question.'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <Modal title="Create New Question" onClose={onClose} width="720px">
-      <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="form-group">
-            <label className="form-label">Exam</label>
-            <select className="form-input" value={form.exam} onChange={(e) => setForm((f) => ({ ...f, exam: e.target.value, world_key: WORLD_KEYS[e.target.value]?.[0] || '', topic: '' }))}>
-              {EXAMS.map((ex) => <option key={ex} value={ex}>{ex}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">World</label>
-            <select className="form-input" value={form.world_key} onChange={(e) => setForm((f) => ({ ...f, world_key: e.target.value, topic: '' }))}>
-              {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}>
-          <label className="form-label">Question Text (supports LaTeX: $...$)</label>
-          <textarea className="form-input" rows={3} value={form.question_text} onChange={set('question_text')} required />
-        </div>
-        <LaTeXCheatsheet />
-        <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-          {['a', 'b', 'c', 'd'].map((opt) => (
-            <div key={opt} className="form-group">
-              <label className="form-label">Option {opt.toUpperCase()}</label>
-              <input className="form-input" value={form[`option_${opt}`]} onChange={set(`option_${opt}`)} required />
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
-          <div className="form-group">
-            <label className="form-label">Correct Answer</label>
-            <select className="form-input" value={form.correct_answer} onChange={set('correct_answer')}>
-              {['a','b','c','d'].map((o) => <option key={o} value={o}>{o.toUpperCase()}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Topic</label>
-            <select className="form-input" value={form.topic} onChange={set('topic')}>
-              <option value="">— None —</option>
-              {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Difficulty</label>
-            <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-              <option value="">— None —</option>
-              <option value="easy">Easy</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}>
-          <label className="form-label">Hint (shown after wrong answer)</label>
-          <textarea className="form-input" rows={3} value={form.hint} onChange={set('hint')} placeholder="Guide the student toward the right answer without giving it away…" />
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
-            <span className="form-label" style={{ margin: 0 }}>Active immediately</span>
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Question'}</button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-
-// ── STATS TAB ─────────────────────────────────────────────────────────────────
-
-function StatsTab() {
-  const [stats, setStats] = useState(null);
-  useEffect(() => { adminApi.getStats().then(setStats).catch(() => {}); }, []);
-
-  if (!stats) return <div className="admin-loading"><div className="spinner" /></div>;
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-      {[
-        { label: 'Total Questions', val: stats.questions?.total || 0 },
-        { label: 'Active Questions', val: stats.questions?.active || 0 },
-        { label: 'Students', val: stats.users?.students || 0 },
-        { label: 'Organisations', val: stats.orgs?.total || 0 },
-        { label: 'Active Entitlements', val: stats.entitlements?.active || 0 },
-      ].map((s) => (
-        <div key={s.label} className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.val}</div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s.label}</div>
-        </div>
-      ))}
-      {stats.questions?.per_exam && Object.entries(stats.questions.per_exam).map(([exam, count]) => (
-        <div key={exam} className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>{count}</div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{exam} Questions</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-// ── ORGS TAB ──────────────────────────────────────────────────────────────────
-
-function OrgsTab() {
-  const [orgs, setOrgs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [flash, showFlash] = useFlash();
-  const [creating, setCreating] = useState(false);
-  const [selected, setSelected] = useState(null);
-
-  const fetchOrgs = useCallback(() => {
-    setLoading(true);
-    adminApi.listOrgs({ per_page: 100 })
-      .then((d) => setOrgs(d.orgs))
-      .catch(() => showFlash('Failed to load orgs.', 'error'))
-      .finally(() => setLoading(false));
-  }, [showFlash]);
-
-  useEffect(() => { fetchOrgs(); }, [fetchOrgs]);
-
-  if (loading) return <div className="admin-loading"><div className="spinner" /></div>;
-
-  return (
-    <div>
-      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New Org</button>
-      </div>
-      {orgs.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No organisations yet.</p> : (
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Students</th><th>Created</th><th>Actions</th></tr></thead>
-            <tbody>
-              {orgs.map((o) => (
-                <tr key={o.id}>
-                  <td>{o.id}</td><td>{o.name}</td><td><code>{o.slug}</code></td>
-                  <td>{o.estimated_student_count || '—'}</td>
-                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(o.created_at).toLocaleDateString()}</td>
-                  <td><button className="admin-action-btn" onClick={() => setSelected(o)}>View</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchOrgs(); showFlash('Org created.'); }} />}
-      {selected && <OrgDetailModal org={selected} onClose={() => setSelected(null)} onRefresh={fetchOrgs} />}
-    </div>
-  );
-}
-
-function CreateOrgModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ name: '', slug: '', estimated_student_count: '' });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try {
-      await adminApi.createOrg({ ...form, estimated_student_count: form.estimated_student_count ? parseInt(form.estimated_student_count) : null });
-      onCreated();
-    } catch (err) { alert(err?.error?.message || 'Failed.'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <Modal title="Create Organisation" onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
-        <div className="form-group"><label className="form-label">Slug</label><input className="form-input" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} required placeholder="e.g. riyadh-prep-school" /></div>
-        <div className="form-group"><label className="form-label">Est. Students (optional)</label><input className="form-input" type="number" value={form.estimated_student_count} onChange={(e) => setForm((f) => ({ ...f, estimated_student_count: e.target.value }))} /></div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Org'}</button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function OrgDetailModal({ org, onClose, onRefresh }) {
-  const [detail, setDetail] = useState(null);
-  const [flash, showFlash] = useFlash();
-
-  useEffect(() => { adminApi.getOrg(org.id).then(setDetail).catch(() => {}); }, [org.id]);
-
-  if (!detail) return <Modal title={org.name} onClose={onClose}><div className="spinner" /></Modal>;
-
-  return (
-    <Modal title={org.name} onClose={onClose} width="700px">
-      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 12 }}>{flash.msg}</div>}
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>Slug: <code>{org.slug}</code></p>
-      <h4 style={{ marginBottom: 8 }}>Leader</h4>
-      {detail.leader ? <p>{detail.leader.username} (ID: {detail.leader.id})</p> : <p style={{ color: 'var(--text-muted)' }}>No leader assigned yet.</p>}
-      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Students ({detail.students?.length || 0})</h4>
-      {detail.students?.length > 0
-        ? <div style={{ maxHeight: 200, overflow: 'auto' }}>{detail.students.map((s) => <div key={s.id} style={{ fontSize: '0.85rem', padding: '2px 0' }}>{s.username}</div>)}</div>
-        : <p style={{ color: 'var(--text-muted)' }}>No students yet.</p>}
-      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Entitlements</h4>
-      {detail.entitlements?.length > 0
-        ? detail.entitlements.map((e) => (
-            <div key={e.id} className="card" style={{ marginBottom: 8 }}>
-              <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{e.exam} — {e.plan_id}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Expires: {new Date(e.entitlement_expires_at).toLocaleDateString()}</div>
-            </div>
-          ))
-        : <p style={{ color: 'var(--text-muted)' }}>No entitlements.</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-        <button className="btn btn-ghost" onClick={onClose}>Close</button>
-      </div>
-    </Modal>
-  );
-}
-
-
-// ── USERS TAB ─────────────────────────────────────────────────────────────────
-
-function UsersTab() {
-  const [users, setUsers] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [flash, showFlash] = useFlash();
-  const [creating, setCreating] = useState(false);
-  const [roleFilter, setRoleFilter] = useState('');
-  const [search, setSearch] = useState('');
-  const searchTimeout = useRef(null);
-  const [searchInput, setSearchInput] = useState('');
-
-  const fetchUsers = useCallback(() => {
-    setLoading(true);
-    adminApi.listUsers({ page, per_page: 50, role: roleFilter, search })
-      .then((d) => { setUsers(d.users); setTotal(d.total); })
-      .catch(() => showFlash('Failed to load users.', 'error'))
-      .finally(() => setLoading(false));
-  }, [page, roleFilter, search, showFlash]);
-
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
-  const handleSearchChange = (val) => {
-    setSearchInput(val);
-    clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => { setSearch(val); setPage(1); }, 400);
-  };
-
-  const handleToggleActive = async (u) => {
-    try {
-      if (u.is_active) await adminApi.deactivateUser(u.id);
-      else await adminApi.activateUser(u.id);
-      showFlash(`User ${u.username} ${u.is_active ? 'deactivated' : 'activated'}.`);
-      fetchUsers();
-    } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
-  };
-
-  const handleResetPassword = async (u) => {
-    const newPass = window.prompt(`New password for ${u.username}:`);
-    if (!newPass) return;
-    try {
-      const result = await adminApi.resetPassword(u.id, { password: newPass });
-      showFlash(`Password reset for ${u.username}. New: ${result.password}`);
-    } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
-  };
-
-  const totalPages = Math.ceil(total / 50);
-
-  return (
-    <div>
-      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-      <div className="admin-filter-row">
-        <input className="form-input" style={{ width: 'auto', minWidth: 200 }} placeholder="Search username…" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
-        <select className="form-input" style={{ width: 'auto' }} value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}>
-          <option value="">All roles</option>
-          <option value="student">Student</option>
-          <option value="school_leader">School Leader</option>
-          <option value="drfahm_admin">Admin</option>
-        </select>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginLeft: 'auto' }}>{total} user{total !== 1 ? 's' : ''}</span>
-        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft: 8 }}>+ New Admin</button>
-      </div>
-      {loading ? <div className="admin-loading"><div className="spinner" /></div> : (
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.id}</td><td>{u.username}</td>
-                  <td><Pill color={u.role === 'drfahm_admin' ? 'violet' : u.role === 'school_leader' ? 'blue' : 'gray'}>{u.role}</Pill></td>
-                  <td>{u.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}</td>
-                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="admin-action-btn" onClick={() => handleToggleActive(u)}>{u.is_active ? '🔴' : '🟢'}</button>
-                      <button className="admin-action-btn" onClick={() => handleResetPassword(u)} title="Reset password">🔑</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {totalPages > 1 && (
-        <div className="admin-pagination">
-          <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Page {page} of {totalPages}</span>
-          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
-        </div>
-      )}
-      {creating && <CreateAdminModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchUsers(); showFlash('Admin created.'); }} />}
-    </div>
-  );
-}
-
-function CreateAdminModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ username: '', password: '' });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try {
-      const result = await adminApi.createUser(form);
-      alert(`Admin created!\nUsername: ${result.user.username}\nPassword: ${result.password}\n\nSave this password — it cannot be retrieved later.`);
-      onCreated();
-    } catch (err) { alert(err?.error?.message || 'Failed.'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <Modal title="Create Admin" onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group"><label className="form-label">Username</label><input className="form-input" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} required minLength={3} /></div>
-        <div className="form-group"><label className="form-label">Password (leave blank for random)</label><input className="form-input" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} /></div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Admin'}</button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-
-// ── BULK UPLOAD TAB ───────────────────────────────────────────────────────────
-
-const BULK_CSV_COLUMNS = ['exam','section','question_text','option_a','option_b','option_c','option_d','correct_answer','hint','topic','difficulty'];
-const VALID_EXAM_SECTIONS = { qudurat: ['math','verbal'], tahsili: ['math','biology','chemistry','physics'] };
-
-function BulkUploadTab() {
-  const [step, setStep]             = useState(1);
-  const [file, setFile]             = useState(null);
-  const [dragging, setDragging]     = useState(false);
-  const [validating, setValidating] = useState(false);
-  const [committing, setCommitting] = useState(false);
-  const [report, setReport]         = useState(null);
-  const [result, setResult]         = useState(null);
-  const [forceDupes, setForceDupes] = useState(false);
-  const [flash, showFlash]          = useFlash();
-  const fileInputRef                = useRef(null);
-
-  const handleDownloadTemplate = async () => {
-    try {
-      const res = await adminApi.bulkTemplate();
-      if (!res.ok) throw new Error('Download failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'drfahm_bulk_template.csv'; a.click();
-      URL.revokeObjectURL(url);
-    } catch { showFlash('Failed to download template.', 'error'); }
-  };
-
-  const handleDownloadErrors = () => {
-    if (!report?.errors?.length) return;
-    const header = 'row,field,message\n';
-    const rows = report.errors.map((e) => `${e.row},"${e.field}","${String(e.message).replace(/"/g, '""')}"`).join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `drfahm_upload_errors_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleFile = (f) => {
-    if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.csv')) { showFlash('Only .csv files are accepted.', 'error'); return; }
-    if (f.size > 10 * 1024 * 1024) { showFlash('File too large. Maximum 10 MB.', 'error'); return; }
-    setFile(f); setReport(null); setResult(null); setStep(1); setForceDupes(false);
-  };
-
-  const onDrop = (e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer?.files?.[0]); };
-  const onDragOver  = (e) => { e.preventDefault(); setDragging(true); };
-  const onDragLeave = () => setDragging(false);
-
-  const handleValidate = async () => {
-    if (!file) return; setValidating(true);
-    try { const data = await adminApi.bulkValidate(file); setReport(data); setStep(2); }
-    catch (e) { showFlash(e?.error?.message || 'Validation failed.', 'error'); }
-    finally { setValidating(false); }
-  };
-
-  const handleCommit = async () => {
-    if (!file) return; setCommitting(true);
-    try { const data = await adminApi.bulkCommit(file, forceDupes); setResult(data); setStep(3); }
-    catch (e) { showFlash(e?.error?.message || 'Import failed.', 'error'); }
-    finally { setCommitting(false); }
-  };
-
-  const handleReset = () => {
-    setStep(1); setFile(null); setReport(null); setResult(null); setForceDupes(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const importCount = report ? report.stats.valid_count + (forceDupes ? report.stats.duplicate_count : 0) : 0;
-
-  return (
-    <div>
-      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
-      <div className="bulk-steps">
-        {[{ n: 1, label: 'Upload CSV' }, { n: 2, label: 'Review' }, { n: 3, label: 'Done' }].map(({ n, label }) => (
-          <div key={n} className={`bulk-step ${step >= n ? 'active' : ''} ${step === n ? 'current' : ''}`}>
-            <div className="bulk-step-number">{step > n ? '✓' : n}</div>
-            <span className="bulk-step-label">{label}</span>
-          </div>
-        ))}
-      </div>
-
-      {step === 1 && (
-        <div className="bulk-section">
-          <div className="bulk-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Upload Questions CSV</h3>
-                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fill in the template, save as CSV, then upload here.</p>
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>⬇ Download Template</button>
-            </div>
-            <div className={`bulk-dropzone ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
-              onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} onClick={() => fileInputRef.current?.click()}>
-              <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
-              {file ? (
-                <div className="bulk-dropzone-file">
-                  <span className="bulk-dropzone-icon">📄</span>
-                  <span className="bulk-dropzone-name">{file.name}</span>
-                  <span className="bulk-dropzone-size">({(file.size / 1024).toFixed(1)} KB)</span>
-                  <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); handleReset(); }}>✕ Remove</button>
-                </div>
-              ) : (
-                <div className="bulk-dropzone-empty">
-                  <span className="bulk-dropzone-icon">📁</span>
-                  <p style={{ margin: '8px 0 4px', fontWeight: 600, color: 'var(--text-primary)' }}>Drag & drop CSV file here</p>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>or click to browse</p>
-                </div>
-              )}
-            </div>
-            <div className="bulk-format-guide">
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>Required Columns (11 total)</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {BULK_CSV_COLUMNS.map((c) => <Pill key={c} color={c === 'section' || c === 'hint' ? 'green' : 'violet'}>{c}</Pill>)}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>exam</strong> — <code>qudurat</code> or <code>tahsili</code></div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>section</strong> — subject within exam</div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>correct_answer</strong> — <code>a</code>, <code>b</code>, <code>c</code>, or <code>d</code></div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>hint</strong> — shown after wrong answer</div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>topic</strong> — must match valid topics for section</div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>difficulty</strong> — <code>easy</code>, <code>medium</code>, or <code>hard</code></div>
-              </div>
-              <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 8, border: '1px solid rgba(139,92,246,0.15)' }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 6 }}>Valid exam / section combinations</div>
-                {Object.entries(VALID_EXAM_SECTIONS).map(([exam, sections]) => (
-                  <div key={exam} style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 3 }}>
-                    <strong style={{ textTransform: 'capitalize' }}>{exam}:</strong>{' '}{sections.map((s) => <code key={s} style={{ marginRight: 6 }}>{s}</code>)}
-                  </div>
-                ))}
-              </div>
-            </div>
-            {file && (
-              <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                <button className="btn btn-violet" onClick={handleValidate} disabled={validating}>
-                  {validating ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} />Validating…</> : 'Validate CSV'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {step === 2 && report && (
-        <div className="bulk-section">
-          <div className="bulk-summary-grid">
-            <div className="bulk-summary-card success"><div className="bulk-summary-number">{report.stats.valid_count}</div><div className="bulk-summary-label">Valid</div></div>
-            <div className="bulk-summary-card error"><div className="bulk-summary-number">{report.stats.error_count}</div><div className="bulk-summary-label">Errors</div></div>
-            <div className="bulk-summary-card warning"><div className="bulk-summary-number">{report.stats.duplicate_count}</div><div className="bulk-summary-label">Duplicates</div></div>
-            <div className="bulk-summary-card neutral"><div className="bulk-summary-number">{report.stats.total_rows}</div><div className="bulk-summary-label">Total Rows</div></div>
-          </div>
-          {report.errors.length > 0 && (
-            <div className="bulk-card" style={{ marginTop: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h4 style={{ margin: 0, color: '#dc2626', fontSize: '0.95rem' }}>✗ {report.errors.length} Error{report.errors.length !== 1 ? 's' : ''} Found</h4>
-                <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>⬇ Download Errors CSV</button>
-              </div>
-              <div className="bulk-table-wrap">
-                <table className="admin-table">
-                  <thead><tr><th style={{ width: 70 }}>Row</th><th style={{ width: 130 }}>Field</th><th>Message</th></tr></thead>
-                  <tbody>
-                    {report.errors.slice(0, 50).map((err, i) => (
-                      <tr key={i}><td><Pill color="gray">{err.row}</Pill></td><td><code style={{ fontSize: '0.82rem', color: '#dc2626' }}>{err.field}</code></td><td style={{ fontSize: '0.85rem' }}>{err.message}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {report.duplicates.length > 0 && (
-            <div className="bulk-card" style={{ marginTop: 16 }}>
-              <h4 style={{ margin: '0 0 4px', color: '#b45309', fontSize: '0.95rem' }}>⚠ {report.duplicates.length} Duplicate{report.duplicates.length !== 1 ? 's' : ''} Detected</h4>
-              <p style={{ margin: '0 0 12px', fontSize: '0.83rem', color: 'var(--text-muted)' }}>These questions match existing records. By default they are skipped.</p>
-              <div className="bulk-table-wrap">
-                <table className="admin-table">
-                  <thead><tr><th style={{ width: 70 }}>Row</th><th>Question Text (preview)</th><th style={{ width: 130 }}>Matches</th></tr></thead>
-                  <tbody>
-                    {report.duplicates.slice(0, 30).map((dup, i) => (
-                      <tr key={i}><td><Pill color="gray">{dup.row}</Pill></td><td style={{ fontSize: '0.85rem', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dup.question_text}</td>
-                        <td>{dup.existing_id ? <Pill color="amber">DB #{dup.existing_id}</Pill> : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <input type="checkbox" checked={forceDupes} onChange={(e) => setForceDupes(e.target.checked)} />
-                Import duplicates anyway
-              </label>
-            </div>
-          )}
-          {report.preview && report.preview.length > 0 && (
-            <div className="bulk-card" style={{ marginTop: 16 }}>
-              <h4 style={{ margin: '0 0 12px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>✓ Preview — {Math.min(report.preview.length, 20)} of {report.stats.valid_count} valid rows</h4>
-              <div className="bulk-table-wrap">
-                <table className="admin-table">
-                  <thead><tr><th style={{ width: 60 }}>Row</th><th style={{ width: 90 }}>Exam</th><th style={{ width: 100 }}>Section</th><th>Question</th><th style={{ width: 55 }}>Ans</th><th style={{ width: 110 }}>Topic</th><th style={{ width: 75 }}>Diff</th></tr></thead>
-                  <tbody>
-                    {report.preview.map((row, i) => (
-                      <tr key={i}>
-                        <td><Pill color="gray">{row._row}</Pill></td><td><Pill color="violet">{row.exam}</Pill></td>
-                        <td style={{ fontSize: '0.82rem', textTransform: 'capitalize' }}>{row.section}</td>
-                        <td style={{ fontSize: '0.85rem', maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.question_text}</td>
-                        <td><Pill color="green">{row.correct_answer.toUpperCase()}</Pill></td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{row.topic || '—'}</td>
-                        <td>{row.difficulty ? <Pill color={row.difficulty === 'easy' ? 'green' : row.difficulty === 'hard' ? 'amber' : 'blue'}>{row.difficulty}</Pill> : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            {importCount > 0 ? (
-              <button className="btn btn-green" onClick={handleCommit} disabled={committing}>
-                {committing ? <><span className="spinner" style={{ width: 16, height: 16, marginRight: 8 }} />Importing…</> : `Import ${importCount} Question${importCount !== 1 ? 's' : ''} into Bank`}
-              </button>
-            ) : <button className="btn" disabled style={{ opacity: 0.5 }}>No valid rows to import</button>}
-            {report.stats.error_count > 0 && <button className="btn btn-ghost btn-sm" onClick={handleDownloadErrors}>⬇ Download Errors CSV</button>}
-            <button className="btn btn-ghost" onClick={handleReset}>← Back to Upload</button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && result && (
-        <div className="bulk-section">
-          <div className="bulk-card" style={{ textAlign: 'center', padding: '40px 32px' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>{result.inserted > 0 ? '✅' : '⚠️'}</div>
-            <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-              {result.inserted > 0 ? `${result.inserted} Question${result.inserted !== 1 ? 's' : ''} Added to Bank` : 'No Questions Imported'}
-            </h3>
-            <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>{result.message}</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
-              {result.inserted > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div></div>}
-              {result.skipped > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped</div></div>}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
-              <button className="btn btn-violet" onClick={handleReset}>Upload Another File</button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
