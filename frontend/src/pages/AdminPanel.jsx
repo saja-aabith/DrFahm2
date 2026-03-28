@@ -1683,7 +1683,7 @@ function StatsTab() {
         { label: 'Total Questions', val: stats.questions?.total || 0 },
         { label: 'Active Questions', val: stats.questions?.active || 0 },
         { label: 'Students', val: stats.users?.students || 0 },
-        { label: 'Organisations', val: stats.orgs?.total || 0 },
+        { label: 'Schools',       val: stats.orgs?.total || 0 },
         { label: 'Active Entitlements', val: stats.entitlements?.active || 0 },
       ].map((s) => (
         <div key={s.label} className="card" style={{ textAlign: 'center' }}>
@@ -1711,6 +1711,7 @@ function SmartFillModal({ target, taxonomy, onDone, onClose }) {
   const [minConf,        setMinConf]        = useState('');
   const [maxFill,        setMaxFill]        = useState('');
   const [activate,       setActivate]       = useState(false);
+  const [reviewedOnly,   setReviewedOnly]   = useState(true);
   const [loading,        setLoading]        = useState(false);
   const [result,         setResult]         = useState(null);
 
@@ -1723,7 +1724,7 @@ function SmartFillModal({ target, taxonomy, onDone, onClose }) {
   const handleFill = async () => {
     setLoading(true);
     try {
-      const body = { exam: target.exam, activate };
+      const body = { exam: target.exam, activate, reviewed_only: reviewedOnly };
       if (selectedTopics.length > 0) body.topics         = selectedTopics;
       if (difficulty)                body.difficulty      = difficulty;
       if (minConf)                   body.min_confidence  = parseFloat(minConf);
@@ -1836,13 +1837,19 @@ function SmartFillModal({ target, taxonomy, onDone, onClose }) {
         </div>
       </div>
 
-      {/* Max fill + activate */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+      {/* Max fill + activate + reviewed only */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
         <div className="form-group">
           <label className="form-label">Max Questions to Fill</label>
           <input type="number" className="form-input" min={1} max={availableSlots}
             value={maxFill} onChange={e => setMaxFill(e.target.value)}
             placeholder={`All (${availableSlots})`} />
+        </div>
+        <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)', paddingBottom: 8 }}>
+            <input type="checkbox" checked={reviewedOnly} onChange={e => setReviewedOnly(e.target.checked)} />
+            Reviewed questions only
+          </label>
         </div>
         <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)', paddingBottom: 8 }}>
@@ -2241,9 +2248,9 @@ function OrgsTab() {
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New Org</button>
+        <button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New School</button>
       </div>
-      {orgs.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No organisations yet.</p> : (
+      {orgs.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No schools yet.</p> : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Students</th><th>Created</th><th>Actions</th></tr></thead>
@@ -2260,7 +2267,7 @@ function OrgsTab() {
           </table>
         </div>
       )}
-      {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchOrgs(); showFlash('Org created.'); }} />}
+      {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchOrgs(); showFlash('School created.'); }} />}
       {selected && <OrgDetailModal org={selected} onClose={() => setSelected(null)} onRefresh={fetchOrgs} />}
     </div>
   );
@@ -2280,13 +2287,13 @@ function CreateOrgModal({ onClose, onCreated }) {
   };
 
   return (
-    <Modal title="Create Organisation" onClose={onClose}>
+    <Modal title="Create School" onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
         <div className="form-group"><label className="form-label">Slug</label><input className="form-input" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} required placeholder="e.g. riyadh-prep-school" /></div>
         <div className="form-group"><label className="form-label">Est. Students (optional)</label><input className="form-input" type="number" value={form.estimated_student_count} onChange={(e) => setForm((f) => ({ ...f, estimated_student_count: e.target.value }))} /></div>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create Org'}</button>
+          <button type="submit" className="btn btn-green" disabled={saving}>{saving ? 'Creating…' : 'Create School'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </form>
@@ -2711,7 +2718,7 @@ const TABS = [
   { id: 'questions', icon: '📝', label: 'Questions'   },
   { id: 'worlds',    icon: '🌍', label: 'Worlds'      },  // K2
   { id: 'bulk',      icon: '📤', label: 'Bulk Upload' },
-  { id: 'orgs',      icon: '🏫', label: 'Orgs'        },
+  { id: 'orgs',      icon: '🏫', label: 'Schools'     },
   { id: 'users',     icon: '👤', label: 'Users'       },
 ];
 
@@ -2730,7 +2737,7 @@ export default function AdminPanel() {
       <div className="page">
         <div className="page-header">
           <h1 className="page-title">Admin Panel</h1>
-          <p className="page-subtitle">Question management · Org provisioning · User administration</p>
+          <p className="page-subtitle">Question management · School provisioning · User administration</p>
         </div>
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
         <div style={{ marginTop: 24 }}>

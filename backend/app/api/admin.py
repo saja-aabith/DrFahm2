@@ -1486,6 +1486,7 @@ def world_smart_fill(world_key: str):
       min_confidence float    optional — only questions with llm_confidence >= this
       max_fill       int      optional — cap on how many to fill (default: all empty slots)
       activate       bool     optional — activate questions on assignment (default: false)
+      reviewed_only  bool     optional — only questions manually reviewed or AI-approved (default: false)
 
     NOTE: concurrent smart-fills on the same world may slightly exceed capacity
     in a race. Acceptable for a small admin team.
@@ -1524,6 +1525,7 @@ def world_smart_fill(world_key: str):
     min_confidence = data.get("min_confidence")
     max_fill       = data.get("max_fill")
     activate       = bool(data.get("activate", False))
+    reviewed_only  = bool(data.get("reviewed_only", False))
 
     if difficulty and difficulty not in {d.value for d in Difficulty}:
         return bad_request("validation_error",
@@ -1566,6 +1568,13 @@ def world_smart_fill(world_key: str):
     if min_confidence is not None:
         q = q.filter(Question.llm_confidence.isnot(None),
                      Question.llm_confidence >= min_confidence)
+    if reviewed_only:
+        # Include questions where the admin has manually reviewed OR AI review was approved.
+        from sqlalchemy import or_ as sa_or
+        q = q.filter(sa_or(
+            Question.last_reviewed_at.isnot(None),
+            Question.review_status == ReviewStatus.APPROVED,
+        ))
 
     # Deterministic order: topic → difficulty → id
     q = q.order_by(Question.topic.nullslast(), Question.difficulty.nullslast(), Question.id)
