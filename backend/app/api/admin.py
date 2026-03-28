@@ -15,6 +15,7 @@ Endpoints:
     GET    /api/admin/questions/next-index
     GET    /api/admin/questions/review-progress
     GET    /api/admin/questions/topic-coverage
+    POST   /api/admin/questions/find-duplicates         (Chunk K3)
     GET    /api/admin/questions
     GET    /api/admin/questions/:id
     PUT    /api/admin/questions/:id
@@ -1019,6 +1020,97 @@ def topic_coverage():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# DUPLICATE DETECTION  (Chunk K3)
+# ═════════════════════════════════════════════════════════════════════════════
+
+@admin_bp.route("/questions/find-duplicates", methods=["POST"])
+@roles_required(*_ADMIN_ROLE)
+def find_duplicates():
+    """
+    Find exact duplicate questions within a section (across all exams and worlds).
+
+    Uses the same _normalize_text logic as bulk CSV upload:
+      - lowercase, collapse whitespace, strip punctuation
+
+    Scope: all non-deleted questions in the given section, regardless of
+    exam, world assignment, or active status.
+
+    Body:
+      section  string  required — math | verbal | biology | chemistry | physics
+
+    Response:
+      {
+        section, total_groups, total_duplicate_questions,
+        duplicate_groups: [
+          {
+            count, normalized_preview,
+            questions: [{ id, exam, world_key, question_text,
+                          correct_answer, is_active, review_status }]
+          }
+        ]
+      }
+    """
+    data    = request.get_json(silent=True) or {}
+    section = (data.get("section") or "").strip().lower()
+
+    if not section or section not in _ALL_SECTIONS:
+        return bad_request("invalid_section",
+                           f"section is required. Valid: {sorted(_ALL_SECTIONS)}")
+
+    # Fetch all non-deleted questions in this section (lightweight projection)
+    rows = db.session.query(
+        Question.id, Question.exam, Question.world_key,
+        Question.question_text, Question.correct_answer,
+        Question.is_active, Question.review_status,
+    ).filter(
+        Question.section   == section,
+        Question.deleted_at.is_(None),
+    ).order_by(Question.id).all()
+
+    # Group by normalized text
+    buckets: dict = {}
+    for row in rows:
+        key = _normalize_text(row.question_text)
+        if key not in buckets:
+            buckets[key] = []
+        buckets[key].append(row)
+
+    # Only return groups with 2+ questions
+    duplicate_groups = []
+    for key, qs in buckets.items():
+        if len(qs) < 2:
+            continue
+        duplicate_groups.append({
+            "count":              len(qs),
+            "normalized_preview": key[:100],
+            "questions": [
+                {
+                    "id":             q.id,
+                    "exam":           q.exam,
+                    "world_key":      q.world_key,
+                    "question_text":  q.question_text[:250],
+                    "correct_answer": q.correct_answer,
+                    "is_active":      q.is_active,
+                    "review_status":  q.review_status.value if q.review_status else "unreviewed",
+                }
+                for q in qs
+            ],
+        })
+
+    # Sort: most copies first, then by earliest question id
+    duplicate_groups.sort(key=lambda g: (-g["count"], g["questions"][0]["id"]))
+
+    total_duplicate_questions = sum(g["count"] for g in duplicate_groups)
+
+    return jsonify({
+        "section":                   section,
+        "total_groups":              len(duplicate_groups),
+        "total_duplicate_questions": total_duplicate_questions,
+        "duplicate_groups":          duplicate_groups,
+    }), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # QUESTIONS — List / Get / Update / Delete
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -1335,24 +1427,12 @@ def bulk_assign_topic():
 @admin_bp.route("/worlds/health", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def world_health():
-    """
-    Per-world capacity, fill status, topic/difficulty breakdown, student progress count.
-
-    Query params:
-      exam — optional (qudurat | tahsili); returns all exams if omitted
-
-    Response shape per world:
-      world_key, exam, section, display_name, capacity, assigned, active, inactive,
-      empty_slots, fill_pct, topic_breakdown, difficulty_breakdown,
-      student_count, has_student_progress
-    """
     exam_filter = request.args.get("exam", "").strip().lower() or None
     if exam_filter and exam_filter not in VALID_EXAMS:
         return bad_request("invalid_exam", f"Invalid exam: {exam_filter!r}.")
 
     exams_to_include = [exam_filter] if exam_filter else sorted(VALID_EXAMS)
 
-    # 1. Assigned + active counts per (exam, world_key)
     agg_q = db.session.query(
         Question.exam, Question.world_key,
         func.count(Question.id).label("assigned"),
@@ -1369,7 +1449,6 @@ def world_health():
             "active":   int(row.active   or 0),
         }
 
-    # 2. Topic counts per (exam, world_key)
     topic_q = db.session.query(
         Question.exam, Question.world_key, Question.topic,
         func.count(Question.id).label("cnt"),
@@ -1386,7 +1465,6 @@ def world_health():
             topic_map[key] = {}
         topic_map[key][row.topic] = int(row.cnt)
 
-    # 3. Difficulty counts per (exam, world_key)
     diff_q = db.session.query(
         Question.exam, Question.world_key, Question.difficulty,
         func.count(Question.id).label("cnt"),
@@ -1403,7 +1481,6 @@ def world_health():
         diff_key = row.difficulty.value if row.difficulty else "untagged"
         diff_map[key][diff_key] = int(row.cnt)
 
-    # 4. Student progress count per (exam, world_key)
     prog_q = db.session.query(
         LevelProgress.exam, LevelProgress.world_key,
         func.count(func.distinct(LevelProgress.user_id)).label("student_count"),
@@ -1416,7 +1493,6 @@ def world_health():
     for row in prog_q.all():
         prog_map[(row.exam, row.world_key)] = int(row.student_count)
 
-    # 5. Build per-world response
     worlds_out     = []
     total_capacity = 0
     total_assigned = 0
@@ -1476,21 +1552,6 @@ def world_health():
 @admin_bp.route("/worlds/<world_key>/smart-fill", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def world_smart_fill(world_key: str):
-    """
-    Pull unassigned questions from the bank into a world using filter criteria.
-
-    Body:
-      exam           string   required
-      topics         [str]    optional — filter by topic keys
-      difficulty     string   optional — easy | medium | hard
-      min_confidence float    optional — only questions with llm_confidence >= this
-      max_fill       int      optional — cap on how many to fill (default: all empty slots)
-      activate       bool     optional — activate questions on assignment (default: false)
-      reviewed_only  bool     optional — only questions manually reviewed or AI-approved (default: false)
-
-    NOTE: concurrent smart-fills on the same world may slightly exceed capacity
-    in a race. Acceptable for a small admin team.
-    """
     admin     = _get_current_user()
     data      = request.get_json(silent=True) or {}
     world_key = world_key.lower()
@@ -1519,7 +1580,6 @@ def world_smart_fill(world_key: str):
                            f"World {world_key!r} is already at or above capacity "
                            f"({current_count}/{capacity}). Clear it first to refill.")
 
-    # Parse and validate criteria
     topics         = data.get("topics")
     difficulty     = (data.get("difficulty") or "").strip().lower() or None
     min_confidence = data.get("min_confidence")
@@ -1554,7 +1614,6 @@ def world_smart_fill(world_key: str):
 
     fill_limit = min(available_slots, max_fill) if max_fill else available_slots
 
-    # Build candidate query
     q = Question.query.filter(
         Question.exam      == exam,
         Question.section   == section,
@@ -1569,14 +1628,12 @@ def world_smart_fill(world_key: str):
         q = q.filter(Question.llm_confidence.isnot(None),
                      Question.llm_confidence >= min_confidence)
     if reviewed_only:
-        # Include questions where the admin has manually reviewed OR AI review was approved.
         from sqlalchemy import or_ as sa_or
         q = q.filter(sa_or(
             Question.last_reviewed_at.isnot(None),
             Question.review_status == ReviewStatus.APPROVED,
         ))
 
-    # Deterministic order: topic → difficulty → id
     q = q.order_by(Question.topic.nullslast(), Question.difficulty.nullslast(), Question.id)
     candidates = q.limit(fill_limit).all()
 
@@ -1620,20 +1677,6 @@ def world_smart_fill(world_key: str):
 @admin_bp.route("/worlds/<world_key>/clear", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def world_clear(world_key: str):
-    """
-    Return all questions in a world to the unassigned bank.
-
-    Non-destructive: questions are NOT deleted. world_key and index are set
-    to NULL, is_active set to False. Student LevelProgress records are
-    PRESERVED — historical attempt data is never modified.
-
-    Body:
-      exam     string  required
-      confirm  bool    required (safety gate)
-      force    bool    optional — set true to bypass student-progress warning
-
-    Returns 409 with student_count if students have progress and force=false.
-    """
     admin     = _get_current_user()
     data      = request.get_json(silent=True) or {}
     world_key = world_key.lower()
@@ -1652,7 +1695,6 @@ def world_clear(world_key: str):
         return bad_request("confirmation_required",
                            "Set confirm: true to proceed with clearing this world.")
 
-    # Student progress guard
     student_count = db.session.query(
         func.count(func.distinct(LevelProgress.user_id))
     ).filter(

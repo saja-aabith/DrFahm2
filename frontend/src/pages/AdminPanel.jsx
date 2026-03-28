@@ -119,6 +119,20 @@ if (typeof document !== 'undefined' && !document.getElementById('chunk-e-styles'
       background: rgba(6,182,212,0.1); color: #0891b2;
       border-color: rgba(6,182,212,0.25);
     }
+
+    /* ── Chunk K3: Duplicate detection ── */
+    .dup-group-card {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+    }
+    .dup-group-card:hover { border-color: rgba(220,38,38,0.25); }
+    .dup-question-row {
+      display: grid; grid-template-columns: 1fr auto;
+      gap: 12px; align-items: start;
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .dup-question-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .dup-question-row.deleted { opacity: 0.35; pointer-events: none; }
   `;
   document.head.appendChild(s);
 }
@@ -937,6 +951,7 @@ function QuestionsTab() {
   const [bulkTopicOpen, setBulkTopicOpen] = useState(false);
   const [goToPage,   setGoToPage]   = useState('');
   const [aiReviewOpen, setAiReviewOpen] = useState(false);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
   useEffect(() => {
     adminApi.getTopics().then((d) => setTaxonomy(d.taxonomy)).catch(() => {});
@@ -1233,6 +1248,7 @@ function QuestionsTab() {
           <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Activate all'}</button>
           <button className="btn btn-sm btn-ghost" style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#dc2626' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Deactivate all'}</button>
           <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }} onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total === 0}>Bulk topic</button>
+          <button className="btn btn-sm" style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }} onClick={() => setDuplicatesOpen(true)}>🔍 Check Duplicates</button>
         </div>
       </div>
 
@@ -1387,6 +1403,13 @@ function QuestionsTab() {
           questionIds={Array.from(selectedIds)}
           onDone={handleAIReviewDone}
           onClose={() => setAiReviewOpen(false)}
+        />
+      )}
+      {duplicatesOpen && (
+        <DuplicatesModal
+          initialSection={filters.section}
+          initialExam={filters.exam}
+          onClose={() => { setDuplicatesOpen(false); fetchQuestions(); setRefreshKey(k => k + 1); }}
         />
       )}
     </div>
@@ -2219,6 +2242,185 @@ function WorldsTab() {
         />
       )}
     </div>
+  );
+}
+
+
+// ── DUPLICATES MODAL  (Chunk K3) ─────────────────────────────────────────────
+
+function DuplicatesModal({ initialSection, initialExam, onClose }) {
+  const SECTIONS = ['math', 'verbal', 'biology', 'chemistry', 'physics'];
+
+  const [section,  setSection]  = useState(initialSection || 'math');
+  const [exam,     setExam]     = useState(initialExam    || '');
+  const [loading,  setLoading]  = useState(false);
+  const [result,   setResult]   = useState(null);
+  const [groups,   setGroups]   = useState([]);
+  const [deleting, setDeleting] = useState(null);
+  const [flash,    showFlash]   = useFlash();
+
+  const runCheck = async () => {
+    setLoading(true);
+    setResult(null);
+    setGroups([]);
+    try {
+      const data = await adminApi.findDuplicates(section, exam || undefined);
+      setResult(data);
+      setGroups(data.groups.map(g => ({ ...g, questions: g.questions.map(q => ({ ...q, _deleted: false })) })));
+    } catch (e) {
+      showFlash(e?.error?.message || 'Failed to run duplicate check.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { runCheck(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDelete = async (groupIdx, questionId) => {
+    setDeleting(questionId);
+    try {
+      await adminApi.deleteQuestion(questionId);
+      setGroups(prev => {
+        const next = prev.map((g, gi) => {
+          if (gi !== groupIdx) return g;
+          return { ...g, questions: g.questions.map(q => q.id === questionId ? { ...q, _deleted: true } : q) };
+        });
+        return next.filter(g => g.questions.filter(q => !q._deleted).length >= 2);
+      });
+      showFlash(`Question #${questionId} deleted.`);
+    } catch (e) {
+      showFlash(e?.error?.message || 'Delete failed.', 'error');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const liveGroups = groups.filter(g => g.questions.filter(q => !q._deleted).length >= 2);
+  const hasResults = result !== null;
+
+  return (
+    <Modal title="🔍 Duplicate Detection" onClose={onClose} width="780px">
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 12 }}>{flash.msg}</div>}
+
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="form-label" style={{ marginBottom: 4 }}>Section</label>
+          <select className="form-input" style={{ minWidth: 140 }} value={section} onChange={e => setSection(e.target.value)}>
+            {SECTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+          </select>
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="form-label" style={{ marginBottom: 4 }}>Exam (optional)</label>
+          <select className="form-input" style={{ minWidth: 130 }} value={exam} onChange={e => setExam(e.target.value)}>
+            <option value="">All exams</option>
+            <option value="qudurat">Qudurat</option>
+            <option value="tahsili">Tahsili</option>
+          </select>
+        </div>
+        <button className="btn btn-violet" onClick={runCheck} disabled={loading} style={{ alignSelf: 'flex-end' }}>
+          {loading ? '…' : '↻ Run Check'}
+        </button>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
+          <div className="spinner" style={{ margin: '0 auto 12px' }} />
+          <div style={{ fontSize: '0.88rem' }}>Scanning {section} questions for duplicates…</div>
+        </div>
+      )}
+
+      {/* Summary */}
+      {!loading && hasResults && (
+        <div style={{ marginBottom: 16 }}>
+          {liveGroups.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 8,
+              background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)' }}>
+              <span style={{ fontSize: '1.2rem' }}>✅</span>
+              <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 600 }}>
+                No duplicates found in {section}{exam ? ` / ${exam}` : ''}.
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 14px', borderRadius: 8,
+              background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', marginBottom: 12 }}>
+              <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+              <div>
+                <span style={{ fontWeight: 700, color: '#dc2626', fontSize: '0.95rem' }}>
+                  {liveGroups.length} duplicate group{liveGroups.length !== 1 ? 's' : ''} found
+                </span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.83rem', marginLeft: 10 }}>
+                  {liveGroups.reduce((s, g) => s + g.questions.filter(q => !q._deleted).length, 0)} questions total
+                  · keep one per group, delete the rest
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Groups */}
+      {!loading && liveGroups.length > 0 && (
+        <div style={{ maxHeight: 480, overflowY: 'auto', paddingRight: 4 }}>
+          {liveGroups.map((group, gi) => (
+            <div key={gi} className="dup-group-card">
+              {/* Group header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+                paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+                <Pill color="red">{group.questions.filter(q => !q._deleted).length} copies</Pill>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  "{group.normalized_text.slice(0, 80)}{group.normalized_text.length > 80 ? '…' : ''}"
+                </span>
+              </div>
+
+              {/* Questions in group */}
+              {group.questions.map((q) => (
+                <div key={q.id} className={`dup-question-row${q._deleted ? ' deleted' : ''}`}>
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 5, flexWrap: 'wrap' }}>
+                      <Pill color="violet">{q.exam}</Pill>
+                      {q.world_key
+                        ? <Pill color="cyan">{worldDisplayName(q.world_key)}</Pill>
+                        : <Pill color="gray">unassigned</Pill>}
+                      <Pill color={q.correct_answer ? 'green' : 'amber'}>
+                        Ans: {(q.correct_answer || '?').toUpperCase()}
+                      </Pill>
+                      {q.is_active ? <Pill color="green">Active</Pill> : <Pill color="gray">Inactive</Pill>}
+                      {q.review_status === 'approved' && <Pill color="green">✓ Approved</Pill>}
+                      {q.last_reviewed_at && <Pill color="blue">Reviewed</Pill>}
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>#{q.id}</span>
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      {q.question_text.slice(0, 140)}{q.question_text.length > 140 ? '…' : ''}
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, paddingTop: 2 }}>
+                    {q._deleted ? (
+                      <span style={{ fontSize: '0.8rem', color: '#dc2626' }}>Deleted</span>
+                    ) : (
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626',
+                          border: '1px solid rgba(220,38,38,0.25)', padding: '4px 10px' }}
+                        disabled={deleting === q.id}
+                        onClick={() => handleDelete(gi, q.id)}>
+                        {deleting === q.id ? '…' : '🗑 Delete'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+        <button className="btn btn-ghost" onClick={onClose}>Close</button>
+      </div>
+    </Modal>
   );
 }
 

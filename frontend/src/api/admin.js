@@ -150,6 +150,20 @@ export const rejectReview = (id, version) =>
     body: JSON.stringify({ version }),
   });
 
+
+// ── Duplicate Detection  (Chunk K3) ─────────────────────────────────────────
+
+/**
+ * Find exact duplicate questions within a section (across all exams and worlds).
+ * @param {string} section  — math | verbal | biology | chemistry | physics
+ * @param {string} exam     — optional: 'qudurat' | 'tahsili'
+ */
+export const findDuplicates = (section, exam = '') =>
+  adminRequest('/api/admin/questions/find-duplicates', {
+    method: 'POST',
+    body: JSON.stringify({ section, ...(exam ? { exam } : {}) }),
+  });
+
 // ── World Allocation Tools  (Chunk K2) ───────────────────────────────────────
 
 /**
