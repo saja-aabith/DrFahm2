@@ -238,6 +238,7 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
 
   if (!data) return null;
   const { summary, progress } = data;
+  if (!summary) return null;
   const pct = summary.total > 0 ? Math.round((summary.reviewed / summary.total) * 100) : 0;
 
   return (
