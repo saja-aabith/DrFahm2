@@ -1103,8 +1103,8 @@ function QuestionsTab() {
   const handleSelectAllMatching = async () => {
     setSelectAllLoading(true);
     try {
-      const data = await adminApi.listQuestions({ ...filters, page: 1, per_page: 5000 });
-      setSelectedIds(new Set(data.questions.map((q) => q.id)));
+      const data = await adminApi.listQuestions({ ...filters, ids_only: true });
+      setSelectedIds(new Set(data.ids));
     } catch { showFlash('Failed to select all matching.', 'error'); }
     finally { setSelectAllLoading(false); }
   };
@@ -2266,7 +2266,7 @@ function DuplicatesModal({ initialSection, initialExam, onClose }) {
     try {
       const data = await adminApi.findDuplicates(section, exam || undefined);
       setResult(data);
-      setGroups(data.groups.map(g => ({ ...g, questions: g.questions.map(q => ({ ...q, _deleted: false })) })));
+      setGroups((data.duplicate_groups || []).map(g => ({ ...g, questions: g.questions.map(q => ({ ...q, _deleted: false })) })));
     } catch (e) {
       showFlash(e?.error?.message || 'Failed to run duplicate check.', 'error');
     } finally {

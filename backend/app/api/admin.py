@@ -1130,6 +1130,7 @@ def list_questions():
     qid           = request.args.get("qid",           "").strip() or None
     page          = max(1, int(request.args.get("page",     1) or 1))
     per_page      = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
+    ids_only      = request.args.get("ids_only", "").strip().lower() == "true"
 
     q = Question.query.filter(Question.deleted_at.is_(None))
 
@@ -1170,6 +1171,12 @@ def list_questions():
         Question.exam, Question.section,
         Question.world_key.nullslast(), Question.index.nullslast(),
     )
+
+    # ids_only=true — return just IDs with no per_page cap (used by Select All)
+    if ids_only:
+        id_list = [row[0] for row in q.with_entities(Question.id).all()]
+        return jsonify({"ids": id_list, "total": len(id_list)}), 200
+
     items, total = _paginate(q, page, per_page)
     return jsonify({
         "questions": [item.to_dict(include_answer=True) for item in items],
