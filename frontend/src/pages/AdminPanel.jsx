@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -81,6 +81,44 @@ if (typeof document !== 'undefined' && !document.getElementById('chunk-e-styles'
     .ai-log-line { margin-bottom: 2px; }
     .ai-log-line.ok   { color: #4ade80; }
     .ai-log-line.fail { color: #f87171; }
+
+    /* ── Chunk K2: World health ── */
+    .world-section-card {
+      background: var(--bg-card, rgba(255,255,255,0.04));
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    .world-row {
+      display: grid;
+      grid-template-columns: 160px 1fr 60px 70px 90px 90px 80px auto;
+      gap: 10px; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .world-row:last-child { border-bottom: none; }
+    .world-fill-bar-bg {
+      height: 8px; background: rgba(255,255,255,0.07);
+      border-radius: 4px; overflow: hidden; min-width: 60px;
+    }
+    .world-fill-bar-fill {
+      height: 100%; border-radius: 4px; transition: width 0.4s ease;
+    }
+    .world-topic-chip {
+      display: inline-block; padding: 1px 6px; border-radius: 4px;
+      font-size: 0.75rem; font-weight: 600; margin: 1px;
+      background: rgba(6,182,212,0.1); color: #0891b2;
+      border: 1px solid rgba(6,182,212,0.2);
+    }
+    .sf-topic-check {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 8px; border-radius: 6px; cursor: pointer;
+      font-size: 0.83rem; color: var(--text-secondary);
+      border: 1px solid transparent; transition: all 0.1s;
+    }
+    .sf-topic-check:hover { background: rgba(255,255,255,0.04); }
+    .sf-topic-check.selected {
+      background: rgba(6,182,212,0.1); color: #0891b2;
+      border-color: rgba(6,182,212,0.25);
+    }
   `;
   document.head.appendChild(s);
 }
@@ -119,9 +157,6 @@ const TIER_LABELS = {
   250: 'Itqan (الإتقان)',
   300: 'Qimma (القمة)',
 };
-
-const BULK_CSV_COLUMNS = ['exam','section','question_text','option_a','option_b','option_c','option_d','correct_answer','hint','topic','difficulty'];
-const VALID_EXAM_SECTIONS = { qudurat: ['math','verbal'], tahsili: ['math','biology','chemistry','physics'] };
 
 function worldDisplayName(worldKey) {
   const band = parseInt(worldKey.split('_')[1], 10);
@@ -535,7 +570,7 @@ function InlineTopicPicker({ question, taxonomy, onSaved }) {
 }
 
 
-// ── AI REVIEW CARD — K1 updated ───────────────────────────────────────────────
+// ── AI REVIEW CARD ────────────────────────────────────────────────────────────
 
 function AIReviewCard({ question, onUpdated }) {
   const [approving,      setApproving]      = useState(false);
@@ -543,20 +578,9 @@ function AIReviewCard({ question, onUpdated }) {
   const [editMode,       setEditMode]       = useState(false);
   const [overrideAnswer, setOverrideAnswer] = useState('');
   const [acceptHint,     setAcceptHint]     = useState(true);
-  // K1
-  const [acceptTopic,    setAcceptTopic]    = useState(true);
-  const [overrideTopic,  setOverrideTopic]  = useState('');
-  const [sectionTopics,  setSectionTopics]  = useState([]);
 
   const status     = question.review_status;
   const confidence = question.llm_confidence;
-
-  useEffect(() => {
-    if (!question.section) return;
-    adminApi.getTopics(question.section)
-      .then(data => setSectionTopics(data?.taxonomy?.[question.section] || []))
-      .catch(() => setSectionTopics([]));
-  }, [question.section]);
 
   const confColor = confidence >= 0.85 ? '#16a34a' : confidence >= 0.65 ? '#d97706' : '#dc2626';
   const confLabel = confidence >= 0.85 ? 'High' : confidence >= 0.65 ? 'Medium' : 'Low';
@@ -566,14 +590,11 @@ function AIReviewCard({ question, onUpdated }) {
                   : status === 'approved' ? 'ai-review-card approved'
                   : 'ai-review-card';
 
-  const isReadOnly = status === 'approved';
-
   const handleApprove = async () => {
     setApproving(true);
     try {
-      const body = { version: question.version, accept_answer: true, accept_hint: acceptHint, accept_topic: acceptTopic };
-      if (editMode && overrideAnswer)   body.correct_answer = overrideAnswer;
-      if (acceptTopic && overrideTopic) body.topic = overrideTopic;
+      const body = { version: question.version, accept_answer: true, accept_hint: acceptHint };
+      if (editMode && overrideAnswer) body.correct_answer = overrideAnswer;
       const result = await adminApi.approveReview(question.id, body);
       onUpdated(result.question);
     } catch (e) { alert(e?.error?.message || 'Approval failed. Reload and try again.'); }
@@ -589,10 +610,7 @@ function AIReviewCard({ question, onUpdated }) {
     finally { setRejecting(false); }
   };
 
-  if (!question.llm_predicted_answer && !question.llm_review_note && !question.llm_proposed_hint && !question.llm_predicted_topic) return null;
-
-  const resolvedTopicKey   = overrideTopic || question.llm_predicted_topic;
-  const resolvedTopicLabel = sectionTopics.find(t => t.key === resolvedTopicKey)?.label || resolvedTopicKey;
+  if (!question.llm_predicted_answer && !question.llm_review_note && !question.llm_proposed_hint) return null;
 
   return (
     <div className={cardClass}>
@@ -623,6 +641,7 @@ function AIReviewCard({ question, onUpdated }) {
             )}
           </div>
         </div>
+
         {confidence != null && (
           <div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Confidence</div>
@@ -639,7 +658,9 @@ function AIReviewCard({ question, onUpdated }) {
           <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-muted)', marginBottom: 4 }}>
             🔒 Admin Note (never shown to students)
           </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{question.llm_review_note}</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+            {question.llm_review_note}
+          </div>
         </div>
       )}
 
@@ -651,7 +672,7 @@ function AIReviewCard({ question, onUpdated }) {
           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             <MathText text={question.llm_proposed_hint} />
           </div>
-          {!isReadOnly && (
+          {status !== 'approved' && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
               <input type="checkbox" checked={acceptHint} onChange={e => setAcceptHint(e.target.checked)} />
               Accept this hint (copies to live hint field on approval)
@@ -660,51 +681,21 @@ function AIReviewCard({ question, onUpdated }) {
         </div>
       )}
 
-      {/* K1: Predicted topic */}
-      {(question.llm_predicted_topic || sectionTopics.length > 0) && (
-        <div style={{ padding: '10px 12px', borderRadius: 6, marginBottom: 10, background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.2)' }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-muted)', marginBottom: 6 }}>🏷️ Predicted Topic</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: (!isReadOnly && sectionTopics.length > 0) ? 8 : 0 }}>
-            {resolvedTopicKey
-              ? <Pill color="cyan">{resolvedTopicLabel}</Pill>
-              : <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>None predicted</span>
-            }
-            {overrideTopic && overrideTopic !== question.llm_predicted_topic && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(overridden)</span>
-            )}
-          </div>
-          {!isReadOnly && sectionTopics.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <select
-                value={overrideTopic || question.llm_predicted_topic || ''}
-                onChange={e => { const val = e.target.value; setOverrideTopic(val === question.llm_predicted_topic ? '' : val); }}
-                style={{ fontSize: '0.82rem', padding: '4px 8px', borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer' }}
-              >
-                {!question.llm_predicted_topic && <option value="">— select topic —</option>}
-                {sectionTopics.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
-              </select>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={acceptTopic} onChange={e => setAcceptTopic(e.target.checked)} />
-                Accept topic on approval
-              </label>
-            </div>
-          )}
-        </div>
-      )}
-
       {editMode && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <span style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>Override answer:</span>
           {['a', 'b', 'c', 'd'].map(opt => (
-            <button key={opt} className={`ai-override-btn ${overrideAnswer === opt ? 'selected' : ''}`}
+            <button key={opt}
+              className={`ai-override-btn ${overrideAnswer === opt ? 'selected' : ''}`}
               onClick={() => setOverrideAnswer(overrideAnswer === opt ? '' : opt)}>
               {opt.toUpperCase()}
             </button>
           ))}
-          {overrideAnswer
-            ? <span style={{ fontSize: '0.78rem', color: '#4ade80' }}>Will approve as {overrideAnswer.toUpperCase()}</span>
-            : <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No override — will use AI prediction ({question.llm_predicted_answer?.toUpperCase()})</span>
-          }
+          {overrideAnswer ? (
+            <span style={{ fontSize: '0.78rem', color: '#4ade80' }}>Will approve as {overrideAnswer.toUpperCase()}</span>
+          ) : (
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No override — will use AI prediction ({question.llm_predicted_answer?.toUpperCase()})</span>
+          )}
         </div>
       )}
 
@@ -713,8 +704,10 @@ function AIReviewCard({ question, onUpdated }) {
           <button className="ai-review-btn approve" onClick={handleApprove} disabled={approving || rejecting}>
             {approving ? '…' : '✓ Approve'}
           </button>
-          <button className={`ai-review-btn edit ${editMode ? 'active' : ''}`}
-            onClick={() => { setEditMode(!editMode); if (editMode) setOverrideAnswer(''); }}>
+          <button
+            className={`ai-review-btn edit ${editMode ? 'active' : ''}`}
+            onClick={() => { setEditMode(!editMode); if (editMode) setOverrideAnswer(''); }}
+          >
             ✏ {editMode ? 'Cancel Edit' : 'Edit & Approve'}
           </button>
           <button className="ai-review-btn reject" onClick={handleReject} disabled={approving || rejecting}>
@@ -732,16 +725,24 @@ function AIReviewCard({ question, onUpdated }) {
 function ExpandedQuestionRow({ question, colSpan, taxonomy, onQuestionUpdated }) {
   const section = question.section || getSectionFromWorldKey(question.world_key);
   const topics = (taxonomy && section && taxonomy[section]) || [];
-  const topicLabel = question.topic ? (topics.find(t => t.key === question.topic)?.label || question.topic) : null;
+  const topicLabel = question.topic
+    ? (topics.find(t => t.key === question.topic)?.label || question.topic)
+    : null;
 
   return (
     <tr className="expanded-row">
       <td colSpan={colSpan}>
         <div className="expanded-content">
-          <div className="expanded-question-text"><MathText text={question.question_text} /></div>
+          <div className="expanded-question-text">
+            <MathText text={question.question_text} />
+          </div>
+
           {question.image_url && (
-            <div className="expanded-image"><img src={question.image_url} alt="Question diagram" /></div>
+            <div className="expanded-image">
+              <img src={question.image_url} alt="Question diagram" />
+            </div>
           )}
+
           <div className="expanded-options-grid">
             {['a', 'b', 'c', 'd'].map((opt) => {
               const isCorrect = question.correct_answer === opt;
@@ -754,6 +755,7 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy, onQuestionUpdated })
               );
             })}
           </div>
+
           {question.hint && (
             <div className="expanded-explanation">
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Hint</span>
@@ -762,18 +764,28 @@ function ExpandedQuestionRow({ question, colSpan, taxonomy, onQuestionUpdated })
               </div>
             </div>
           )}
+
           <div className="expanded-meta-row">
-            {topicLabel && <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Topic:</span> <Pill color="cyan">{topicLabel}</Pill></span>}
-            {question.difficulty && <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Difficulty:</span> <Pill color={question.difficulty === 'easy' ? 'green' : 'amber'}>{question.difficulty}</Pill></span>}
+            {topicLabel && (
+              <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Topic:</span> <Pill color="cyan">{topicLabel}</Pill></span>
+            )}
+            {question.difficulty && (
+              <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Difficulty:</span> <Pill color={question.difficulty === 'easy' ? 'green' : 'amber'}>{question.difficulty}</Pill></span>
+            )}
             <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>ID:</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{question.id}</span></span>
             <span className="expanded-meta-item"><span style={{ color: 'var(--text-muted)' }}>Version:</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>v{question.version}</span></span>
             {question.review_status && question.review_status !== 'unreviewed' && (
               <span className="expanded-meta-item">
                 <span style={{ color: 'var(--text-muted)' }}>AI Status:</span>{' '}
-                <Pill color={question.review_status === 'approved' ? 'green' : question.review_status === 'rejected' ? 'red' : question.review_status === 'ai_reviewed' ? 'violet' : 'gray'}>{question.review_status}</Pill>
+                <Pill color={
+                  question.review_status === 'approved'    ? 'green'  :
+                  question.review_status === 'rejected'    ? 'red'    :
+                  question.review_status === 'ai_reviewed' ? 'violet' : 'gray'
+                }>{question.review_status}</Pill>
               </span>
             )}
           </div>
+
           {['ai_reviewed', 'rejected', 'approved'].includes(question.review_status) && onQuestionUpdated && (
             <AIReviewCard question={question} onUpdated={onQuestionUpdated} />
           )}
@@ -803,11 +815,14 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
   const runReview = async () => {
     setRunning(true);
     cancelRef.current = false;
+
     const batches = [];
     for (let i = 0; i < questionIds.length; i += AI_REVIEW_BATCH_SIZE) {
       batches.push(questionIds.slice(i, i + AI_REVIEW_BATCH_SIZE));
     }
+
     let totalProcessed = 0, totalFailed = 0, totalSkipped = 0;
+
     for (let i = 0; i < batches.length; i++) {
       if (cancelRef.current) { addLog('Cancelled.', 'fail'); break; }
       const batch = batches[i];
@@ -819,15 +834,21 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
         totalSkipped   += (result.skipped_approved || []).length;
         setProgress(Math.min((i + 1) * AI_REVIEW_BATCH_SIZE, total));
         setSummary({ processed: totalProcessed, failed: totalFailed, skipped: totalSkipped });
-        addLog(`  ✓  ${result.processed} reviewed, ${result.failed} failed${(result.skipped_approved || []).length ? `, ${result.skipped_approved.length} skipped` : ''}`, result.failed > 0 ? 'fail' : 'ok');
+        addLog(
+          `  ✓  ${result.processed} reviewed, ${result.failed} failed${(result.skipped_approved || []).length ? `, ${result.skipped_approved.length} skipped` : ''}`,
+          result.failed > 0 ? 'fail' : 'ok',
+        );
       } catch (e) {
         const msg = e?.error?.message || 'Request failed';
         addLog(`  ✗  Batch failed: ${msg}`, 'fail');
         totalFailed += batch.length;
         setSummary({ processed: totalProcessed, failed: totalFailed, skipped: totalSkipped });
       }
-      if (i < batches.length - 1 && !cancelRef.current) await new Promise(r => setTimeout(r, 350));
+      if (i < batches.length - 1 && !cancelRef.current) {
+        await new Promise(r => setTimeout(r, 350));
+      }
     }
+
     setDone(true);
     setRunning(false);
   };
@@ -841,8 +862,8 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
         <div>
           <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             Run AI review on <strong>{total}</strong> selected question{total !== 1 ? 's' : ''}.
-            GPT-4o-mini will predict the correct answer, generate a student hint, write an internal review note, and predict a topic tag.
-            You then approve or reject each suggestion.
+            The AI (GPT-4o-mini) will predict the correct answer, generate a student hint,
+            and write an internal review note. You then approve or reject each suggestion.
           </p>
           <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(217,119,6,0.07)', border: '1px solid rgba(217,119,6,0.2)', marginBottom: 14, fontSize: '0.83rem', color: '#b45309' }}>
             ⚠ AI predictions are suggestions only — no question is changed until you explicitly approve.
@@ -857,6 +878,7 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
           </div>
         </div>
       )}
+
       {(running || done) && (
         <div>
           <div style={{ marginBottom: 14 }}>
@@ -874,12 +896,16 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
             {summary.skipped > 0 && <span style={{ color: '#b45309', fontWeight: 600 }}>⟳ {summary.skipped} skipped (approved)</span>}
           </div>
           <div className="ai-log">
-            {log.map((entry, i) => <div key={i} className={`ai-log-line ${entry.cls}`}>{entry.line}</div>)}
+            {log.map((entry, i) => (
+              <div key={i} className={`ai-log-line ${entry.cls}`}>{entry.line}</div>
+            ))}
             {running && <div style={{ color: '#a78bfa' }}>▌</div>}
           </div>
           {done && (
             <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-              <button className="btn btn-violet" onClick={() => onDone(summary)}>Done — filter to review results</button>
+              <button className="btn btn-violet" onClick={() => onDone(summary)}>
+                Done — filter to review results
+              </button>
             </div>
           )}
         </div>
@@ -900,15 +926,16 @@ function QuestionsTab() {
   const [flash,      showFlash]     = useFlash();
   const [filters,    setFilters]    = useState({
     exam: 'qudurat', section: 'math', world_key: '',
-    is_active: '', difficulty: '', topic: '', reviewed: '', search: '', review_status: '',
+    is_active: '', difficulty: '', topic: '', reviewed: '',
+    search: '', review_status: '',
   });
-  const [creating,      setCreating]      = useState(false);
-  const [expanded,      setExpanded]      = useState(new Set());
-  const [refreshKey,    setRefreshKey]    = useState(0);
-  const [taxonomy,      setTaxonomy]      = useState(null);
+  const [creating,   setCreating]   = useState(false);
+  const [expanded,   setExpanded]   = useState(new Set());
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [taxonomy,   setTaxonomy]   = useState(null);
   const [bulkTopicOpen, setBulkTopicOpen] = useState(false);
-  const [goToPage,      setGoToPage]      = useState('');
-  const [aiReviewOpen,  setAiReviewOpen]  = useState(false);
+  const [goToPage,   setGoToPage]   = useState('');
+  const [aiReviewOpen, setAiReviewOpen] = useState(false);
 
   useEffect(() => {
     adminApi.getTopics().then((d) => setTaxonomy(d.taxonomy)).catch(() => {});
@@ -917,8 +944,9 @@ function QuestionsTab() {
   const examConfig    = SECTION_CONFIG[filters.exam];
   const sectionConfig = examConfig?.sections?.[filters.section];
   const worldOptions  = sectionConfig?.worlds || [];
+
   const currentSection = filters.section;
-  const topicOptions = currentSection && taxonomy && taxonomy[currentSection]
+  const topicOptions   = currentSection && taxonomy && taxonomy[currentSection]
     ? taxonomy[currentSection]
     : (taxonomy ? Object.entries(taxonomy).flatMap(([, topics]) => topics) : []);
 
@@ -972,14 +1000,18 @@ function QuestionsTab() {
     try {
       await adminApi.deleteQuestion(q.id);
       showFlash(`Question #${q.id} deleted.`);
-      fetchQuestions(); setRefreshKey((k) => k + 1);
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
     } catch (e) { showFlash(e?.error?.message || 'Failed.', 'error'); }
   };
 
   const handleSaveEdit = async (updated) => {
     try {
       await adminApi.updateQuestion(editing.id, updated);
-      showFlash('Question saved.'); setEditing(null); fetchQuestions(); setRefreshKey((k) => k + 1);
+      showFlash('Question saved.');
+      setEditing(null);
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
     } catch (e) {
       if (e?.status === 409) showFlash('Conflict — reloading.', 'error');
       else showFlash(e?.error?.message || 'Save failed.', 'error');
@@ -1018,7 +1050,9 @@ function QuestionsTab() {
     try {
       const result = await adminApi.bulkTopic({ topic: topicKey || null, exam: filters.exam || undefined, world_key: filters.world_key || undefined });
       showFlash(`${result.affected} question(s) topic set to ${label}.`);
-      fetchQuestions(); setRefreshKey((k) => k + 1); setBulkTopicOpen(false);
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
+      setBulkTopicOpen(false);
     } catch (e) { showFlash(e?.error?.message || 'Bulk topic failed.', 'error'); }
     finally { setBulkLoading(false); }
   };
@@ -1033,14 +1067,21 @@ function QuestionsTab() {
   const [bulkOpLoading,    setBulkOpLoading]    = useState(false);
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
-  const toggleSelectRow = (id) => setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  };
+
   const pageIds          = questions.map((q) => q.id);
   const allPageSelected  = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
   const somePageSelected = pageIds.some((id) => selectedIds.has(id));
 
   const toggleSelectAllPage = () => {
-    if (allPageSelected) setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.delete(id)); return next; });
-    else                 setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.add(id));    return next; });
+    if (allPageSelected) {
+      setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.delete(id)); return next; });
+    } else {
+      setSelectedIds((prev) => { const next = new Set(prev); pageIds.forEach(id => next.add(id)); return next; });
+    }
   };
 
   const handleSelectAllMatching = async () => {
@@ -1053,28 +1094,39 @@ function QuestionsTab() {
   };
 
   const handleBulkDeleteSelected = async () => {
-    const ids = Array.from(selectedIds); setBulkOpLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkOpLoading(true);
     try {
       const result = await adminApi.bulkDelete(ids);
       showFlash(`${result.deleted} question(s) soft-deleted.`);
-      setBulkDeleteOpen(false); clearSelection(); fetchQuestions(); setRefreshKey((k) => k + 1);
+      setBulkDeleteOpen(false);
+      clearSelection();
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
     } catch (e) { showFlash(e?.error?.message || 'Bulk delete failed.', 'error'); }
     finally { setBulkOpLoading(false); }
   };
 
   const handleBulkAssignSelected = async (assign) => {
-    const ids = Array.from(selectedIds); setBulkOpLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkOpLoading(true);
     try {
       const result = await adminApi.bulkAssign(ids, assign);
       const skippedMsg = result.skipped?.length ? ` (${result.skipped.length} skipped — section mismatch)` : '';
       showFlash(`${result.updated} question(s) updated.${skippedMsg}`);
-      setBulkAssignOpen(false); clearSelection(); fetchQuestions(); setRefreshKey((k) => k + 1);
+      setBulkAssignOpen(false);
+      clearSelection();
+      fetchQuestions();
+      setRefreshKey((k) => k + 1);
     } catch (e) { showFlash(e?.error?.message || 'Bulk assign failed.', 'error'); }
     finally { setBulkOpLoading(false); }
   };
 
   const handleAIReviewDone = (summary) => {
-    setAiReviewOpen(false); clearSelection(); fetchQuestions(); setRefreshKey((k) => k + 1);
+    setAiReviewOpen(false);
+    clearSelection();
+    fetchQuestions();
+    setRefreshKey((k) => k + 1);
     setFilters((f) => ({ ...f, review_status: 'ai_reviewed' }));
     showFlash(`AI review complete: ${summary.processed} reviewed, ${summary.failed} failed. Filtered to pending reviews.`);
   };
@@ -1082,40 +1134,70 @@ function QuestionsTab() {
   return (
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+
       <ReviewProgressPanel examFilter={filters.exam} refreshKey={refreshKey} />
-      <TopicCoveragePanel examFilter={filters.exam} refreshKey={refreshKey}
-        onShowUntagged={() => { handleFilterChange('topic', '_untagged'); document.querySelector('.admin-filter-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }} />
+      <TopicCoveragePanel
+        examFilter={filters.exam}
+        refreshKey={refreshKey}
+        onShowUntagged={() => {
+          handleFilterChange('topic', '_untagged');
+          document.querySelector('.admin-filter-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }}
+      />
 
       {/* Exam tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 0 }}>
         {Object.entries(SECTION_CONFIG).map(([examKey, cfg]) => (
-          <button key={examKey} className={`btn btn-sm ${filters.exam === examKey ? '' : 'btn-ghost'}`}
-            style={{ borderRadius: '8px 8px 0 0', borderBottom: filters.exam === examKey ? '2px solid var(--violet)' : '2px solid transparent', fontWeight: filters.exam === examKey ? 700 : 500, fontSize: '0.95rem', padding: '10px 24px', color: filters.exam === examKey ? 'var(--violet-light)' : 'var(--text-muted)', background: filters.exam === examKey ? 'rgba(139,92,246,0.08)' : 'transparent' }}
-            onClick={() => handleExamChange(examKey)}>{cfg.label}</button>
+          <button key={examKey}
+            className={`btn btn-sm ${filters.exam === examKey ? '' : 'btn-ghost'}`}
+            style={{
+              borderRadius: '8px 8px 0 0',
+              borderBottom: filters.exam === examKey ? '2px solid var(--violet)' : '2px solid transparent',
+              fontWeight: filters.exam === examKey ? 700 : 500,
+              fontSize: '0.95rem', padding: '10px 24px',
+              color: filters.exam === examKey ? 'var(--violet-light)' : 'var(--text-muted)',
+              background: filters.exam === examKey ? 'rgba(139,92,246,0.08)' : 'transparent',
+            }}
+            onClick={() => handleExamChange(examKey)}>
+            {cfg.label}
+          </button>
         ))}
       </div>
 
       {/* Section tabs */}
       <div style={{ display: 'flex', gap: 4, padding: '10px 0', borderTop: '1px solid var(--border)', marginBottom: 12 }}>
         {examConfig && Object.entries(examConfig.sections).map(([secKey, secCfg]) => (
-          <button key={secKey} className={`btn btn-sm ${filters.section === secKey ? '' : 'btn-ghost'}`}
-            style={{ borderRadius: 6, fontWeight: filters.section === secKey ? 700 : 400, fontSize: '0.88rem', padding: '6px 16px', color: filters.section === secKey ? '#0891b2' : 'var(--text-muted)', background: filters.section === secKey ? 'rgba(34,211,238,0.1)' : 'transparent', border: filters.section === secKey ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent' }}
-            onClick={() => handleSectionChange(secKey)}>{secCfg.label}</button>
+          <button key={secKey}
+            className={`btn btn-sm ${filters.section === secKey ? '' : 'btn-ghost'}`}
+            style={{
+              borderRadius: 6, fontWeight: filters.section === secKey ? 700 : 400, fontSize: '0.88rem', padding: '6px 16px',
+              color: filters.section === secKey ? '#0891b2' : 'var(--text-muted)',
+              background: filters.section === secKey ? 'rgba(34,211,238,0.1)' : 'transparent',
+              border: filters.section === secKey ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent',
+            }}
+            onClick={() => handleSectionChange(secKey)}>
+            {secCfg.label}
+          </button>
         ))}
       </div>
 
       {/* Filters */}
       <div className="admin-filter-row">
-        <input className="form-input" style={{ width: 'auto', minWidth: 220 }} placeholder="Search question text…" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
+        <input className="form-input" style={{ width: 'auto', minWidth: 220 }} placeholder="Search question text…"
+          value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
         <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.world_key} onChange={(e) => handleFilterChange('world_key', e.target.value)}>
           <option value="">All worlds</option>
           {worldOptions.map((w) => <option key={w} value={w}>{worldDisplayName(w)}</option>)}
         </select>
         <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.is_active} onChange={(e) => handleFilterChange('is_active', e.target.value)}>
-          <option value="">All status</option><option value="true">Active</option><option value="false">Inactive</option>
+          <option value="">All status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
         </select>
         <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.difficulty} onChange={(e) => handleFilterChange('difficulty', e.target.value)}>
-          <option value="">All difficulty</option><option value="easy">Easy</option><option value="hard">Hard</option>
+          <option value="">All difficulty</option>
+          <option value="easy">Easy</option>
+          <option value="hard">Hard</option>
         </select>
         <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.topic} onChange={(e) => handleFilterChange('topic', e.target.value)}>
           <option value="">All topics</option>
@@ -1123,7 +1205,9 @@ function QuestionsTab() {
           {topicOptions.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
         </select>
         <select className="form-input" style={{ width: 'auto', minWidth: 140 }} value={filters.reviewed} onChange={(e) => handleFilterChange('reviewed', e.target.value)}>
-          <option value="">All review</option><option value="true">✓ Reviewed</option><option value="false">⚠ Unreviewed</option>
+          <option value="">All review</option>
+          <option value="true">✓ Reviewed</option>
+          <option value="false">⚠ Unreviewed</option>
         </select>
         <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filters.review_status} onChange={(e) => handleFilterChange('review_status', e.target.value)}>
           <option value="">All AI status</option>
@@ -1140,7 +1224,9 @@ function QuestionsTab() {
       {/* Bulk actions */}
       <div className="admin-bulk-bar">
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Bulk actions{filters.exam && <strong style={{ color: 'var(--text-secondary)' }}> · {SECTION_CONFIG[filters.exam]?.label} {examConfig?.sections?.[filters.section]?.label}{filters.world_key ? ` / ${worldDisplayName(filters.world_key)}` : ''}</strong>} ({total} questions)
+          Bulk actions
+          {filters.exam && <strong style={{ color: 'var(--text-secondary)' }}> · {SECTION_CONFIG[filters.exam]?.label} {examConfig?.sections?.[filters.section]?.label}{filters.world_key ? ` / ${worldDisplayName(filters.world_key)}` : ''}</strong>}
+          {' '}({total} questions)
         </span>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading || total === 0}>{bulkLoading ? '…' : 'Activate all'}</button>
@@ -1153,25 +1239,52 @@ function QuestionsTab() {
         <div className="bulk-topic-panel">
           <div className="bulk-topic-label">Set topic for all {total} matching questions:</div>
           <div className="bulk-topic-grid">
-            {topicOptions.map((t) => <button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>{t.label}</button>)}
+            {topicOptions.map((t) => (
+              <button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>{t.label}</button>
+            ))}
             <button className="bulk-topic-btn clear" onClick={() => handleBulkTopic('')} disabled={bulkLoading}>✕ Clear all topics</button>
           </div>
         </div>
       )}
 
-      {/* Selection bar */}
+      {/* Sticky selection action bar */}
       {selectedIds.size > 0 && (
-        <div style={{ position: 'sticky', top: 0, zIndex: 30, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 16px', marginBottom: 8, borderRadius: 8, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(8px)' }}>
-          <span style={{ fontWeight: 700, color: 'var(--violet-light)', fontSize: '0.92rem' }}>{selectedIds.size} selected</span>
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 30,
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          padding: '10px 16px', marginBottom: 8, borderRadius: 8,
+          background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)',
+          backdropFilter: 'blur(8px)',
+        }}>
+          <span style={{ fontWeight: 700, color: 'var(--violet-light)', fontSize: '0.92rem' }}>
+            {selectedIds.size} selected
+          </span>
           {selectedIds.size < total && (
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.82rem', padding: '3px 10px' }} onClick={handleSelectAllMatching} disabled={selectAllLoading}>
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.82rem', padding: '3px 10px' }}
+              onClick={handleSelectAllMatching} disabled={selectAllLoading}>
               {selectAllLoading ? '…' : `Select all ${total} matching`}
             </button>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)', fontWeight: 700 }} onClick={() => setAiReviewOpen(true)}>🤖 AI Review</button>
-            <button className="btn btn-sm" style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }} onClick={() => setBulkAssignOpen(true)}>Assign…</button>
-            <button className="btn btn-sm" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.25)' }} onClick={() => setBulkDeleteOpen(true)}>Delete…</button>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)', fontWeight: 700 }}
+              onClick={() => setAiReviewOpen(true)}
+            >
+              🤖 AI Review
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(34,211,238,0.15)', color: '#0891b2', border: '1px solid rgba(34,211,238,0.3)' }}
+              onClick={() => setBulkAssignOpen(true)}>
+              Assign…
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.25)' }}
+              onClick={() => setBulkDeleteOpen(true)}>
+              Delete…
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={clearSelection}>✕ Clear</button>
           </div>
         </div>
@@ -1200,7 +1313,8 @@ function QuestionsTab() {
                 <React.Fragment key={q.id}>
                   <tr className={`question-row ${expanded.has(q.id) ? 'expanded-active' : ''} ${selectedIds.has(q.id) ? 'row-selected' : ''}`}>
                     <td style={{ padding: '0 8px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" style={{ cursor: 'pointer', width: 15, height: 15 }} checked={selectedIds.has(q.id)} onChange={() => toggleSelectRow(q.id)} />
+                      <input type="checkbox" style={{ cursor: 'pointer', width: 15, height: 15 }}
+                        checked={selectedIds.has(q.id)} onChange={() => toggleSelectRow(q.id)} />
                     </td>
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{q.id}</td>
                     <td><Pill color="violet">{q.exam}</Pill></td>
@@ -1227,7 +1341,12 @@ function QuestionsTab() {
                     </td>
                   </tr>
                   {expanded.has(q.id) && (
-                    <ExpandedQuestionRow question={q} colSpan={TABLE_COLS} taxonomy={taxonomy} onQuestionUpdated={handleInlineSaved} />
+                    <ExpandedQuestionRow
+                      question={q}
+                      colSpan={TABLE_COLS}
+                      taxonomy={taxonomy}
+                      onQuestionUpdated={handleInlineSaved}
+                    />
                   )}
                 </React.Fragment>
               ))}
@@ -1255,9 +1374,20 @@ function QuestionsTab() {
 
       {editing && <QuestionEditModal question={editing} taxonomy={taxonomy} onSave={handleSaveEdit} onClose={() => setEditing(null)} />}
       {creating && <CreateQuestionModal taxonomy={taxonomy} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchQuestions(); setRefreshKey((k) => k + 1); showFlash('Question created.'); }} />}
-      {bulkAssignOpen && <BulkAssignModal count={selectedIds.size} section={filters.section} taxonomy={taxonomy} worldOptions={worldOptions} loading={bulkOpLoading} onAssign={handleBulkAssignSelected} onClose={() => setBulkAssignOpen(false)} />}
-      {bulkDeleteOpen && <BulkDeleteModal count={selectedIds.size} loading={bulkOpLoading} onConfirm={handleBulkDeleteSelected} onClose={() => setBulkDeleteOpen(false)} />}
-      {aiReviewOpen && <AIReviewModal questionIds={Array.from(selectedIds)} onDone={handleAIReviewDone} onClose={() => setAiReviewOpen(false)} />}
+      {bulkAssignOpen && (
+        <BulkAssignModal count={selectedIds.size} section={filters.section} taxonomy={taxonomy} worldOptions={worldOptions}
+          loading={bulkOpLoading} onAssign={handleBulkAssignSelected} onClose={() => setBulkAssignOpen(false)} />
+      )}
+      {bulkDeleteOpen && (
+        <BulkDeleteModal count={selectedIds.size} loading={bulkOpLoading} onConfirm={handleBulkDeleteSelected} onClose={() => setBulkDeleteOpen(false)} />
+      )}
+      {aiReviewOpen && (
+        <AIReviewModal
+          questionIds={Array.from(selectedIds)}
+          onDone={handleAIReviewDone}
+          onClose={() => setAiReviewOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1281,7 +1411,9 @@ function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAs
 
   return (
     <Modal title={`Bulk Assign — ${count} question${count !== 1 ? 's' : ''}`} onClose={onClose} width="480px">
-      <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>Set one or more fields on all selected questions. Blank fields are left unchanged.</p>
+      <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        Set one or more fields on all selected questions. Blank fields are left unchanged.
+      </p>
       <div className="form-group">
         <label className="form-label">Topic</label>
         <select className="form-input" value={form.topic} onChange={set('topic')}>
@@ -1293,7 +1425,9 @@ function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAs
         <label className="form-label">Difficulty</label>
         <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
           <option value="">— Leave unchanged —</option>
-          <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
         </select>
       </div>
       <div className="form-group" style={{ marginTop: 12 }}>
@@ -1322,7 +1456,9 @@ function BulkDeleteModal({ count, loading, onConfirm, onClose }) {
       <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
         <div style={{ fontSize: '2rem', marginBottom: 12 }}>🗑️</div>
         <p style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Soft-delete {count} question{count !== 1 ? 's' : ''}?</p>
-        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>These questions will be marked as deleted and will not be visible to students.</p>
+        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          These questions will be marked as deleted and will not be visible to students.
+        </p>
       </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
         <button className="btn" style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
@@ -1347,16 +1483,19 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
   const [saving, setSaving] = useState(false);
   const [showMathPreview, setShowMathPreview] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+
   const section = question.section || getSectionFromWorldKey(question.world_key);
   const topicOptions = (taxonomy && section && taxonomy[section]) || [];
 
   const handleSubmit = (e) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    setSaving(true);
     const payload = { ...form };
     if (!payload.topic)      payload.topic      = null;
     if (!payload.difficulty) payload.difficulty = null;
     if (!payload.hint)       payload.hint       = null;
-    onSave(payload); setSaving(false);
+    onSave(payload);
+    setSaving(false);
   };
 
   return (
@@ -1402,7 +1541,9 @@ function QuestionEditModal({ question, taxonomy, onSave, onClose }) {
           <div className="form-group">
             <label className="form-label">Difficulty</label>
             <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-              <option value="">— None —</option><option value="easy">Easy</option><option value="hard">Hard</option>
+              <option value="">— None —</option>
+              <option value="easy">Easy</option>
+              <option value="hard">Hard</option>
             </select>
           </div>
         </div>
@@ -1436,12 +1577,14 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
   });
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+
   const worldOptions = WORLD_KEYS[form.exam] || [];
   const section = getSectionFromWorldKey(form.world_key);
   const topicOptions = (taxonomy && section && taxonomy[section]) || [];
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    setSaving(true);
     try {
       const nextIdx = await adminApi.nextIndex(form.exam, form.world_key);
       const payload = [{ ...form, index: nextIdx.next_index, topic: form.topic || null, difficulty: form.difficulty || null, hint: form.hint || null }];
@@ -1499,7 +1642,9 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
           <div className="form-group">
             <label className="form-label">Difficulty</label>
             <select className="form-input" value={form.difficulty} onChange={set('difficulty')}>
-              <option value="">— None —</option><option value="easy">Easy</option><option value="hard">Hard</option>
+              <option value="">— None —</option>
+              <option value="easy">Easy</option>
+              <option value="hard">Hard</option>
             </select>
           </div>
         </div>
@@ -1528,15 +1673,17 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
 function StatsTab() {
   const [stats, setStats] = useState(null);
   useEffect(() => { adminApi.getStats().then(setStats).catch(() => {}); }, []);
+
   if (!stats) return <div className="admin-loading"><div className="spinner" /></div>;
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
       {[
-        { label: 'Total Questions',    val: stats.questions?.total  || 0 },
-        { label: 'Active Questions',   val: stats.questions?.active || 0 },
-        { label: 'Students',           val: stats.users?.students   || 0 },
-        { label: 'Organisations',      val: stats.orgs?.total       || 0 },
-        { label: 'Active Entitlements',val: stats.entitlements?.active || 0 },
+        { label: 'Total Questions', val: stats.questions?.total || 0 },
+        { label: 'Active Questions', val: stats.questions?.active || 0 },
+        { label: 'Students', val: stats.users?.students || 0 },
+        { label: 'Organisations', val: stats.orgs?.total || 0 },
+        { label: 'Active Entitlements', val: stats.entitlements?.active || 0 },
       ].map((s) => (
         <div key={s.label} className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.val}</div>
@@ -1549,6 +1696,520 @@ function StatsTab() {
           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{exam} Questions</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+
+// ── WORLDS TAB  (Chunk K2) ────────────────────────────────────────────────────
+
+function SmartFillModal({ target, taxonomy, onDone, onClose }) {
+  // target: { world_key, exam, section, display_name, capacity, assigned, empty_slots }
+  const [selectedTopics, setSelectedTopics] = useState([]);
+  const [difficulty,     setDifficulty]     = useState('');
+  const [minConf,        setMinConf]        = useState('');
+  const [maxFill,        setMaxFill]        = useState('');
+  const [activate,       setActivate]       = useState(false);
+  const [loading,        setLoading]        = useState(false);
+  const [result,         setResult]         = useState(null);
+
+  const sectionTopics  = (taxonomy && target.section && taxonomy[target.section]) || [];
+  const availableSlots = target.empty_slots ?? (target.capacity - target.assigned);
+
+  const toggleTopic = (key) =>
+    setSelectedTopics(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+
+  const handleFill = async () => {
+    setLoading(true);
+    try {
+      const body = { exam: target.exam, activate };
+      if (selectedTopics.length > 0) body.topics         = selectedTopics;
+      if (difficulty)                body.difficulty      = difficulty;
+      if (minConf)                   body.min_confidence  = parseFloat(minConf);
+      if (maxFill)                   body.max_fill        = parseInt(maxFill, 10);
+      const res = await adminApi.smartFill(target.world_key, body);
+      setResult(res);
+    } catch (e) {
+      alert(e?.error?.message || 'Smart fill failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Result screen
+  if (result) {
+    const fillColor = result.filled > 0 ? '#15803d' : '#b45309';
+    return (
+      <Modal title="Smart Fill — Complete" onClose={() => onDone(result)} width="440px">
+        <div style={{ textAlign: 'center', padding: '12px 0 20px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>{result.filled > 0 ? '✅' : '⚠️'}</div>
+          <p style={{ margin: '0 0 6px', fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {result.filled > 0 ? `${result.filled} question${result.filled !== 1 ? 's' : ''} filled` : 'No questions filled'}
+          </p>
+          <p style={{ margin: '0 0 20px', fontSize: '0.88rem', color: 'var(--text-muted)' }}>{result.message}</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 20 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: fillColor }}>{result.now_assigned}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>assigned now</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{result.capacity}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>capacity</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: result.available_slots === 0 ? '#15803d' : 'var(--text-secondary)' }}>{result.available_slots}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>remaining slots</div>
+            </div>
+          </div>
+          <button className="btn btn-violet" onClick={() => onDone(result)}>Done</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title={`Smart Fill — ${target.display_name}`} onClose={onClose} width="540px">
+      {/* Summary */}
+      <div style={{ display: 'flex', gap: 24, marginBottom: 16, padding: '10px 14px', borderRadius: 8,
+        background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{target.assigned}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>assigned</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{target.capacity}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>capacity</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: availableSlots > 0 ? '#0891b2' : '#15803d' }}>{availableSlots}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>available slots</div>
+        </div>
+      </div>
+
+      <p style={{ margin: '0 0 14px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+        Pull unassigned <strong>{target.section}</strong> questions from the bank into this world.
+        All filters are optional — leave blank to fill with any matching question.
+      </p>
+
+      {/* Topic filter */}
+      {sectionTopics.length > 0 && (
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label className="form-label">Filter by Topic <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(leave blank for any)</span></label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, maxHeight: 180, overflowY: 'auto',
+            padding: '8px', borderRadius: 8, background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border)' }}>
+            {sectionTopics.map((t) => (
+              <label key={t.key}
+                className={`sf-topic-check ${selectedTopics.includes(t.key) ? 'selected' : ''}`}
+                onClick={() => toggleTopic(t.key)}>
+                <input type="checkbox" checked={selectedTopics.includes(t.key)} onChange={() => toggleTopic(t.key)}
+                  style={{ pointerEvents: 'none' }} />
+                {t.label}
+              </label>
+            ))}
+          </div>
+          {selectedTopics.length > 0 && (
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 6, fontSize: '0.78rem' }}
+              onClick={() => setSelectedTopics([])}>✕ Clear topic filters</button>
+          )}
+        </div>
+      )}
+
+      {/* Difficulty + confidence */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+        <div className="form-group">
+          <label className="form-label">Difficulty</label>
+          <select className="form-input" value={difficulty} onChange={e => setDifficulty(e.target.value)}>
+            <option value="">Any</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Min AI Confidence</label>
+          <select className="form-input" value={minConf} onChange={e => setMinConf(e.target.value)}>
+            <option value="">Any</option>
+            <option value="0.65">≥ 65% (Medium)</option>
+            <option value="0.85">≥ 85% (High)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Max fill + activate */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div className="form-group">
+          <label className="form-label">Max Questions to Fill</label>
+          <input type="number" className="form-input" min={1} max={availableSlots}
+            value={maxFill} onChange={e => setMaxFill(e.target.value)}
+            placeholder={`All (${availableSlots})`} />
+        </div>
+        <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)', paddingBottom: 8 }}>
+            <input type="checkbox" checked={activate} onChange={e => setActivate(e.target.checked)} />
+            Activate filled questions
+          </label>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button className="btn btn-violet" onClick={handleFill} disabled={loading || availableSlots <= 0}>
+          {loading ? '…' : availableSlots <= 0 ? 'World is full' : `Fill World`}
+        </button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+function ClearWorldModal({ target, onDone, onClose }) {
+  // target: { world_key, exam, display_name, assigned, student_count }
+  const [loading,    setLoading]    = useState(false);
+  const [needsForce, setNeedsForce] = useState(false);
+
+  const handleClear = async (force = false) => {
+    setLoading(true);
+    try {
+      const res = await adminApi.clearWorld(target.world_key, {
+        exam: target.exam, confirm: true, force,
+      });
+      onDone(res);
+    } catch (e) {
+      if (e?.error?.code === 'student_progress_exists') {
+        setNeedsForce(true);
+      } else {
+        alert(e?.error?.message || 'Clear failed.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal title={`Clear World — ${target.display_name}`} onClose={loading ? undefined : onClose} width="460px">
+      <div style={{ textAlign: 'center', padding: '8px 0 8px' }}>
+        <div style={{ fontSize: '2rem', marginBottom: 10 }}>🗂️</div>
+        <p style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+          Return {target.assigned} question{target.assigned !== 1 ? 's' : ''} to the bank?
+        </p>
+        <p style={{ margin: '0 0 16px', fontSize: '0.87rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          Questions will be unassigned and deactivated. They are <strong>not deleted</strong> — you can reassign them at any time.
+        </p>
+      </div>
+
+      {/* Student progress warning */}
+      {target.student_count > 0 && (
+        <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+          background: 'rgba(217,119,6,0.07)', border: '1px solid rgba(217,119,6,0.25)',
+          fontSize: '0.85rem', color: '#b45309', lineHeight: 1.6 }}>
+          ⚠ <strong>{target.student_count} student{target.student_count !== 1 ? 's' : ''}</strong> have attempt history in this world.
+          Their records are preserved — only the question assignments are cleared.
+        </div>
+      )}
+
+      {/* Force override prompt (only shown after 409) */}
+      {needsForce && (
+        <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+          background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.25)',
+          fontSize: '0.85rem', color: '#dc2626', lineHeight: 1.6 }}>
+          Confirm force-clear: student progress records exist but will be preserved.
+          Questions will still be unassigned.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+        {needsForce ? (
+          <>
+            <button className="btn" style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626',
+              border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
+              onClick={() => handleClear(true)} disabled={loading}>
+              {loading ? 'Clearing…' : 'Force Clear'}
+            </button>
+            <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <button className="btn" style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626',
+              border: '1px solid rgba(220,38,38,0.3)', fontWeight: 600 }}
+              onClick={() => handleClear(false)} disabled={loading}>
+              {loading ? 'Clearing…' : `Clear ${target.assigned} Question${target.assigned !== 1 ? 's' : ''}`}
+            </button>
+            <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+
+function WorldsTab() {
+  const [exam,            setExam]            = useState('qudurat');
+  const [health,          setHealth]          = useState(null);
+  const [loading,         setLoading]         = useState(false);
+  const [taxonomy,        setTaxonomy]        = useState(null);
+  const [flash,           showFlash]          = useFlash();
+  const [smartFillTarget, setSmartFillTarget] = useState(null);
+  const [clearTarget,     setClearTarget]     = useState(null);
+  const [refreshKey,      setRefreshKey]      = useState(0);
+
+  useEffect(() => {
+    adminApi.getTopics().then(d => setTaxonomy(d.taxonomy)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setHealth(null);
+    adminApi.getWorldHealth(exam)
+      .then(d => setHealth(d))
+      .catch(() => showFlash('Failed to load world health.', 'error'))
+      .finally(() => setLoading(false));
+  }, [exam, refreshKey]);
+
+  // Index worlds by world_key for O(1) lookup
+  const worldMap = useMemo(() => {
+    if (!health) return {};
+    const map = {};
+    health.worlds.forEach(w => { map[w.world_key] = w; });
+    return map;
+  }, [health]);
+
+  const examConfig = SECTION_CONFIG[exam];
+  const summary    = health?.summary;
+
+  const fillBarColor = (pct) =>
+    pct >= 80 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626';
+
+  const handleSmartFillDone = (result) => {
+    setSmartFillTarget(null);
+    setRefreshKey(k => k + 1);
+    showFlash(result.filled > 0
+      ? `Filled ${result.filled} question${result.filled !== 1 ? 's' : ''} into ${result.message.split('into')[1]?.trim().split('.')[0] || ''}.`
+      : 'No matching questions found in the bank.');
+  };
+
+  const handleClearDone = (result) => {
+    setClearTarget(null);
+    setRefreshKey(k => k + 1);
+    showFlash(`${result.cleared} question${result.cleared !== 1 ? 's' : ''} returned to bank.`);
+  };
+
+  return (
+    <div>
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
+
+      {/* Exam tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
+        {Object.entries(SECTION_CONFIG).map(([examKey, cfg]) => (
+          <button key={examKey}
+            className={`btn btn-sm ${exam === examKey ? '' : 'btn-ghost'}`}
+            style={{
+              borderRadius: '8px 8px 0 0',
+              borderBottom: exam === examKey ? '2px solid var(--violet)' : '2px solid transparent',
+              fontWeight: exam === examKey ? 700 : 500,
+              fontSize: '0.95rem', padding: '10px 24px',
+              color: exam === examKey ? 'var(--violet-light)' : 'var(--text-muted)',
+              background: exam === examKey ? 'rgba(139,92,246,0.08)' : 'transparent',
+            }}
+            onClick={() => setExam(examKey)}>
+            {cfg.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary bar */}
+      {summary && (
+        <div style={{ display: 'flex', gap: 24, marginBottom: 20, padding: '12px 16px', borderRadius: 10,
+          background: 'var(--bg-card, rgba(255,255,255,0.04))', border: '1px solid var(--border)' }}>
+          {[
+            { label: 'Total Capacity', val: summary.total_capacity.toLocaleString(), color: 'var(--text-primary)' },
+            { label: 'Assigned',       val: summary.total_assigned.toLocaleString(), color: '#0891b2' },
+            { label: 'Active',         val: summary.total_active.toLocaleString(),   color: '#15803d' },
+            { label: 'Empty Slots',    val: summary.total_empty.toLocaleString(),    color: summary.total_empty > 0 ? '#b45309' : '#15803d' },
+            { label: 'Fill %',
+              val: summary.total_capacity > 0
+                ? `${Math.round(summary.total_assigned / summary.total_capacity * 100)}%`
+                : '0%',
+              color: fillBarColor(summary.total_capacity > 0 ? Math.round(summary.total_assigned / summary.total_capacity * 100) : 0) },
+          ].map(({ label, val, color }) => (
+            <div key={label}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color }}>{val}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{label}</div>
+            </div>
+          ))}
+          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', alignSelf: 'center' }}
+            onClick={() => setRefreshKey(k => k + 1)}>↻ Refresh</button>
+        </div>
+      )}
+
+      {loading && <div className="admin-loading"><div className="spinner" /></div>}
+
+      {/* Per-section world cards */}
+      {!loading && examConfig && Object.entries(examConfig.sections).map(([secKey, secCfg]) => {
+        const sectionWorlds = secCfg.worlds.map(wk => worldMap[wk]).filter(Boolean);
+        // If health hasn't loaded yet for this section, show placeholders
+        const worldsToShow = sectionWorlds.length > 0
+          ? sectionWorlds
+          : secCfg.worlds.map(wk => ({
+              world_key: wk, exam, section: secKey,
+              display_name: worldDisplayName(wk),
+              capacity: 0, assigned: 0, active: 0, inactive: 0,
+              empty_slots: 0, fill_pct: 0,
+              topic_breakdown: [], difficulty_breakdown: { easy: 0, medium: 0, hard: 0, untagged: 0 },
+              student_count: 0, has_student_progress: false,
+            }));
+
+        return (
+          <div key={secKey} className="world-section-card">
+            {/* Section header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                {secCfg.label}
+              </span>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                {worldsToShow.reduce((s, w) => s + w.assigned, 0).toLocaleString()} /{' '}
+                {worldsToShow.reduce((s, w) => s + w.capacity, 0).toLocaleString()} questions assigned
+              </span>
+            </div>
+
+            {/* Column headers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 70px 80px 100px 110px auto',
+              gap: 10, padding: '0 0 8px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+              fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)',
+              textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+              <div>World</div>
+              <div>Fill</div>
+              <div>Active</div>
+              <div>Topics</div>
+              <div>Difficulty</div>
+              <div>Students</div>
+              <div>Actions</div>
+            </div>
+
+            {/* World rows */}
+            {worldsToShow.map((w) => {
+              const pct   = w.fill_pct;
+              const barClr = fillBarColor(pct);
+              const db    = w.difficulty_breakdown || {};
+              const topicCount = w.topic_breakdown?.length || 0;
+              const totalTagged = (db.easy || 0) + (db.medium || 0) + (db.hard || 0);
+              const untagged    = db.untagged || 0;
+
+              return (
+                <div key={w.world_key} style={{ display: 'grid',
+                  gridTemplateColumns: '160px 1fr 70px 80px 100px 110px auto',
+                  gap: 10, alignItems: 'center',
+                  padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+
+                  {/* World name */}
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    {w.display_name}
+                  </div>
+
+                  {/* Fill bar */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{w.assigned}/{w.capacity}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: barClr }}>{pct}%</span>
+                    </div>
+                    <div className="world-fill-bar-bg">
+                      <div className="world-fill-bar-fill" style={{ width: `${pct}%`, background: barClr }} />
+                    </div>
+                  </div>
+
+                  {/* Active count */}
+                  <div>
+                    {w.active > 0
+                      ? <Pill color="green">{w.active}</Pill>
+                      : <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>—</span>}
+                  </div>
+
+                  {/* Topic count */}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {topicCount > 0
+                      ? <span style={{ color: '#0891b2', fontWeight: 600 }}>{topicCount} topics</span>
+                      : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                  </div>
+
+                  {/* Difficulty breakdown */}
+                  <div style={{ fontSize: '0.75rem', lineHeight: 1.8 }}>
+                    {totalTagged > 0 ? (
+                      <span>
+                        {db.easy   > 0 && <span style={{ color: '#15803d',  marginRight: 4 }}>E:{db.easy}</span>}
+                        {db.medium > 0 && <span style={{ color: '#2563eb',  marginRight: 4 }}>M:{db.medium}</span>}
+                        {db.hard   > 0 && <span style={{ color: '#b45309',  marginRight: 4 }}>H:{db.hard}</span>}
+                        {untagged  > 0 && <span style={{ color: 'var(--text-muted)' }}>U:{untagged}</span>}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                    )}
+                  </div>
+
+                  {/* Student progress */}
+                  <div>
+                    {w.has_student_progress
+                      ? <Pill color="amber" title={`${w.student_count} student(s) have progress here`}>
+                          👤 {w.student_count}
+                        </Pill>
+                      : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>}
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      className="btn btn-sm"
+                      style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa',
+                        border: '1px solid rgba(124,58,237,0.25)', padding: '4px 10px',
+                        fontSize: '0.8rem', fontWeight: 600 }}
+                      disabled={w.empty_slots === 0 && w.capacity > 0}
+                      title={w.empty_slots === 0 ? 'World is at capacity' : `Fill up to ${w.empty_slots} slots`}
+                      onClick={() => setSmartFillTarget(w)}>
+                      ⚡ Fill
+                    </button>
+                    <button
+                      className="btn btn-sm btn-ghost"
+                      style={{ borderColor: 'rgba(220,38,38,0.25)', color: '#dc2626',
+                        padding: '4px 10px', fontSize: '0.8rem' }}
+                      disabled={w.assigned === 0}
+                      title={w.assigned === 0 ? 'World is empty' : `Clear all ${w.assigned} questions`}
+                      onClick={() => setClearTarget(w)}>
+                      ✕ Clear
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {/* Difficulty legend */}
+      {!loading && (
+        <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+          {[['#15803d','E = Easy'],['#2563eb','M = Medium'],['#b45309','H = Hard'],['var(--text-muted)','U = Untagged']].map(([c,l]) => (
+            <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flexShrink: 0, display: 'inline-block' }} />{l}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
+      {smartFillTarget && (
+        <SmartFillModal
+          target={smartFillTarget}
+          taxonomy={taxonomy}
+          onDone={handleSmartFillDone}
+          onClose={() => setSmartFillTarget(null)}
+        />
+      )}
+      {clearTarget && (
+        <ClearWorldModal
+          target={clearTarget}
+          onDone={handleClearDone}
+          onClose={() => setClearTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1634,11 +2295,15 @@ function CreateOrgModal({ onClose, onCreated }) {
 
 function OrgDetailModal({ org, onClose, onRefresh }) {
   const [detail, setDetail] = useState(null);
+  const [flash, showFlash] = useFlash();
+
   useEffect(() => { adminApi.getOrg(org.id).then(setDetail).catch(() => {}); }, [org.id]);
+
   if (!detail) return <Modal title={org.name} onClose={onClose}><div className="spinner" /></Modal>;
 
   return (
     <Modal title={org.name} onClose={onClose} width="700px">
+      {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 12 }}>{flash.msg}</div>}
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>Slug: <code>{org.slug}</code></p>
       <h4 style={{ marginBottom: 8 }}>Leader</h4>
       {detail.leader ? <p>{detail.leader.username} (ID: {detail.leader.id})</p> : <p style={{ color: 'var(--text-muted)' }}>No leader assigned yet.</p>}
@@ -1668,12 +2333,12 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
 function UsersTab() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage]   = useState(1);
-  const [loading, setLoading]     = useState(true);
-  const [flash, showFlash]        = useFlash();
-  const [creating, setCreating]   = useState(false);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [flash, showFlash] = useFlash();
+  const [creating, setCreating] = useState(false);
   const [roleFilter, setRoleFilter] = useState('');
-  const [search, setSearch]       = useState('');
+  const [search, setSearch] = useState('');
   const searchTimeout = useRef(null);
   const [searchInput, setSearchInput] = useState('');
 
@@ -1793,6 +2458,9 @@ function CreateAdminModal({ onClose, onCreated }) {
 
 // ── BULK UPLOAD TAB ───────────────────────────────────────────────────────────
 
+const BULK_CSV_COLUMNS = ['exam','section','question_text','option_a','option_b','option_c','option_d','correct_answer','hint','topic','difficulty'];
+const VALID_EXAM_SECTIONS = { qudurat: ['math','verbal'], tahsili: ['math','biology','chemistry','physics'] };
+
 function BulkUploadTab() {
   const [step, setStep]             = useState(1);
   const [file, setFile]             = useState(null);
@@ -1833,8 +2501,8 @@ function BulkUploadTab() {
     setFile(f); setReport(null); setResult(null); setStep(1); setForceDupes(false);
   };
 
-  const onDrop     = (e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer?.files?.[0]); };
-  const onDragOver = (e) => { e.preventDefault(); setDragging(true); };
+  const onDrop = (e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer?.files?.[0]); };
+  const onDragOver  = (e) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
 
   const handleValidate = async () => {
@@ -1966,10 +2634,8 @@ function BulkUploadTab() {
                   <thead><tr><th style={{ width: 70 }}>Row</th><th>Question Text (preview)</th><th style={{ width: 130 }}>Matches</th></tr></thead>
                   <tbody>
                     {report.duplicates.slice(0, 30).map((dup, i) => (
-                      <tr key={i}><td><Pill color="gray">{dup.row}</Pill></td>
-                        <td style={{ fontSize: '0.85rem', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dup.question_text}</td>
-                        <td>{dup.existing_id ? <Pill color="amber">DB #{dup.existing_id}</Pill> : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>}</td>
-                      </tr>
+                      <tr key={i}><td><Pill color="gray">{dup.row}</Pill></td><td style={{ fontSize: '0.85rem', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dup.question_text}</td>
+                        <td>{dup.existing_id ? <Pill color="amber">DB #{dup.existing_id}</Pill> : <Pill color="gray">CSV row {dup.duplicate_of_csv_row}</Pill>}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -2024,7 +2690,7 @@ function BulkUploadTab() {
             <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>{result.message}</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
               {result.inserted > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>{result.inserted}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Inserted</div></div>}
-              {result.skipped > 0  && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped</div></div>}
+              {result.skipped > 0 && <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#b45309' }}>{result.skipped}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Skipped</div></div>}
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
               <button className="btn btn-violet" onClick={handleReset}>Upload Another File</button>
@@ -2042,6 +2708,7 @@ function BulkUploadTab() {
 const TABS = [
   { id: 'stats',     icon: '📊', label: 'Stats'      },
   { id: 'questions', icon: '📝', label: 'Questions'   },
+  { id: 'worlds',    icon: '🌍', label: 'Worlds'      },  // K2
   { id: 'bulk',      icon: '📤', label: 'Bulk Upload' },
   { id: 'orgs',      icon: '🏫', label: 'Orgs'        },
   { id: 'users',     icon: '👤', label: 'Users'       },
@@ -2068,6 +2735,7 @@ export default function AdminPanel() {
         <div style={{ marginTop: 24 }}>
           {tab === 'stats'     && <StatsTab />}
           {tab === 'questions' && <QuestionsTab />}
+          {tab === 'worlds'    && <WorldsTab />}
           {tab === 'bulk'      && <BulkUploadTab />}
           {tab === 'orgs'      && <OrgsTab />}
           {tab === 'users'     && <UsersTab />}
