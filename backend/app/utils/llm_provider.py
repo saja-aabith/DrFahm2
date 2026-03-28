@@ -1,17 +1,25 @@
 """
-LLM provider abstraction for DrFahm AI features.
+backend/app/utils/llm_provider.py
 
-Design rules:
-    - Provider-agnostic: swap OpenAI ↔ Anthropic by changing LLM_PROVIDER env var.
-    - review_question() is synchronous and blocking.
-    - It must NEVER raise — all errors go into QuestionReviewResult.error.
-    - It must NEVER write to the database.
-    - It is safe to call from a ThreadPoolExecutor (I/O-bound, GIL released
-      during network calls).
+Provider-agnostic LLM integration for question AI review.
 
-    Future methods to add here (without breaking existing call sites):
-    - tutor_explain(question_id, ...) → TutorResult   # live AI tutor
-    - generate_question(...) → GeneratedQuestion       # AI question authoring
+Current provider : OpenAI GPT-4o-mini
+Switch providers : set LLM_PROVIDER=anthropic (or other) in Railway env vars.
+                   Implement the corresponding subclass and add it to get_llm_provider().
+
+Future expansion : add review_with_tutor() to LLMProvider for the live AI tutor feature
+                   without touching any existing call sites.
+
+Usage (in admin.py):
+    from ..utils.llm_provider import get_llm_provider
+    provider = get_llm_provider()          # raises RuntimeError if misconfigured
+    result   = provider.review_question(   # blocking; call from ThreadPoolExecutor
+        question_id=q.id, exam=q.exam, section=q.section,
+        question_text=q.question_text,
+        option_a=q.option_a, option_b=q.option_b,
+        option_c=q.option_c, option_d=q.option_d,
+        valid_topics=[...],                # K1: list of valid topic keys for section
+    )
 """
 
 import json
@@ -28,13 +36,32 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class QuestionReviewResult:
+    """
+    Returned by every provider's review_question() call.
+
+    Fields:
+        question_id      — mirrors the input so callers can correlate results
+                           when processing batches.
+        predicted_answer — 'a'|'b'|'c'|'d'  or None on failure.
+                           NOT written to correct_answer until admin approves.
+        confidence       — 0.0–1.0, LLM self-reported. None on failure.
+        proposed_hint    — 1-2 sentence hint for students who answered wrong.
+                           Copied to hint column only on admin approval.
+                           Must NOT reveal or restate the correct answer.
+        review_note      — 1-sentence internal justification for admin verification.
+                           NEVER exposed to students under any code path.
+        predicted_topic  — K1: valid topic key for this section, or None if LLM
+                           returned an invalid/hallucinated key (soft-fail).
+        error            — Non-None string if the LLM call failed for any reason.
+                           Caller should mark question review_status='unreviewed' on error.
+    """
     question_id:      int
-    predicted_answer: Optional[str]    # 'a' | 'b' | 'c' | 'd' | None on error
-    confidence:       Optional[float]  # 0.0–1.0  | None on error
+    predicted_answer: Optional[str]
+    confidence:       Optional[float]
     proposed_hint:    Optional[str]
     review_note:      Optional[str]
-    predicted_topic:  Optional[str]    # K1: valid topic key for the section | None
-    error:            Optional[str]    # None if successful
+    predicted_topic:  Optional[str]   # K1
+    error:            Optional[str]
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────────
@@ -51,7 +78,7 @@ class LLMProvider(ABC):
       during network calls).
 
     Future methods to add here (without breaking existing call sites):
-    - tutor_explain(question_id, ...) → TutorResult   # live AI tutor (Platinum tier)
+    - tutor_explain(question_id, ...) → TutorResult   # live AI tutor
     - generate_question(...) → GeneratedQuestion       # AI question authoring
     """
 
@@ -66,7 +93,7 @@ class LLMProvider(ABC):
         option_b:      str,
         option_c:      str,
         option_d:      str,
-        valid_topics:  list,  # K1: ordered list of valid topic keys for this section
+        valid_topics:  list,   # K1: ordered list of valid topic keys for this section
     ) -> QuestionReviewResult:
         ...
 
@@ -150,7 +177,7 @@ outside the JSON.
         option_b:      str,
         option_c:      str,
         option_d:      str,
-        valid_topics:  list,
+        valid_topics:  list,   # K1
     ) -> QuestionReviewResult:
         topics_str  = ", ".join(valid_topics) if valid_topics else "none"
         user_prompt = (
@@ -171,7 +198,7 @@ outside the JSON.
                     {"role": "user",   "content": user_prompt},
                 ],
                 temperature=0.0,   # deterministic
-                max_tokens=500,    # slightly more to accommodate predicted_topic
+                max_tokens=500,    # bumped from 400 to accommodate predicted_topic
                 response_format={"type": "json_object"},
             )
 
@@ -197,7 +224,7 @@ outside the JSON.
                 error=str(exc),
             )
 
-        # ── Validate predicted_answer ─────────────────────────────────────────
+        # ── Validate predicted_answer ──────────────────────────────────────
         predicted = (parsed.get("predicted_answer") or "").strip().lower()
         if predicted not in {"a", "b", "c", "d"}:
             return QuestionReviewResult(
@@ -208,7 +235,7 @@ outside the JSON.
                 error=f"LLM returned invalid predicted_answer: {predicted!r}",
             )
 
-        # ── Clamp confidence to [0.0, 1.0] ───────────────────────────────────
+        # ── Clamp confidence to [0.0, 1.0] ────────────────────────────────
         try:
             confidence = float(parsed.get("confidence", 0.5))
             confidence = max(0.0, min(1.0, confidence))
@@ -218,11 +245,11 @@ outside the JSON.
         proposed_hint = (parsed.get("proposed_hint") or "").strip() or None
         review_note   = (parsed.get("review_note")   or "").strip() or None
 
-        # ── Validate predicted_topic (K1) — soft-fail if LLM hallucinates ────
-        # Store None rather than an invalid key. Admin will see blank and can
-        # manually select from the dropdown on approval.
-        raw_topic      = (parsed.get("predicted_topic") or "").strip().lower()
-        valid_set      = set(valid_topics)
+        # ── K1: Validate predicted_topic — soft-fail if hallucinated ──────
+        # Store None rather than an invalid key. Admin sees blank and can
+        # manually select from dropdown on approval.
+        raw_topic       = (parsed.get("predicted_topic") or "").strip().lower()
+        valid_set       = set(valid_topics)
         predicted_topic = raw_topic if (raw_topic and raw_topic in valid_set) else None
         if raw_topic and raw_topic not in valid_set:
             logger.warning(
@@ -281,14 +308,15 @@ def get_llm_provider() -> LLMProvider:
     Raises RuntimeError if the provider is misconfigured (missing API key,
     missing package). Caller is responsible for surfacing a 501 response.
     """
-    provider = os.environ.get("LLM_PROVIDER", "openai").strip().lower()
+    provider_name = os.environ.get("LLM_PROVIDER", "openai").lower().strip()
 
-    if provider == "openai":
+    if provider_name == "openai":
         return OpenAIProvider()
 
-    # AnthropicProvider is not yet implemented — uncomment above when ready.
+    # elif provider_name == "anthropic":
+    #     return AnthropicProvider()
+
     raise RuntimeError(
-        f"Unknown LLM_PROVIDER: {provider!r}. "
-        "Set LLM_PROVIDER=openai in Railway environment variables."
+        f"Unknown LLM_PROVIDER: {provider_name!r}. "
+        "Valid values: openai"
     )
-    

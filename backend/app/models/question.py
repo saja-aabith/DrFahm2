@@ -34,7 +34,6 @@ AI review fields (added Chunk J):
 
 AI review fields (added Chunk K1):
 - `llm_predicted_topic`  — AI-predicted topic key (e.g. "algebra", "genetics").
-                           Must be a valid key for the question's section.
                            Staged here until admin approves; copied to topic on approval.
                            Stored as None if LLM returns an invalid/hallucinated key.
 """
@@ -125,7 +124,7 @@ class Question(db.Model):
     difficulty = db.Column(db.Enum(Difficulty), nullable=True, index=True)
     is_active  = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
-    # ── AI review fields (Chunk J) ────────────────────────────────────────────
+    # ── AI review fields ──────────────────────────────────────────────────────
     # These fields are INTERNAL to the admin workflow.
     # None of them are ever included in student-facing serialisation.
     # correct_answer is the single source of truth for gameplay — it is only
@@ -243,7 +242,7 @@ class Question(db.Model):
         include_hint=True    → gameplay view: adds hint only. No answer,
                                no llm_* fields ever reach students.
 
-        INVARIANT: llm_review_note and all llm_* fields are NEVER included unless
+        INVARIANT: llm_review_note and llm_* fields are NEVER included unless
         include_answer=True. They are internal admin-only fields.
         """
         d = {

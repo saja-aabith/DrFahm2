@@ -150,66 +150,91 @@ def import_questions():
     """
     Bulk import / upsert questions via JSON array.
     Upsert key: (exam, world_key, index).
+
+    Each item must have:
+      exam, world_key, index, question_text, option_a..d, correct_answer
+
+    Optional: topic, difficulty, is_active, image_url, hint
     """
     admin = _get_current_user()
-    data  = request.get_json(silent=True) or []
+    data  = request.get_json(silent=True)
 
     if not isinstance(data, list) or len(data) == 0:
-        return bad_request("validation_error", "Body must be a non-empty JSON array.")
+        return bad_request("validation_error",
+                           "Body must be a non-empty JSON array of question objects.")
+    if len(data) > 5000:
+        return bad_request("validation_error",
+                           "Maximum 5,000 questions per import call.")
 
-    valid_answers = {"a", "b", "c", "d"}
-    upserted = 0
+    required_fields = {"exam", "world_key", "index", "question_text",
+                       "option_a", "option_b", "option_c", "option_d",
+                       "correct_answer"}
+    valid_answers   = {"a", "b", "c", "d"}
+    now             = datetime.now(timezone.utc)
+    upserted        = 0
 
-    for item in data:
-        exam      = (item.get("exam")      or "").strip().lower()
-        world_key = (item.get("world_key") or "").strip().lower() or None
-        index     = item.get("index")
-        answer    = (item.get("correct_answer") or "").strip().lower()
-        section   = (item.get("section") or "").strip().lower() or None
-        topic     = (item.get("topic") or "").strip() or None
-        diff      = (item.get("difficulty") or "").strip().lower() or None
+    for i, item in enumerate(data):
+        missing = required_fields - set(item.keys())
+        if missing:
+            return bad_request("validation_error",
+                               f"Item {i}: missing fields: {sorted(missing)}")
+
+        exam      = str(item["exam"]).strip().lower()
+        world_key = str(item["world_key"]).strip().lower()
+        idx       = int(item["index"])
+        answer    = str(item["correct_answer"]).strip().lower()
 
         if exam not in VALID_EXAMS:
-            continue
-        if world_key and world_key not in VALID_WORLD_KEYS:
-            continue
+            return bad_request("invalid_exam", f"Item {i}: invalid exam {exam!r}.")
+        if world_key not in VALID_WORLD_KEYS:
+            return bad_request("invalid_world_key", f"Item {i}: invalid world_key {world_key!r}.")
         if answer not in valid_answers:
-            continue
+            return bad_request("validation_error",
+                               f"Item {i}: correct_answer must be a/b/c/d.")
 
-        if not section and world_key:
-            section = _wk_to_section(world_key)
+        topic = (item.get("topic") or "").strip() or None
+        section_val = _wk_to_section(world_key)
+        if topic and not validate_topic(topic, world_key):
+            return bad_request("invalid_topic",
+                               f"Item {i}: invalid topic {topic!r} for section "
+                               f"{section_val!r}.")
 
-        existing = None
-        if world_key and index is not None:
-            existing = Question.query.filter_by(
-                exam=exam, world_key=world_key, index=index, deleted_at=None
-            ).first()
+        existing = Question.query.filter_by(
+            exam=exam, world_key=world_key, index=idx, deleted_at=None
+        ).first()
 
         if existing:
-            existing.question_text  = item.get("question_text", existing.question_text)
-            existing.option_a       = item.get("option_a", existing.option_a)
-            existing.option_b       = item.get("option_b", existing.option_b)
-            existing.option_c       = item.get("option_c", existing.option_c)
-            existing.option_d       = item.get("option_d", existing.option_d)
+            existing.question_text  = item["question_text"]
+            existing.option_a       = item["option_a"]
+            existing.option_b       = item["option_b"]
+            existing.option_c       = item["option_c"]
+            existing.option_d       = item["option_d"]
             existing.correct_answer = answer
-            existing.is_active      = bool(item.get("is_active", existing.is_active))
             existing.topic          = topic
-            existing.difficulty     = Difficulty(diff) if diff and diff in {d.value for d in Difficulty} else existing.difficulty
-            existing.version       += 1
+            existing.section        = section_val
+            existing.image_url      = item.get("image_url") or existing.image_url
+            if "hint" in item:
+                existing.hint = (item["hint"] or "").strip() or existing.hint
+            diff = (item.get("difficulty") or "").strip().lower()
+            if diff and diff in {d.value for d in Difficulty}:
+                existing.difficulty = Difficulty(diff)
+            if "is_active" in item:
+                existing.is_active = bool(item["is_active"])
+            existing.updated_by_admin_id = admin.id
+            existing.updated_at          = now
+            existing.version            += 1
         else:
+            diff = (item.get("difficulty") or "").strip().lower()
             q = Question(
-                exam=exam,
-                section=section,
-                world_key=world_key,
-                index=index,
-                question_text=item.get("question_text", ""),
-                option_a=item.get("option_a", ""),
-                option_b=item.get("option_b", ""),
-                option_c=item.get("option_c", ""),
-                option_d=item.get("option_d", ""),
+                exam=exam, world_key=world_key, index=idx,
+                section=section_val,
+                question_text=item["question_text"],
+                option_a=item["option_a"], option_b=item["option_b"],
+                option_c=item["option_c"], option_d=item["option_d"],
                 correct_answer=answer,
-                hint=item.get("hint") or None,
                 topic=topic,
+                hint=(item.get("hint") or "").strip() or None,
+                image_url=item.get("image_url"),
                 difficulty=Difficulty(diff) if diff and diff in {d.value for d in Difficulty} else None,
                 is_active=bool(item.get("is_active", False)),
                 created_by_admin_id=admin.id,
@@ -223,7 +248,7 @@ def import_questions():
     except IntegrityError as e:
         db.session.rollback()
         return bad_request("import_conflict",
-                           "Constraint violation during bulk insert.",
+                           "Duplicate or constraint violation during import.",
                            {"detail": str(e.orig)})
 
     return jsonify({
@@ -244,7 +269,7 @@ _CSV_COLUMNS = [
     "correct_answer", "hint", "topic", "difficulty",
 ]
 
-# All 11 columns are required (hint may be empty but column must exist)
+# All 11 columns are required
 _CSV_REQUIRED = set(_CSV_COLUMNS)
 
 
@@ -260,14 +285,24 @@ def _parse_and_validate_csv(file_storage) -> dict:
     """
     Shared CSV parser for bulk-validate and bulk-commit.
 
-    CSV columns (all required; hint may be empty):
+    CSV columns (all required):
       exam, section, question_text, option_a, option_b, option_c, option_d,
       correct_answer, hint, topic, difficulty
 
-    NOTE: world_key is NOT in the CSV — questions go into the bank first.
+    NOTE: world_key is NOT in the CSV — questions go into the bank first,
+    world/level assignment happens later via admin bulk-assign tools.
 
-    Returns dict with keys: valid, errors, duplicates, stats
-    OR {"error": "..."} on hard parse failure.
+    Returns:
+    {
+        "valid":      [ {column: value, "_row": N}, ... ],
+        "errors":     [ {"row": N, "field": str, "message": str}, ... ],
+        "duplicates": [ {"row": N, "question_text": str, "existing_id": int|None,
+                         "existing_qid": str|None, "duplicate_of_csv_row": N|None}, ... ],
+        "stats":      {"total_rows": N, "valid_count": N, "error_count": N,
+                       "duplicate_count": N},
+    }
+    OR on parse failure:
+    { "error": "..." }
     """
     try:
         raw = file_storage.read()
@@ -301,124 +336,133 @@ def _parse_and_validate_csv(file_storage) -> dict:
 
     if not rows:
         return {"error": "CSV has headers but no data rows."}
+    if len(rows) > 5000:
+        return {"error": f"CSV has {len(rows)} rows. Maximum is 5,000 per upload."}
+
+    # Build duplicate detection set from existing DB questions
+    existing_questions = db.session.query(
+        Question.id, Question.qid, Question.exam, Question.section, Question.question_text
+    ).filter(Question.deleted_at.is_(None)).all()
+
+    existing_set = {}   # "exam::section::norm_text" → {id, qid}
+    for eq in existing_questions:
+        key = f"{eq.exam}::{eq.section}::{_normalize_text(eq.question_text)}"
+        existing_set[key] = {"id": eq.id, "qid": str(eq.qid) if eq.qid else None}
+
+    csv_seen = {}   # norm_key → first row number (within-CSV dedup)
 
     valid_answers = {"a", "b", "c", "d"}
-    valid_diffs   = {"easy", "medium", "hard"}
-
+    valid_diffs   = {d.value for d in Difficulty}
     errors     = []
     duplicates = []
     valid_rows = []
-    csv_seen   = {}   # normalized_text → row_num
 
-    # Pre-load existing questions for duplicate detection
-    existing_set = {}
-    for q in Question.query.filter(Question.deleted_at.is_(None)).with_entities(
-        Question.id, Question.qid, Question.exam, Question.section, Question.question_text
-    ).all():
-        norm = _normalize_text(q.question_text)
-        key  = f"{q.exam}::{q.section}::{norm}"
-        existing_set[key] = {"id": q.id, "qid": str(q.qid) if q.qid else None}
+    for i, row in enumerate(rows):
+        row_num = i + 2   # 1-based header + 1-based data
+        row_errors = []
 
-    for row_num, row in enumerate(rows, start=2):
-        exam    = (row.get("exam")    or "").strip().lower()
-        section = (row.get("section") or "").strip().lower()
-        answer  = (row.get("correct_answer") or "").strip().lower()
-        diff    = (row.get("difficulty") or "").strip().lower()
-        topic   = (row.get("topic") or "").strip().lower()
+        # Required field presence check — hint is allowed to be empty
+        for field in _CSV_REQUIRED:
+            if field == "hint":
+                continue   # hint is optional — empty string → NULL
+            if not row.get(field):
+                row_errors.append({"row": row_num, "field": field,
+                                   "message": f"Required field '{field}' is empty."})
 
-        # Required fields (hint is optional)
-        for col in _CSV_COLUMNS:
-            if col == "hint":
-                continue
-            if not row.get(col, "").strip():
-                errors.append({"row": row_num, "field": col,
-                               "message": f"'{col}' is required and cannot be empty."})
-                break
-        else:
-            # Validate exam
-            if exam not in VALID_EXAMS:
-                errors.append({"row": row_num, "field": "exam",
-                               "message": f"Must be 'qudurat' or 'tahsili', got '{exam}'."})
-                continue
+        if row_errors:
+            errors.extend(row_errors)
+            continue
 
-            # Validate section
-            if section not in _ALL_SECTIONS:
-                errors.append({"row": row_num, "field": "section",
-                               "message": f"Must be: math, verbal, biology, chemistry, or physics."})
-                continue
+        exam    = row["exam"].strip().lower()
+        section = row["section"].strip().lower()
+        answer  = row["correct_answer"].strip().lower()
+        topic   = row["topic"].strip().lower()
+        diff    = row["difficulty"].strip().lower()
 
-            # Validate (exam, section) combination
-            if not _validate_exam_section(exam, section):
-                valid_sections = sorted(_VALID_EXAM_SECTIONS.get(exam, set()))
-                errors.append({"row": row_num, "field": "section",
-                               "message": f"Section '{section}' is not valid for exam '{exam}'. "
-                                          f"Valid sections for {exam}: {valid_sections}."})
-                continue
+        # Validate exam
+        if exam not in VALID_EXAMS:
+            errors.append({"row": row_num, "field": "exam",
+                           "message": f"Invalid exam '{row['exam']}'. Must be qudurat or tahsili."})
+            continue
 
-            # Validate correct_answer
-            if answer not in valid_answers:
-                errors.append({"row": row_num, "field": "correct_answer",
-                               "message": f"Must be a/b/c/d, got '{row['correct_answer']}'."})
-                continue
+        # Validate section
+        if section not in _ALL_SECTIONS:
+            errors.append({"row": row_num, "field": "section",
+                           "message": f"Invalid section '{row['section']}'. "
+                                      f"Must be: math, verbal, biology, chemistry, or physics."})
+            continue
 
-            # Validate difficulty
-            if diff not in valid_diffs:
-                errors.append({"row": row_num, "field": "difficulty",
-                               "message": f"Must be easy/medium/hard, got '{row['difficulty']}'."})
-                continue
+        # Validate (exam, section) combination
+        if not _validate_exam_section(exam, section):
+            valid_sections = sorted(_VALID_EXAM_SECTIONS.get(exam, set()))
+            errors.append({"row": row_num, "field": "section",
+                           "message": f"Section '{section}' is not valid for exam '{exam}'. "
+                                      f"Valid sections for {exam}: {valid_sections}."})
+            continue
 
-            # Validate topic against section (subject-specific enforcement)
-            valid_topic_keys = {k for k, _ in TOPIC_TAXONOMY.get(section, [])}
-            if topic not in valid_topic_keys:
-                errors.append({"row": row_num, "field": "topic",
-                               "message": f"Topic '{row['topic']}' is not valid for section "
-                                          f"'{section}'. "
-                                          f"Valid topics: {sorted(valid_topic_keys)}."})
-                continue
+        # Validate correct_answer
+        if answer not in valid_answers:
+            errors.append({"row": row_num, "field": "correct_answer",
+                           "message": f"Must be a/b/c/d, got '{row['correct_answer']}'."})
+            continue
 
-            # Duplicate check — against existing DB
-            norm_text = _normalize_text(row["question_text"])
-            dup_key   = f"{exam}::{section}::{norm_text}"
+        # Validate difficulty
+        if diff not in valid_diffs:
+            errors.append({"row": row_num, "field": "difficulty",
+                           "message": f"Must be easy/medium/hard, got '{row['difficulty']}'."})
+            continue
 
-            if dup_key in existing_set:
-                match = existing_set[dup_key]
-                duplicates.append({
-                    "row":           row_num,
-                    "question_text": row["question_text"][:120],
-                    "existing_id":   match["id"],
-                    "existing_qid":  match["qid"],
-                    "duplicate_of_csv_row": None,
-                })
-                continue
+        # Validate topic against section (subject-specific enforcement)
+        valid_topic_keys = {k for k, _ in TOPIC_TAXONOMY.get(section, [])}
+        if topic not in valid_topic_keys:
+            errors.append({"row": row_num, "field": "topic",
+                           "message": f"Topic '{row['topic']}' is not valid for section "
+                                      f"'{section}'. "
+                                      f"Valid topics: {sorted(valid_topic_keys)}."})
+            continue
 
-            # Duplicate check — within this CSV
-            if dup_key in csv_seen:
-                duplicates.append({
-                    "row":                  row_num,
-                    "question_text":        row["question_text"][:120],
-                    "existing_id":          None,
-                    "existing_qid":         None,
-                    "duplicate_of_csv_row": csv_seen[dup_key],
-                })
-                continue
+        # Duplicate check — against existing DB
+        norm_text = _normalize_text(row["question_text"])
+        dup_key   = f"{exam}::{section}::{norm_text}"
 
-            csv_seen[dup_key] = row_num
-
-            valid_rows.append({
-                "exam":           exam,
-                "section":        section,
-                "question_text":  row["question_text"],
-                "option_a":       row["option_a"],
-                "option_b":       row["option_b"],
-                "option_c":       row["option_c"],
-                "option_d":       row["option_d"],
-                "correct_answer": answer,
-                "hint":           row.get("hint") or None,   # empty string → None
-                "topic":          topic,
-                "difficulty":     diff,
-                "_row":           row_num,
+        if dup_key in existing_set:
+            match = existing_set[dup_key]
+            duplicates.append({
+                "row":           row_num,
+                "question_text": row["question_text"][:120],
+                "existing_id":   match["id"],
+                "existing_qid":  match["qid"],
+                "duplicate_of_csv_row": None,
             })
             continue
+
+        # Duplicate check — within this CSV
+        if dup_key in csv_seen:
+            duplicates.append({
+                "row":                  row_num,
+                "question_text":        row["question_text"][:120],
+                "existing_id":          None,
+                "existing_qid":         None,
+                "duplicate_of_csv_row": csv_seen[dup_key],
+            })
+            continue
+
+        csv_seen[dup_key] = row_num
+
+        valid_rows.append({
+            "exam":          exam,
+            "section":       section,
+            "question_text": row["question_text"],
+            "option_a":      row["option_a"],
+            "option_b":      row["option_b"],
+            "option_c":      row["option_c"],
+            "option_d":      row["option_d"],
+            "correct_answer": answer,
+            "hint":          row.get("hint") or None,   # empty string → None
+            "topic":         topic,
+            "difficulty":    diff,
+            "_row":          row_num,
+        })
 
     return {
         "valid":      valid_rows,
@@ -472,7 +516,17 @@ def bulk_template():
 def bulk_validate():
     """
     Dry-run validation of a CSV file. Zero DB writes.
+
     Accepts: multipart/form-data with 'file' field (CSV).
+
+    Response:
+    {
+        "stats":      { "total_rows", "valid_count", "error_count", "duplicate_count" },
+        "errors":     [ { "row", "field", "message" }, ... ],
+        "duplicates": [ { "row", "question_text", "existing_id", "existing_qid",
+                          "duplicate_of_csv_row" }, ... ],
+        "preview":    [ first 20 valid rows ],
+    }
     """
     if "file" not in request.files:
         return bad_request("no_file", "No file uploaded. Send a CSV as multipart 'file' field.")
@@ -500,9 +554,12 @@ def bulk_validate():
 def bulk_commit():
     """
     Parse, validate, and insert questions from CSV into the question bank.
+
     Questions are inserted WITHOUT world_key or index (unassigned).
+    World/level assignment is done later via bulk-assign.
     All questions inserted as is_active=false.
-    Optional query param: ?force_duplicates=true
+
+    Optional query param: ?force_duplicates=true to also insert flagged duplicates.
     """
     admin = _get_current_user()
 
@@ -513,33 +570,60 @@ def bulk_commit():
     if not f.filename or not f.filename.lower().endswith(".csv"):
         return bad_request("invalid_format", "Only .csv files are accepted.")
 
-    force_dupes = request.args.get("force_duplicates", "false").lower() == "true"
+    force_dupes = request.args.get("force_duplicates", "").lower() == "true"
 
     result = _parse_and_validate_csv(f)
     if "error" in result:
         return bad_request("csv_parse_error", result["error"])
 
-    if result["stats"]["error_count"] > 0:
-        return bad_request("validation_errors",
-                           f"{result['stats']['error_count']} row(s) failed validation. "
-                           "Fix errors and re-upload.",
-                           {
-                               "stats":  result["stats"],
-                               "errors": result["errors"][:50],
-                           })
+    rows_to_insert = list(result["valid"])
 
-    rows_to_insert = result["valid"]
-    if not force_dupes:
-        # duplicates are excluded from valid_rows already by the parser
-        pass
+    # If force_duplicates, re-read the file and include duplicate rows
+    if force_dupes and result["duplicates"]:
+        f.seek(0)
+        try:
+            raw = f.read()
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1")
+        except Exception:
+            return bad_request("csv_parse_error", "Could not re-read CSV file.")
+
+        dup_row_nums = {d["row"] for d in result["duplicates"]}
+        reader = csv.DictReader(io.StringIO(text))
+        clean_headers = [h.strip().lower().replace(" ", "_") for h in reader.fieldnames]
+
+        for i, raw_row in enumerate(reader):
+            row_num = i + 2
+            if row_num not in dup_row_nums:
+                continue
+            row = {}
+            for orig_key, clean_key in zip(reader.fieldnames, clean_headers):
+                row[clean_key] = (raw_row.get(orig_key) or "").strip()
+
+            rows_to_insert.append({
+                "exam":          row["exam"].strip().lower(),
+                "section":       row["section"].strip().lower(),
+                "question_text": row["question_text"],
+                "option_a":      row["option_a"],
+                "option_b":      row["option_b"],
+                "option_c":      row["option_c"],
+                "option_d":      row["option_d"],
+                "correct_answer": row["correct_answer"].strip().lower(),
+                "hint":          row.get("hint") or None,
+                "topic":         row["topic"].strip().lower(),
+                "difficulty":    row["difficulty"].strip().lower(),
+                "_row":          row_num,
+            })
 
     if not rows_to_insert:
         return jsonify({
             "inserted":   0,
             "skipped":    result["stats"]["duplicate_count"],
-            "errors":     [],
+            "errors":     result["errors"],
             "duplicates": result["duplicates"],
-            "message":    "No new questions to insert (all rows were duplicates or invalid).",
+            "message":    "No valid rows to insert.",
         }), 200
 
     now      = datetime.now(timezone.utc)
@@ -604,7 +688,8 @@ def bulk_delete_questions():
         return bad_request("validation_error",
                            "question_ids must be a non-empty array of integer IDs.")
     if len(ids) > 500:
-        return bad_request("validation_error", "Maximum 500 IDs per bulk-delete call.")
+        return bad_request("validation_error",
+                           "Maximum 500 IDs per bulk-delete call.")
     if not data.get("confirm"):
         return bad_request("confirmation_required",
                            "Set confirm: true to proceed with bulk deletion.")
@@ -621,11 +706,11 @@ def bulk_delete_questions():
         Question.deleted_at.is_(None),
     ).update(
         {
-            "deleted_at":          now,
-            "is_active":           False,
-            "deleted_by_admin_id": admin.id,
-            "updated_by_admin_id": admin.id,
-            "updated_at":          now,
+            "deleted_at":           now,
+            "is_active":            False,
+            "deleted_by_admin_id":  admin.id,
+            "updated_by_admin_id":  admin.id,
+            "updated_at":           now,
         },
         synchronize_session=False,
     )
@@ -668,9 +753,9 @@ def bulk_assign_questions():
                            "'assign' must be a non-empty object with at least one field "
                            "(topic, difficulty, world_key).")
 
-    topic_val = assign.get("topic")
-    diff_val  = assign.get("difficulty")
-    wk_val    = assign.get("world_key")
+    topic_val  = assign.get("topic")
+    diff_val   = assign.get("difficulty")
+    wk_val     = assign.get("world_key")
 
     if diff_val is not None:
         diff_val = str(diff_val).strip().lower()
@@ -696,16 +781,16 @@ def bulk_assign_questions():
     if not questions:
         return bad_request("not_found", "No active questions found for the provided IDs.")
 
-    now          = datetime.now(timezone.utc)
-    skipped      = []
+    now     = datetime.now(timezone.utc)
+    skipped = []
     affected_ids = []
 
     world_index_counter = {}
     if wk_val:
         world_section = _wk_to_section(wk_val)
         for q in questions:
-            exam_key        = q.exam
-            wk_counter_key  = (exam_key, wk_val)
+            exam_key = q.exam
+            wk_counter_key = (exam_key, wk_val)
             if wk_counter_key not in world_index_counter:
                 current_max = db.session.query(func.max(Question.index)).filter(
                     Question.exam      == exam_key,
@@ -786,7 +871,7 @@ def ai_review_questions():
     }
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from ..utils.llm_provider import get_llm_provider  # noqa: PLC0415
+    from ..utils.llm_provider import get_llm_provider, QuestionReviewResult  # noqa: PLC0415
 
     data      = request.get_json(silent=True) or {}
     ids       = data.get("question_ids")
@@ -828,103 +913,110 @@ def ai_review_questions():
             "skipped_approved": skipped_approved,
             "results":          [],
             "message":          "All selected questions are already approved. "
-                                "Pass overwrite=true to re-review.",
+                                "Pass overwrite=true to re-review them.",
         }), 200
 
-    try:
-        provider = get_llm_provider()
-    except RuntimeError as exc:
-        return error_response("not_implemented", str(exc), 501)
-
-    # K1: pre-compute valid topic keys per section so threads can pass them
-    # to the LLM. Done once here, outside the thread pool.
-    section_topics: dict = {
-        sec: [k for k, _ in topics]
-        for sec, topics in TOPIC_TAXONOMY.items()
-    }
-
-    def _call_one(q):
-        return provider.review_question(
-            question_id=q.id,
-            exam=q.exam,
-            section=q.section or "",
-            question_text=q.question_text,
-            option_a=q.option_a,
-            option_b=q.option_b,
-            option_c=q.option_c,
-            option_d=q.option_d,
-            valid_topics=section_topics.get(q.section or "", []),  # K1
-        )
-
-    # Mark all as ai_pending before firing threads
+    # Mark as ai_pending
     now = datetime.now(timezone.utc)
     for q in to_review:
         q.review_status = ReviewStatus.AI_PENDING
         q.updated_at    = now
     db.session.commit()
 
-    processed    = 0
-    failed       = 0
-    results_out  = []
+    # Instantiate provider — 501 if misconfigured
+    try:
+        provider = get_llm_provider()
+    except RuntimeError as exc:
+        for q in to_review:
+            q.review_status = ReviewStatus.UNREVIEWED
+            q.updated_at    = now
+        db.session.commit()
+        return error_response("provider_error", str(exc), 501)
 
+    # K1: pre-compute valid topic keys per section BEFORE spawning threads
+    # so each thread can pass the correct list to the LLM.
+    section_topics: dict = {
+        sec: [k for k, _ in topics]
+        for sec, topics in TOPIC_TAXONOMY.items()
+    }
+
+    # Build call args (all DB reads done before thread pool)
+    # Tuple order must match review_question() signature exactly.
+    call_args = [
+        (
+            q.id, q.exam, q.section or "", q.question_text,
+            q.option_a, q.option_b, q.option_c, q.option_d,
+            section_topics.get(q.section or "", []),   # K1: valid_topics
+        )
+        for q in to_review
+    ]
+
+    # Parallel LLM calls — I/O-bound, safe with threads
+    results_map: dict = {}
     with ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_q = {executor.submit(_call_one, q): q for q in to_review}
-        for future in as_completed(future_to_q):
-            q      = future_to_q[future]
-            q_id   = q.id
-            now    = datetime.now(timezone.utc)
+        futures = {
+            executor.submit(provider.review_question, *args): args[0]
+            for args in call_args
+        }
+        for future in as_completed(futures):
+            q_id = futures[future]
             try:
-                result = future.result()
+                results_map[q_id] = future.result()
             except Exception as exc:
-                q.review_status = ReviewStatus.UNREVIEWED
-                q.updated_at    = now
-                failed += 1
-                results_out.append({
-                    "question_id":     q_id,
-                    "status":          "failed",
-                    "predicted_answer": None,
-                    "confidence":      None,
-                    "review_note":     None,
-                    "proposed_hint":   None,
-                    "predicted_topic": None,
-                    "error":           str(exc),
-                })
-                continue
+                results_map[q_id] = QuestionReviewResult(
+                    question_id=q_id,
+                    predicted_answer=None, confidence=None,
+                    proposed_hint=None, review_note=None,
+                    predicted_topic=None,
+                    error=str(exc),
+                )
 
-            if result.error:
-                q.review_status = ReviewStatus.UNREVIEWED
-                q.updated_at    = now
-                failed += 1
-                results_out.append({
-                    "question_id":     q_id,
-                    "status":          "failed",
-                    "predicted_answer": None,
-                    "confidence":      None,
-                    "review_note":     None,
-                    "proposed_hint":   None,
-                    "predicted_topic": None,
-                    "error":           result.error,
-                })
-            else:
-                q.llm_predicted_answer = result.predicted_answer
-                q.llm_confidence       = result.confidence
-                q.llm_review_note      = result.review_note
-                q.llm_proposed_hint    = result.proposed_hint
-                q.llm_predicted_topic  = result.predicted_topic  # K1
-                q.llm_reviewed_at      = now
-                q.review_status        = ReviewStatus.AI_REVIEWED
-                q.updated_at           = now
-                processed += 1
-                results_out.append({
-                    "question_id":     q_id,
-                    "status":          "reviewed",
-                    "predicted_answer": result.predicted_answer,
-                    "confidence":      result.confidence,
-                    "review_note":     result.review_note,    # internal — admin panel only
-                    "proposed_hint":   result.proposed_hint,
-                    "predicted_topic": result.predicted_topic,  # K1
-                    "error":           None,
-                })
+    # Write results back to DB (single transaction)
+    now         = datetime.now(timezone.utc)
+    q_map       = {q.id: q for q in to_review}
+    processed   = 0
+    failed      = 0
+    results_out = []
+
+    for q_id, result in results_map.items():
+        q = q_map.get(q_id)
+        if not q:
+            continue
+
+        if result.error:
+            q.review_status = ReviewStatus.UNREVIEWED
+            q.updated_at    = now
+            failed += 1
+            results_out.append({
+                "question_id":      q_id,
+                "status":           "failed",
+                "predicted_answer": None,
+                "confidence":       None,
+                "review_note":      None,
+                "proposed_hint":    None,
+                "predicted_topic":  None,
+                "error":            result.error,
+            })
+        else:
+            q.llm_predicted_answer = result.predicted_answer
+            q.llm_confidence       = result.confidence
+            q.llm_review_note      = result.review_note
+            q.llm_proposed_hint    = result.proposed_hint
+            q.llm_predicted_topic  = result.predicted_topic  # K1
+            q.llm_reviewed_at      = now
+            q.review_status        = ReviewStatus.AI_REVIEWED
+            q.updated_at           = now
+            processed += 1
+            results_out.append({
+                "question_id":      q_id,
+                "status":           "reviewed",
+                "predicted_answer": result.predicted_answer,
+                "confidence":       result.confidence,
+                "review_note":      result.review_note,    # internal — admin panel only
+                "proposed_hint":    result.proposed_hint,
+                "predicted_topic":  result.predicted_topic,  # K1
+                "error":            None,
+            })
 
     db.session.commit()
 
@@ -993,21 +1085,19 @@ def approve_ai_review(question_id: int):
                 "Either supply correct_answer in the body or ensure the question "
                 "has been AI-reviewed first.",
             )
-        q.correct_answer            = final_answer
-        q.last_reviewed_at          = now
-        q.last_reviewed_by_admin_id = admin.id
+        q.correct_answer              = final_answer
+        q.last_reviewed_at            = now
+        q.last_reviewed_by_admin_id   = admin.id
 
     if accept_hint and q.llm_proposed_hint:
         q.hint = q.llm_proposed_hint
 
     # K1 — topic acceptance
-    # accept_topic defaults to True. If admin supplies an explicit topic override
-    # it takes precedence over the AI prediction.
     accept_topic = bool(data.get("accept_topic", True))
     if accept_topic:
         topic_to_set = (data.get("topic") or "").strip().lower() or q.llm_predicted_topic
         if topic_to_set:
-            # Hard-validate against section's controlled vocab — same rules as CSV import.
+            # Hard-validate against section's controlled vocab
             section_key = q.section or (_wk_to_section(q.world_key) if q.world_key else None)
             if section_key:
                 valid_keys = {k for k, _ in TOPIC_TAXONOMY.get(section_key, [])}
@@ -1036,7 +1126,7 @@ def approve_ai_review(question_id: int):
 def reject_ai_review(question_id: int):
     """
     Admin rejects AI review suggestions.
-    Sets review_status='rejected'. Does NOT change correct_answer, hint, or topic.
+    Sets review_status='rejected'. Does NOT change correct_answer or hint.
     Body: { "version": int }
     """
     admin = _get_current_user()
@@ -1250,13 +1340,13 @@ def topic_coverage():
         })
 
     by_section_out = {}
-    for sec, sec_data in by_section.items():
+    for sec, data in by_section.items():
         by_section_out[sec] = {
-            "total":      sec_data["total"],
-            "tagged":     sec_data["tagged"],
-            "untagged":   sec_data["untagged"],
-            "pct_tagged": sec_data["pct_tagged"],
-            "topics":     sorted(sec_data["topics"].values(), key=lambda x: x["count"], reverse=True),
+            "total":      data["total"],
+            "tagged":     data["tagged"],
+            "untagged":   data["untagged"],
+            "pct_tagged": data["pct_tagged"],
+            "topics":     sorted(data["topics"].values(), key=lambda x: x["count"], reverse=True),
         }
 
     pct_tagged = round(tagged / total * 100, 1) if total else 0.0
@@ -1280,59 +1370,79 @@ def topic_coverage():
 @admin_bp.route("/questions", methods=["GET"])
 @roles_required(*_ADMIN_ROLE)
 def list_questions():
-    """List questions with filters and pagination."""
-    page       = max(1, int(request.args.get("page",     1) or 1))
-    per_page   = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
-    exam       = request.args.get("exam",       "").strip().lower() or None
-    section    = request.args.get("section",    "").strip().lower() or None
-    world_key  = request.args.get("world_key",  "").strip().lower() or None
-    topic      = request.args.get("topic",      "").strip().lower() or None
-    difficulty = request.args.get("difficulty", "").strip().lower() or None
-    is_active  = request.args.get("is_active",  "").strip().lower() or None
-    unassigned = request.args.get("unassigned", "").strip().lower() or None
-    reviewed   = request.args.get("reviewed",   "").strip().lower() or None
+    """
+    List questions with filters and pagination.
+
+    Query params:
+      exam, section, world_key, is_active, difficulty, topic, reviewed,
+      search, unassigned, qid, review_status,
+      page (default 1), per_page (default 50, max 200)
+    """
+    exam          = request.args.get("exam",          "").strip().lower() or None
+    section       = request.args.get("section",       "").strip().lower() or None
+    world_key     = request.args.get("world_key",     "").strip().lower() or None
+    is_active     = request.args.get("is_active")
+    difficulty    = request.args.get("difficulty",    "").strip().lower() or None
+    topic         = request.args.get("topic",         "").strip().lower() or None
+    reviewed      = request.args.get("reviewed",      "").strip().lower() or None
     review_status = request.args.get("review_status", "").strip().lower() or None
-    search     = request.args.get("search",     "").strip() or None
-    qid        = request.args.get("qid",        "").strip() or None
+    search        = request.args.get("search",        "").strip() or None
+    unassigned    = request.args.get("unassigned",    "").strip().lower() or None
+    qid           = request.args.get("qid",           "").strip() or None
+    page          = max(1, int(request.args.get("page",     1) or 1))
+    per_page      = min(200, max(1, int(request.args.get("per_page", 50) or 50)))
 
     q = Question.query.filter(Question.deleted_at.is_(None))
 
     if qid:
-        q = q.filter(Question.qid.cast(db.String).ilike(f"%{qid}%"))
+        q = q.filter(Question.qid == qid)
+
     if exam:
         if exam not in VALID_EXAMS:
             return bad_request("invalid_exam", f"Invalid exam: {exam!r}.")
         q = q.filter(Question.exam == exam)
+
     if section:
+        if section not in _ALL_SECTIONS:
+            return bad_request("invalid_section", f"Invalid section: {section!r}.")
         q = q.filter(Question.section == section)
+
     if world_key:
         if world_key not in VALID_WORLD_KEYS:
             return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
         q = q.filter(Question.world_key == world_key)
-    if topic:
-        q = q.filter(Question.topic == topic)
-    if difficulty:
-        try:
-            q = q.filter(Question.difficulty == Difficulty(difficulty))
-        except ValueError:
-            return bad_request("invalid_difficulty", f"Invalid difficulty: {difficulty!r}.")
-    if is_active == "true":
-        q = q.filter(Question.is_active == True)
-    elif is_active == "false":
-        q = q.filter(Question.is_active == False)
+
     if unassigned == "true":
         q = q.filter(Question.world_key.is_(None))
     elif unassigned == "false":
         q = q.filter(Question.world_key.isnot(None))
+
+    if is_active is not None:
+        q = q.filter(Question.is_active == (is_active.lower() == "true"))
+
+    if difficulty:
+        if difficulty in {d.value for d in Difficulty}:
+            q = q.filter(Question.difficulty == Difficulty(difficulty))
+
+    if topic:
+        if topic == "_untagged":
+            q = q.filter((Question.topic.is_(None)) | (Question.topic == ""))
+        elif topic in ALL_TOPIC_KEYS:
+            q = q.filter(Question.topic == topic)
+        else:
+            return bad_request("invalid_topic", f"Invalid topic filter: {topic!r}.")
+
     if reviewed:
         if reviewed == "true":
             q = q.filter(Question.last_reviewed_at.isnot(None))
         elif reviewed == "false":
             q = q.filter(Question.last_reviewed_at.is_(None))
+
     if review_status:
         valid_statuses = {s.value for s in ReviewStatus}
         if review_status in valid_statuses:
             q = q.filter(Question.review_status == ReviewStatus(review_status))
+
     if search:
         q = q.filter(Question.question_text.ilike(f"%{search}%"))
 
@@ -1422,9 +1532,9 @@ def update_question(question_id: int):
         ans = (data["correct_answer"] or "").strip().lower()
         if ans not in valid_answers:
             return bad_request("validation_error", "correct_answer must be one of a/b/c/d.")
-        q.correct_answer            = ans
-        q.last_reviewed_at          = datetime.now(timezone.utc)
-        q.last_reviewed_by_admin_id = admin.id
+        q.correct_answer              = ans
+        q.last_reviewed_at            = datetime.now(timezone.utc)
+        q.last_reviewed_by_admin_id   = admin.id
 
     if "difficulty" in data:
         diff = data["difficulty"]
@@ -1507,8 +1617,8 @@ def mark_question_reviewed(question_id: int):
         return bad_request("version_required", "version is required.")
     if int(submitted_version) != q.version:
         return conflict(
-            f"Version mismatch (submitted {submitted_version}, current {q.version}). "
-            "Reload and retry.",
+            f"Question was modified by another admin (expected version {submitted_version}, "
+            f"current version {q.version}). Reload and retry.",
             {"current_record": q.to_dict(include_answer=True)},
         )
 
