@@ -1,260 +1,186 @@
 /**
- * Admin API client.
- *
- * All requests attach the JWT from localStorage as a Bearer token.
- * All JSON responses that are not 2xx throw an error with the shape:
- *   { error: { code, message, details }, status }
- *
- * Exception: bulkTemplate() returns the raw Response so the caller
- * can stream it as a blob download.
+ * Admin API client — all /api/admin/* calls.
+ * Only used by AdminPanel. Requires drfahm_admin JWT.
  */
 
-const API_BASE = process.env.REACT_APP_API_URL || '';
+const BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
 function getToken() {
-  return localStorage.getItem('token');
+  return localStorage.getItem('access_token');
 }
 
-function authHeaders(extra = {}) {
+async function adminRequest(path, options = {}) {
+  const token   = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+
+  // For CSV downloads — return raw response
+  if (options._raw) return res;
+
+  let body;
+  try { body = await res.json(); } catch { body = {}; }
+
+  if (!res.ok) throw { status: res.status, ...body };
+  return body;
+}
+
+/**
+ * Multipart form upload — used for CSV bulk operations.
+ * Does NOT set Content-Type (browser sets it with boundary).
+ */
+async function adminUpload(path, formData, queryParams = '') {
   const token = getToken();
-  return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...extra,
-  };
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const url = `${BASE}${path}${queryParams ? '?' + queryParams : ''}`;
+  const res = await fetch(url, { method: 'POST', headers, body: formData });
+
+  let body;
+  try { body = await res.json(); } catch { body = {}; }
+
+  if (!res.ok) throw { status: res.status, ...body };
+  return body;
 }
 
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: authHeaders(options.headers || {}),
-  });
+// ── Stats ────────────────────────────────────────────────────────────────────
+export const getStats = () => adminRequest('/api/admin/stats');
 
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    data = {};
-  }
+// ── Topics ───────────────────────────────────────────────────────────────────
+export const getTopics = (section) =>
+  adminRequest(`/api/admin/topics${section ? '?section=' + section : ''}`);
 
-  if (!res.ok) {
-    const err = new Error(data?.error?.message || `HTTP ${res.status}`);
-    err.error  = data?.error  || { code: 'unknown', message: `HTTP ${res.status}` };
-    err.status = res.status;
-    throw err;
-  }
+export const topicCoverage = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString();
+  return adminRequest(`/api/admin/questions/topic-coverage${qs ? '?' + qs : ''}`);
+};
 
-  return data;
-}
+// ── Questions ────────────────────────────────────────────────────────────────
+export const listQuestions = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString();
+  return adminRequest(`/api/admin/questions${qs ? '?' + qs : ''}`);
+};
 
-function jsonBody(body) {
-  return {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  };
-}
+export const getQuestion     = (id)       => adminRequest(`/api/admin/questions/${id}`);
+export const updateQuestion  = (id, data) => adminRequest(`/api/admin/questions/${id}`, { method: 'PUT',    body: JSON.stringify(data) });
+export const deleteQuestion  = (id)       => adminRequest(`/api/admin/questions/${id}`, { method: 'DELETE' });
+export const toggleQuestion  = (id, is_active) => adminRequest(`/api/admin/questions/${id}/activate`, { method: 'PATCH', body: JSON.stringify({ is_active }) });
+export const importQuestions = (arr)      => adminRequest('/api/admin/questions/import', { method: 'POST', body: JSON.stringify(arr) });
+export const nextIndex       = (exam, world_key) => adminRequest(`/api/admin/questions/next-index?exam=${exam}&world_key=${world_key}`);
+export const bulkActivate    = (data)     => adminRequest('/api/admin/questions/bulk-activate', { method: 'POST', body: JSON.stringify(data) });
+export const bulkTopic       = (data)     => adminRequest('/api/admin/questions/bulk-topic',    { method: 'POST', body: JSON.stringify(data) });
+export const reviewProgress  = (exam)     => adminRequest(`/api/admin/questions/review-progress${exam ? '?exam=' + exam : ''}`);
+export const markReviewed    = (id, version) => adminRequest(`/api/admin/questions/${id}/mark-reviewed`, { method: 'PATCH', body: JSON.stringify({ version }) });
 
-function jsonPatch(body) {
-  return {
-    method:  'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  };
-}
-
-function jsonPut(body) {
-  return {
-    method:  'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  };
-}
-
-function toQuery(params) {
-  const q = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-  return q ? `?${q}` : '';
-}
-
-
-// ── Review progress + topic coverage ─────────────────────────────────────────
-
-export const reviewProgress = (exam = '') =>
-  apiFetch(`/api/admin/questions/review-progress${exam ? `?exam=${exam}` : ''}`);
-
-export const topicCoverage = ({ exam = '', section = '' } = {}) =>
-  apiFetch(`/api/admin/questions/topic-coverage${toQuery({ exam, section })}`);
-
-
-// ── Topics taxonomy ───────────────────────────────────────────────────────────
-
-export const getTopics = (section = '') =>
-  apiFetch(`/api/admin/topics${section ? `?section=${section}` : ''}`);
-
-
-// ── Question list / CRUD ──────────────────────────────────────────────────────
-
-export const listQuestions = (params = {}) =>
-  apiFetch(`/api/admin/questions${toQuery(params)}`);
-
-export const getQuestion = (id) =>
-  apiFetch(`/api/admin/questions/${id}`);
-
-/**
- * Full update with optimistic lock.
- * Pass the entire changed object plus { version }.
- */
-export const updateQuestion = (id, data) =>
-  apiFetch(`/api/admin/questions/${id}`, jsonPut(data));
-
-/**
- * Single-field inline update (e.g. correct_answer, topic, difficulty).
- * Sends a PUT with only that one field plus the version lock.
- */
 export const quickUpdate = (id, field, value, version) =>
-  apiFetch(`/api/admin/questions/${id}`, jsonPut({ [field]: value, version }));
-
-export const deleteQuestion = (id) =>
-  apiFetch(`/api/admin/questions/${id}`, { method: 'DELETE' });
-
-export const toggleQuestion = (id, isActive) =>
-  apiFetch(`/api/admin/questions/${id}/activate`, jsonPatch({ is_active: isActive }));
-
-export const markReviewed = (id, version) =>
-  apiFetch(`/api/admin/questions/${id}/mark-reviewed`, jsonPatch({ version }));
-
-export const nextIndex = (exam, worldKey) =>
-  apiFetch(`/api/admin/questions/next-index?exam=${exam}&world_key=${worldKey}`);
-
-
-// ── Bulk question operations ──────────────────────────────────────────────────
-
-export const bulkActivate = ({ is_active, exam, world_key, ids } = {}) =>
-  apiFetch('/api/admin/questions/bulk-activate', jsonBody({ is_active, exam, world_key, ids }));
-
-export const bulkTopic = ({ topic, exam, world_key, ids } = {}) =>
-  apiFetch('/api/admin/questions/bulk-topic', jsonBody({ topic, exam, world_key, ids }));
-
-export const bulkDelete = (ids) =>
-  apiFetch('/api/admin/questions/bulk-delete', jsonBody({ question_ids: ids, confirm: true }));
-
-export const bulkAssign = (ids, assign) =>
-  apiFetch('/api/admin/questions/bulk-assign', jsonBody({ question_ids: ids, assign }));
-
-export const importQuestions = (payload) =>
-  apiFetch('/api/admin/questions/import', jsonBody(payload));
-
-
-// ── AI Review  (Chunk J + K1) ─────────────────────────────────────────────────
-
-export const aiReview = (questionIds, overwrite = false) =>
-  apiFetch('/api/admin/questions/ai-review', jsonBody({ question_ids: questionIds, overwrite }));
-
-export const approveReview = (id, body) =>
-  apiFetch(`/api/admin/questions/${id}/approve-review`, jsonPatch(body));
-
-export const rejectReview = (id, version) =>
-  apiFetch(`/api/admin/questions/${id}/reject-review`, jsonPatch({ version }));
-
-
-// ── Bulk CSV upload ───────────────────────────────────────────────────────────
-
-/**
- * Returns raw Response (not parsed JSON) so the caller can blob-download it.
- */
-export const bulkTemplate = () =>
-  fetch(`${API_BASE}/api/admin/questions/bulk-template`, {
-    headers: authHeaders(),
+  adminRequest(`/api/admin/questions/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ [field]: value, version }),
   });
+
+// ── Bulk Delete ──────────────────────────────────────────────────────────────
+export const bulkDelete = (questionIds) =>
+  adminRequest('/api/admin/questions/bulk-delete', {
+    method: 'POST',
+    body: JSON.stringify({ question_ids: questionIds, confirm: true }),
+  });
+
+// ── Bulk Assign ──────────────────────────────────────────────────────────────
+export const bulkAssign = (questionIds, assign) =>
+  adminRequest('/api/admin/questions/bulk-assign', {
+    method: 'POST',
+    body: JSON.stringify({ question_ids: questionIds, assign }),
+  });
+
+// ── Bulk CSV Upload ──────────────────────────────────────────────────────────
+export const bulkTemplate = () =>
+  adminRequest('/api/admin/questions/bulk-template', { _raw: true });
 
 export const bulkValidate = (file) => {
-  const form = new FormData();
-  form.append('file', file);
-  return apiFetch('/api/admin/questions/bulk-validate', { method: 'POST', body: form });
+  const fd = new FormData();
+  fd.append('file', file);
+  return adminUpload('/api/admin/questions/bulk-validate', fd);
 };
 
 export const bulkCommit = (file, forceDuplicates = false) => {
-  const form = new FormData();
-  form.append('file', file);
-  const qs = forceDuplicates ? '?force_duplicates=true' : '';
-  return apiFetch(`/api/admin/questions/bulk-commit${qs}`, { method: 'POST', body: form });
+  const fd = new FormData();
+  fd.append('file', file);
+  const qs = forceDuplicates ? 'force_duplicates=true' : '';
+  return adminUpload('/api/admin/questions/bulk-commit', fd, qs);
 };
 
+// ── Orgs ─────────────────────────────────────────────────────────────────────
+export const listOrgs            = (params = {}) => adminRequest('/api/admin/orgs?' + new URLSearchParams(params));
+export const createOrg           = (data)        => adminRequest('/api/admin/orgs', { method: 'POST', body: JSON.stringify(data) });
+export const getOrg              = (id)          => adminRequest(`/api/admin/orgs/${id}`);
+export const createOrgLeader     = (id, data)    => adminRequest(`/api/admin/orgs/${id}/leader`, { method: 'POST', body: JSON.stringify(data) });
+export const generateStudents    = (id, data)    => adminRequest(`/api/admin/orgs/${id}/students/generate`, { method: 'POST', body: JSON.stringify(data) });
+export const exportStudentsCsv   = (id)          => adminRequest(`/api/admin/orgs/${id}/students/export`, { _raw: true });
+export const grantOrgEntitlement = (id, data)    => adminRequest(`/api/admin/orgs/${id}/entitlement`, { method: 'POST', body: JSON.stringify(data) });
 
-// ── World Allocation Tools  (Chunk K2) ────────────────────────────────────────
+// ── Users ────────────────────────────────────────────────────────────────────
+export const listUsers      = (params = {}) => adminRequest('/api/admin/users?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))));
+export const createUser     = (data)        => adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
+export const activateUser   = (id)          => adminRequest(`/api/admin/users/${id}/activate`,       { method: 'PATCH' });
+export const deactivateUser = (id)          => adminRequest(`/api/admin/users/${id}/deactivate`,     { method: 'PATCH' });
+export const resetPassword  = (id, data)    => adminRequest(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify(data) });
+
+// ── AI Review  (Chunk J + K1) ────────────────────────────────────────────────
+export const aiReview = (questionIds, overwrite = false) =>
+  adminRequest('/api/admin/questions/ai-review', {
+    method: 'POST',
+    body: JSON.stringify({ question_ids: questionIds, overwrite }),
+  });
+
+export const approveReview = (id, body) =>
+  adminRequest(`/api/admin/questions/${id}/approve-review`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+
+export const rejectReview = (id, version) =>
+  adminRequest(`/api/admin/questions/${id}/reject-review`, {
+    method: 'PATCH',
+    body: JSON.stringify({ version }),
+  });
+
+// ── World Allocation Tools  (Chunk K2) ───────────────────────────────────────
 
 /**
  * GET /api/admin/worlds/health
- * Returns per-world fill status, topic/difficulty breakdown, student progress count.
- * Optional exam filter (qudurat | tahsili); omit to get all exams.
+ * Per-world fill status, topic/difficulty breakdown, student progress count.
+ * @param {string} exam  optional — 'qudurat' | 'tahsili'
  */
 export const getWorldHealth = (exam = '') =>
-  apiFetch(`/api/admin/worlds/health${exam ? `?exam=${exam}` : ''}`);
+  adminRequest(`/api/admin/worlds/health${exam ? '?exam=' + exam : ''}`);
 
 /**
  * POST /api/admin/worlds/:worldKey/smart-fill
- * Pull unassigned questions from the bank into the world using criteria filters.
- *
- * body: {
- *   exam           string   required
- *   topics         [str]    optional
- *   difficulty     string   optional  easy | medium | hard
- *   min_confidence float    optional  0.0 – 1.0
- *   max_fill       int      optional
- *   activate       bool     optional  default false
- * }
+ * Pull unassigned questions from the bank into a world using filter criteria.
+ * @param {string} worldKey
+ * @param {{ exam, topics?, difficulty?, min_confidence?, max_fill?, activate? }} body
  */
 export const smartFill = (worldKey, body) =>
-  apiFetch(`/api/admin/worlds/${worldKey}/smart-fill`, jsonBody(body));
+  adminRequest(`/api/admin/worlds/${worldKey}/smart-fill`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 
 /**
  * POST /api/admin/worlds/:worldKey/clear
- * Return all questions in the world to the unassigned bank.
- * Student progress records are preserved.
- *
- * body: {
- *   exam     string  required
- *   confirm  bool    required
- *   force    bool    optional  set true to bypass student-progress 409
- * }
+ * Return all questions in a world to the unassigned bank.
+ * Student LevelProgress records are preserved.
+ * @param {string} worldKey
+ * @param {{ exam, confirm, force? }} body
  */
 export const clearWorld = (worldKey, body) =>
-  apiFetch(`/api/admin/worlds/${worldKey}/clear`, jsonBody(body));
-
-
-// ── Stats ─────────────────────────────────────────────────────────────────────
-
-export const getStats = () =>
-  apiFetch('/api/admin/stats');
-
-
-// ── Orgs ──────────────────────────────────────────────────────────────────────
-
-export const listOrgs = (params = {}) =>
-  apiFetch(`/api/admin/orgs${toQuery(params)}`);
-
-export const createOrg = (data) =>
-  apiFetch('/api/admin/orgs', jsonBody(data));
-
-export const getOrg = (id) =>
-  apiFetch(`/api/admin/orgs/${id}`);
-
-
-// ── Users ─────────────────────────────────────────────────────────────────────
-
-export const listUsers = (params = {}) =>
-  apiFetch(`/api/admin/users${toQuery(params)}`);
-
-export const createUser = (data) =>
-  apiFetch('/api/admin/users', jsonBody(data));
-
-export const activateUser = (id) =>
-  apiFetch(`/api/admin/users/${id}/activate`, jsonPatch({}));
-
-export const deactivateUser = (id) =>
-  apiFetch(`/api/admin/users/${id}/deactivate`, jsonPatch({}));
-
-export const resetPassword = (id, data) =>
-  apiFetch(`/api/admin/users/${id}/reset-password`, jsonBody(data));
+  adminRequest(`/api/admin/worlds/${worldKey}/clear`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
