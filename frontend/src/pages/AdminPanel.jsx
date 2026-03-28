@@ -963,7 +963,7 @@ function QuestionsTab() {
   const fetchQuestions = useCallback(() => {
     setLoading(true);
     adminApi.listQuestions({ ...filters, page, per_page: 50 })
-      .then((d) => { setQuestions(d.questions); setTotal(d.total); })
+      .then((d) => { setQuestions(d.questions || []); setTotal(d.total || 0); })
       .catch(() => showFlash('Failed to load questions.', 'error'))
       .finally(() => setLoading(false));
   }, [filters, page, showFlash]);
