@@ -2274,7 +2274,7 @@ function DuplicatesModal({ initialSection, initialExam, onClose }) {
     }
   };
 
-  useEffect(() => { runCheck(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { runCheck(); }, []); // eslint-disable-line
 
   const handleDelete = async (groupIdx, questionId) => {
     setDeleting(questionId);
