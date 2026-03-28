@@ -1737,34 +1737,261 @@ function CreateQuestionModal({ taxonomy, onClose, onCreated }) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// K4 SPLICE INSTRUCTIONS FOR AdminPanel.jsx
+//
+// 1. Find the line:   // ── STATS TAB ─────────────────────────────────────────────────────────────────
+// 2. Delete everything from that line up to and including the closing brace of
+//    the existing StatsTab function (ends just before // ── WORLDS TAB  (Chunk K2) ──)
+// 3. Paste this entire file contents in its place.
+//
+// No other line in AdminPanel.jsx is touched.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── K4: Stats chart config ────────────────────────────────────────────────────
+
+const REVIEW_STATUS_CONFIG = [
+  { key: 'approved',    label: 'Approved',        color: '#16a34a' },
+  { key: 'ai_reviewed', label: 'Pending Approval', color: '#7c3aed' },
+  { key: 'rejected',    label: 'Rejected',         color: '#dc2626' },
+  { key: 'ai_pending',  label: 'AI Pending',       color: '#d97706' },
+  { key: 'unreviewed',  label: 'Unreviewed',       color: '#475569' },
+];
+
+const SECTION_ORDER_STATS = ['math', 'verbal', 'biology', 'chemistry', 'physics'];
+
+
 // ── STATS TAB ─────────────────────────────────────────────────────────────────
 
 function StatsTab() {
-  const [stats, setStats] = useState(null);
-  useEffect(() => { adminApi.getStats().then(setStats).catch(() => {}); }, []);
+  const [stats,   setStats]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(false);
 
-  if (!stats) return <div className="admin-loading"><div className="spinner" /></div>;
+  const load = useCallback(() => {
+    setLoading(true); setError(false);
+    adminApi.getStats()
+      .then(d => { setStats(d); setLoading(false); })
+      .catch(() => { setError(true); setLoading(false); });
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="admin-loading"><div className="spinner" /></div>;
+  if (error) return (
+    <div style={{ padding: 32, textAlign: 'center', color: '#dc2626', fontSize: '0.9rem' }}>
+      Failed to load stats.{' '}
+      <button className="btn btn-ghost btn-sm" onClick={load}>↻ Retry</button>
+    </div>
+  );
+  if (!stats) return null;
+
+  const q     = stats.questions || {};
+  const total = q.total || 0;
+
+  const reviewData  = q.by_review_status || {};
+  const reviewTotal = REVIEW_STATUS_CONFIG.reduce((s, c) => s + (reviewData[c.key] || 0), 0);
+
+  const bySection = q.by_section_detail || {};
+  const secKeys   = SECTION_ORDER_STATS.filter(s => bySection[s]);
+
+  const cardStyle = {
+    background: 'var(--bg-card, rgba(255,255,255,0.04))',
+    border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px',
+  };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-      {[
-        { label: 'Total Questions', val: stats.questions?.total || 0 },
-        { label: 'Active Questions', val: stats.questions?.active || 0 },
-        { label: 'Students', val: stats.users?.students || 0 },
-        { label: 'Schools',       val: stats.orgs?.total || 0 },
-        { label: 'Active Entitlements', val: stats.entitlements?.active || 0 },
-      ].map((s) => (
-        <div key={s.label} className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.val}</div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s.label}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Refresh */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-ghost btn-sm" onClick={load}>↻ Refresh</button>
+      </div>
+
+      {/* ── Summary cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12 }}>
+        {[
+          { label: 'Total Questions',     val: total,                            icon: '📚', color: 'var(--text-primary)' },
+          { label: 'Active Questions',    val: q.active      || 0,              icon: '✅', color: '#15803d' },
+          { label: 'Unassigned',          val: q.unassigned  || 0,              icon: '📦', color: (q.unassigned || 0) > 0 ? '#b45309' : '#64748b' },
+          { label: 'Students',            val: stats.users?.students   || 0,    icon: '👤', color: '#2563eb' },
+          { label: 'Schools',             val: stats.orgs?.total       || 0,    icon: '🏫', color: '#0891b2' },
+          { label: 'Active Entitlements', val: stats.entitlements?.active || 0, icon: '🔑', color: '#7c3aed' },
+        ].map(s => (
+          <div key={s.label} style={{ ...cardStyle, textAlign: 'center', padding: '18px 12px' }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: s.color, lineHeight: 1.1 }}>
+              {s.val.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Review Status + Section Health (two columns) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+        {/* Review Status */}
+        <div style={cardStyle}>
+          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', marginBottom: 14 }}>
+            🔍 Review Status
+            <span style={{ marginLeft: 8, fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>
+              {reviewTotal.toLocaleString()} questions
+            </span>
+          </div>
+
+          {/* Stacked proportional bar */}
+          <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden',
+            marginBottom: 16, background: 'rgba(255,255,255,0.04)' }}>
+            {REVIEW_STATUS_CONFIG.map(sc => {
+              const pct = reviewTotal > 0 ? ((reviewData[sc.key] || 0) / reviewTotal * 100) : 0;
+              return pct > 0 ? (
+                <div key={sc.key}
+                  title={`${sc.label}: ${(reviewData[sc.key] || 0).toLocaleString()}`}
+                  style={{ width: `${pct}%`, background: sc.color, minWidth: 2, transition: 'width 0.5s ease' }} />
+              ) : null;
+            })}
+          </div>
+
+          {/* Row per status */}
+          {REVIEW_STATUS_CONFIG.map(sc => {
+            const count = reviewData[sc.key] || 0;
+            const pct   = reviewTotal > 0 ? Math.round(count / reviewTotal * 100) : 0;
+            return (
+              <div key={sc.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: sc.color, flexShrink: 0 }} />
+                <span style={{ width: 138, fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                  {sc.label}
+                </span>
+                <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: sc.color,
+                    borderRadius: 3, opacity: 0.8, transition: 'width 0.4s ease' }} />
+                </div>
+                <span style={{ width: 52, textAlign: 'right', fontSize: '0.8rem',
+                  fontWeight: 600, color: 'var(--text-secondary)' }}>{count.toLocaleString()}</span>
+                <span style={{ width: 38, textAlign: 'right', fontSize: '0.74rem',
+                  color: 'var(--text-muted)' }}>{pct}%</span>
+              </div>
+            );
+          })}
+
+          {/* Approved % callout */}
+          {reviewTotal > 0 && (
+            <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 7,
+              background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Approved</span>
+              <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#15803d' }}>
+                {Math.round((reviewData.approved || 0) / reviewTotal * 100)}%
+              </span>
+            </div>
+          )}
         </div>
-      ))}
-      {stats.questions?.per_exam && Object.entries(stats.questions.per_exam).map(([exam, count]) => (
-        <div key={exam} className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>{count}</div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{exam} Questions</div>
+
+        {/* Section Health */}
+        <div style={cardStyle}>
+          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', marginBottom: 14 }}>
+            📐 Section Health
+            <span style={{ marginLeft: 8, fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>per subject</span>
+          </div>
+
+          {secKeys.length === 0 && (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No section data yet.</p>
+          )}
+
+          {secKeys.map((sec, idx) => {
+            const d           = bySection[sec];
+            const isLast      = idx === secKeys.length - 1;
+            const activePct   = d.total > 0 ? Math.round(d.active                 / d.total * 100) : 0;
+            const reviewedPct = d.total > 0 ? Math.round(d.reviewed               / d.total * 100) : 0;
+            const assignedPct = d.total > 0 ? Math.round((d.total - d.unassigned) / d.total * 100) : 0;
+            return (
+              <div key={sec} style={{
+                marginBottom: isLast ? 0 : 14, paddingBottom: isLast ? 0 : 13,
+                borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.05)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem', textTransform: 'capitalize',
+                    color: 'var(--text-secondary)' }}>{sec}</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {d.total.toLocaleString()} total
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.76rem',
+                    color: d.unassigned > 0 ? '#b45309' : 'var(--text-muted)' }}>
+                    {d.unassigned > 0 ? `${d.unassigned.toLocaleString()} unassigned` : 'all assigned'}
+                  </span>
+                </div>
+                {[
+                  { label: 'Active',   pct: activePct,   color: '#16a34a', count: d.active               },
+                  { label: 'Reviewed', pct: reviewedPct, color: '#2563eb', count: d.reviewed             },
+                  { label: 'Assigned', pct: assignedPct, color: '#0891b2', count: d.total - d.unassigned },
+                ].map(({ label, pct, color, count }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                    <span style={{ width: 56, fontSize: '0.74rem', color: 'var(--text-muted)', flexShrink: 0 }}>
+                      {label}
+                    </span>
+                    <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.05)',
+                      borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: color,
+                        borderRadius: 3, transition: 'width 0.4s ease' }} />
+                    </div>
+                    <span style={{ width: 44, textAlign: 'right', fontSize: '0.74rem',
+                      fontWeight: 600, color }}>{pct}%</span>
+                    <span style={{ width: 44, textAlign: 'right', fontSize: '0.72rem',
+                      color: 'var(--text-muted)' }}>{count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+
+          {secKeys.length > 0 && (
+            <div style={{ display: 'flex', gap: 14, marginTop: 14, paddingTop: 10,
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              {[['#16a34a','Active'],['#2563eb','Reviewed'],['#0891b2','Assigned']].map(([c,l]) => (
+                <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: c,
+                    display: 'inline-block' }} />{l}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      ))}
+      </div>
+
+      {/* ── Per-exam breakdown ── */}
+      {q.per_exam && Object.keys(q.per_exam).length > 0 && (
+        <div style={cardStyle}>
+          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', marginBottom: 14 }}>
+            🎯 Questions by Exam
+          </div>
+          <div style={{ display: 'flex', gap: 32 }}>
+            {Object.entries(q.per_exam).map(([exam, count]) => {
+              const pct = total > 0 ? Math.round(count / total * 100) : 0;
+              return (
+                <div key={exam} style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600,
+                      textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{exam}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700,
+                      color: 'var(--text-primary)' }}>{count.toLocaleString()}</span>
+                  </div>
+                  <div style={{ height: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`,
+                      background: exam === 'qudurat' ? '#7c3aed' : '#0891b2',
+                      borderRadius: 4, transition: 'width 0.4s ease' }} />
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                    {pct}% of total
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

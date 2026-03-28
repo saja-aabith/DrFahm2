@@ -1999,7 +1999,7 @@ def reset_user_password(user_id: int):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STATS
+# STATS  (K4: extended with by_review_status + by_section_detail)
 # ═════════════════════════════════════════════════════════════════════════════
 
 @admin_bp.route("/stats", methods=["GET"])
@@ -2023,11 +2023,46 @@ def get_stats():
         .filter(Question.deleted_at.is_(None)).group_by(Question.section).all()
     )
 
+    # K4: Review status breakdown — initialise all statuses to 0 so frontend
+    # always gets a complete dict regardless of which statuses exist in DB.
+    by_review_status = {s.value: 0 for s in ReviewStatus}
+    review_rows = db.session.query(
+        Question.review_status,
+        func.count(Question.id).label("cnt"),
+    ).filter(Question.deleted_at.is_(None)).group_by(Question.review_status).all()
+    for row in review_rows:
+        # NULL review_status (legacy rows) counts as unreviewed
+        key = row.review_status.value if row.review_status else ReviewStatus.UNREVIEWED.value
+        by_review_status[key] = by_review_status.get(key, 0) + int(row.cnt)
+
+    # K4: Per-section detail (active, reviewed, unassigned counts per section)
+    section_rows = db.session.query(
+        Question.section,
+        func.count(Question.id).label("total"),
+        func.sum(case((Question.is_active.is_(True), 1), else_=0)).label("active"),
+        func.sum(case((Question.last_reviewed_at.isnot(None), 1), else_=0)).label("reviewed"),
+        func.sum(case((Question.world_key.is_(None), 1), else_=0)).label("unassigned"),
+    ).filter(Question.deleted_at.is_(None)).group_by(Question.section).all()
+
+    by_section_detail = {}
+    for row in section_rows:
+        sec = row.section or "unknown"
+        by_section_detail[sec] = {
+            "total":      int(row.total      or 0),
+            "active":     int(row.active     or 0),
+            "reviewed":   int(row.reviewed   or 0),
+            "unassigned": int(row.unassigned or 0),
+        }
+
     return jsonify({
         "questions": {
-            "total": total_questions, "active": active_questions,
-            "unassigned": unassigned_questions,
-            "per_exam": questions_per_exam, "per_section": questions_per_section,
+            "total":             total_questions,
+            "active":            active_questions,
+            "unassigned":        unassigned_questions,
+            "per_exam":          questions_per_exam,
+            "per_section":       questions_per_section,
+            "by_review_status":  by_review_status,   # K4
+            "by_section_detail": by_section_detail,  # K4
         },
         "users":        {"students": total_users},
         "orgs":         {"total": total_orgs},
