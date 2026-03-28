@@ -242,7 +242,7 @@ function Modal({ title, onClose, children, width }) {
 
 // ── REVIEW PROGRESS PANEL ─────────────────────────────────────────────────────
 
-function ReviewProgressPanel({ examFilter, refreshKey }) {
+function ReviewProgressPanel({ examFilter, refreshKey, onShowPending }) {
   const [data, setData] = useState(null);
   const [showWorlds, setShowWorlds] = useState(false);
 
@@ -253,10 +253,38 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
   if (!data) return null;
   const { summary, progress } = data;
   if (!summary) return null;
-  const pct = summary.total > 0 ? Math.round((summary.reviewed / summary.total) * 100) : 0;
+  const pct        = summary.total > 0 ? Math.round((summary.reviewed / summary.total) * 100) : 0;
+  const aiPending  = summary.ai_pending || 0;
 
   return (
     <div className="review-progress-panel">
+      {/* AI Pending warning — cross-section, shown whenever count > 0 */}
+      {aiPending > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 14px', marginBottom: 8, borderRadius: 8,
+          background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)',
+        }}>
+          <span style={{ fontSize: '0.88rem' }}>🤖</span>
+          <span style={{ fontSize: '0.85rem', color: '#7c3aed', fontWeight: 600 }}>
+            {aiPending} question{aiPending !== 1 ? 's' : ''} stuck in AI Pending
+          </span>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', flex: 1 }}>
+            — network dropped during AI review run
+          </span>
+          {onShowPending && (
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(124,58,237,0.12)', color: '#7c3aed',
+                border: '1px solid rgba(124,58,237,0.3)', padding: '3px 10px',
+                fontSize: '0.8rem', fontWeight: 600, flexShrink: 0 }}
+              onClick={onShowPending}>
+              Show &amp; fix →
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="review-progress-header">
         <div>
           <span className="review-progress-count">{summary.reviewed} / {summary.total} reviewed</span>
@@ -272,11 +300,21 @@ function ReviewProgressPanel({ examFilter, refreshKey }) {
       {showWorlds && (
         <div className="review-progress-worlds">
           {progress.map((p) => {
-            const wpct = p.total > 0 ? Math.round((p.reviewed / p.total) * 100) : 0;
+            const wpct      = p.total > 0 ? Math.round((p.reviewed / p.total) * 100) : 0;
+            const pending   = p.ai_pending || 0;
             const sectionKey = p.section || p.world_key || '—';
             return (
               <div key={`${p.exam}-${sectionKey}`} className="review-world-row">
-                <span className="review-world-label" style={{ textTransform: 'capitalize' }}>{p.exam} / {sectionKey}</span>
+                <span className="review-world-label" style={{ textTransform: 'capitalize' }}>
+                  {p.exam} / {sectionKey}
+                  {pending > 0 && (
+                    <span style={{ marginLeft: 6, fontSize: '0.72rem', color: '#7c3aed',
+                      background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)',
+                      borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>
+                      🤖 {pending} pending
+                    </span>
+                  )}
+                </span>
                 <div className="review-world-bar-bg">
                   <div className="review-world-bar-fill" style={{ width: `${wpct}%` }} />
                 </div>
@@ -1151,7 +1189,14 @@ function QuestionsTab() {
     <div>
       {flash && <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`} style={{ marginBottom: 16 }}>{flash.msg}</div>}
 
-      <ReviewProgressPanel examFilter={filters.exam} refreshKey={refreshKey} />
+      <ReviewProgressPanel
+        examFilter={filters.exam}
+        refreshKey={refreshKey}
+        onShowPending={() => {
+          handleFilterChange('review_status', 'ai_pending');
+          document.querySelector('.admin-filter-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }}
+      />
       <TopicCoveragePanel
         examFilter={filters.exam}
         refreshKey={refreshKey}

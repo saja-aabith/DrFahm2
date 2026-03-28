@@ -910,6 +910,7 @@ def review_progress():
         Question.exam, Question.section,
         func.count(Question.id).label("total"),
         func.sum(case((Question.last_reviewed_at.isnot(None), 1), else_=0)).label("reviewed"),
+        func.sum(case((Question.review_status == ReviewStatus.AI_PENDING, 1), else_=0)).label("ai_pending"),
     ).filter(Question.deleted_at.is_(None)).group_by(
         Question.exam, Question.section,
     ).order_by(Question.exam, Question.section)
@@ -919,22 +920,27 @@ def review_progress():
             return bad_request("invalid_exam", f"Invalid exam: {exam_filter!r}.")
         q = q.filter(Question.exam == exam_filter)
 
-    rows         = q.all()
-    progress     = []
-    total_all    = 0
-    reviewed_all = 0
+    rows            = q.all()
+    progress        = []
+    total_all       = 0
+    reviewed_all    = 0
+    ai_pending_all  = 0
     for row in rows:
-        reviewed = int(row.reviewed or 0)
-        total    = int(row.total    or 0)
+        reviewed   = int(row.reviewed   or 0)
+        total      = int(row.total      or 0)
+        ai_pending = int(row.ai_pending or 0)
         progress.append({"exam": row.exam, "section": row.section,
-                          "total": total, "reviewed": reviewed, "unreviewed": total - reviewed})
-        total_all    += total
-        reviewed_all += reviewed
+                          "total": total, "reviewed": reviewed,
+                          "unreviewed": total - reviewed, "ai_pending": ai_pending})
+        total_all      += total
+        reviewed_all   += reviewed
+        ai_pending_all += ai_pending
 
     return jsonify({
         "progress": progress,
         "summary": {"total": total_all, "reviewed": reviewed_all,
-                    "unreviewed": total_all - reviewed_all},
+                    "unreviewed": total_all - reviewed_all,
+                    "ai_pending": ai_pending_all},
     }), 200
 
 
