@@ -2371,7 +2371,7 @@ function DuplicatesModal({ initialSection, initialExam, onClose }) {
                 <Pill color="red">{group.questions.filter(q => !q._deleted).length} copies</Pill>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  "{group.normalized_text.slice(0, 80)}{group.normalized_text.length > 80 ? '…' : ''}"
+                  "{(group.normalized_preview || '').slice(0, 80)}{(group.normalized_preview || '').length > 80 ? '…' : ''}"
                 </span>
               </div>
 
