@@ -16,7 +16,7 @@ async function adminRequest(path, options = {}) {
 
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
-  // For CSV downloads — return raw response
+  // For CSV/PDF downloads — return raw response
   if (options._raw) return res;
 
   let body;
@@ -150,14 +150,7 @@ export const rejectReview = (id, version) =>
     body: JSON.stringify({ version }),
   });
 
-
 // ── Duplicate Detection  (Chunk K3) ─────────────────────────────────────────
-
-/**
- * Find exact duplicate questions within a section (across all exams and worlds).
- * @param {string} section  — math | verbal | biology | chemistry | physics
- * @param {string} exam     — optional: 'qudurat' | 'tahsili'
- */
 export const findDuplicates = (section, exam = '') =>
   adminRequest('/api/admin/questions/find-duplicates', {
     method: 'POST',
@@ -165,36 +158,54 @@ export const findDuplicates = (section, exam = '') =>
   });
 
 // ── World Allocation Tools  (Chunk K2) ───────────────────────────────────────
-
-/**
- * GET /api/admin/worlds/health
- * Per-world fill status, topic/difficulty breakdown, student progress count.
- * @param {string} exam  optional — 'qudurat' | 'tahsili'
- */
 export const getWorldHealth = (exam = '') =>
   adminRequest(`/api/admin/worlds/health${exam ? '?exam=' + exam : ''}`);
 
-/**
- * POST /api/admin/worlds/:worldKey/smart-fill
- * Pull unassigned questions from the bank into a world using filter criteria.
- * @param {string} worldKey
- * @param {{ exam, topics?, difficulty?, min_confidence?, max_fill?, activate? }} body
- */
 export const smartFill = (worldKey, body) =>
   adminRequest(`/api/admin/worlds/${worldKey}/smart-fill`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
 
-/**
- * POST /api/admin/worlds/:worldKey/clear
- * Return all questions in a world to the unassigned bank.
- * Student LevelProgress records are preserved.
- * @param {string} worldKey
- * @param {{ exam, confirm, force? }} body
- */
 export const clearWorld = (worldKey, body) =>
   adminRequest(`/api/admin/worlds/${worldKey}/clear`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
+
+// ── School Checkout — closer tool  (Chunk L3) ────────────────────────────────
+
+/**
+ * POST /api/billing/admin/create-school-checkout
+ * Generates a Stripe Checkout URL for a school payment.
+ * Called by the sales closer during a phone call.
+ *
+ * @param {{ org_id, exam, student_count, plan_tier }} data
+ * @returns {{ checkout_url, total_sar, price_per_student, student_count,
+ *             plan_tier, invoice_number, org_name, exam, expires_days }}
+ */
+export const createSchoolCheckout = (data) =>
+  adminRequest('/api/billing/admin/create-school-checkout', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+/**
+ * GET /api/billing/admin/invoice/:invoiceNumber
+ * Downloads the bilingual Arabic/English PDF invoice for a school payment.
+ * Returns a raw Response — caller must call .blob() to get the file.
+ *
+ * @param {string} invoiceNumber   e.g. "DF-3-20260330120000"
+ * @param {object} params          invoice metadata (org_name, exam, plan_tier,
+ *                                 student_count, price_per_student, total_sar,
+ *                                 expires_days)
+ */
+export const downloadSchoolInvoice = (invoiceNumber, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString();
+  return adminRequest(
+    `/api/billing/admin/invoice/${invoiceNumber}${qs ? '?' + qs : ''}`,
+    { _raw: true },
+  );
+};
