@@ -6,13 +6,14 @@ Endpoints:
   POST /api/billing/admin/create-school-checkout ← admin/closer tool (drfahm_admin only)
   POST /api/billing/webhook                      ← Stripe webhook (no auth)
   GET  /api/billing/entitlements                 ← current user's entitlements
+  GET  /api/billing/admin/invoice/<invoice_number> ← bilingual PDF invoice download
 """
 
 import json
 import stripe
 
 from datetime import datetime, timezone
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response as FlaskResponse
 
 from ..extensions import db
 from ..models.user import User, UserRole
@@ -96,8 +97,8 @@ def create_checkout_session():
     except ValueError as e:
         return bad_request("invalid_plan", str(e))
 
-    stripe.api_key     = current_app.config["STRIPE_SECRET_KEY"]
-    frontend_base      = current_app.config["FRONTEND_BASE_URL"]
+    stripe.api_key = current_app.config["STRIPE_SECRET_KEY"]
+    frontend_base  = current_app.config["FRONTEND_BASE_URL"]
 
     try:
         session = stripe.checkout.Session.create(
@@ -162,7 +163,6 @@ def create_school_checkout():
     student_count = data.get("student_count")
     plan_tier     = (data.get("plan_tier")     or "").strip().lower()
 
-    # ── Validate inputs ──
     if not org_id_raw:
         return bad_request("validation_error", "org_id is required.")
     if not exam:
@@ -195,9 +195,7 @@ def create_school_checkout():
     except ValueError as e:
         return bad_request("invalid_plan", str(e))
 
-    # ── Generate sequential invoice number ──
-    # Simple: DF-ORG-{org_id}-{timestamp}
-    ts = datetime.now(timezone.utc)
+    ts             = datetime.now(timezone.utc)
     invoice_number = f"DF-{org_id}-{ts.strftime('%Y%m%d%H%M%S')}"
 
     stripe.api_key = current_app.config["STRIPE_SECRET_KEY"]
@@ -226,7 +224,6 @@ def create_school_checkout():
                 "quantity": student_count,
             }],
             metadata={
-                # Webhook branches on org_id presence — do NOT add user_id here
                 "org_id":         str(org_id),
                 "exam":           exam,
                 "plan_tier":      plan_tier,
@@ -300,7 +297,6 @@ def webhook():
     stripe_event_id = event["id"]
     event_type      = event["type"]
 
-    # ── Idempotency insert ──
     event_record = StripeEvent(
         stripe_event_id=stripe_event_id,
         event_type=event_type,
@@ -336,7 +332,6 @@ def webhook():
         current_app.logger.error(
             f"Webhook processing error for {stripe_event_id}: {e}", exc_info=True
         )
-        # Return 200 — event is recorded as failed; investigate via stripe_events table.
         return jsonify({"received": True, "status": "processing_error"}), 200
 
     return jsonify({"received": True, "status": event_record.status}), 200
@@ -356,7 +351,6 @@ def _handle_checkout_completed(session_obj: dict, event_record: StripeEvent):
     stripe_session_id = session_obj.get("id")
     now               = datetime.now(timezone.utc)
 
-    # ── Idempotency: belt-and-suspenders check on entitlement level ──
     existing = Entitlement.query.filter_by(
         stripe_session_id=stripe_session_id
     ).first()
@@ -385,10 +379,10 @@ def _grant_individual_entitlement(
     metadata: dict, stripe_session_id: str, event_record: StripeEvent, now: datetime
 ):
     """Grants a paid entitlement to an individual student."""
-    user_id_str  = metadata.get("user_id")
-    plan_id_str  = metadata.get("plan_id")
+    user_id_str   = metadata.get("user_id")
+    plan_id_str   = metadata.get("plan_id")
     plan_type_str = metadata.get("plan_type")
-    exam         = metadata.get("exam")
+    exam          = metadata.get("exam")
 
     missing = [k for k, v in {
         "user_id": user_id_str, "plan_id": plan_id_str,
@@ -434,11 +428,11 @@ def _grant_org_entitlement(
     metadata: dict, stripe_session_id: str, event_record: StripeEvent, now: datetime
 ):
     """Grants a paid entitlement to a school org."""
-    org_id_str     = metadata.get("org_id")
-    exam           = metadata.get("exam")
-    plan_type_str  = metadata.get("plan_type")
-    student_count  = metadata.get("student_count")
-    duration_days  = int(metadata.get("duration_days", SCHOOL_DURATION_DAYS))
+    org_id_str    = metadata.get("org_id")
+    exam          = metadata.get("exam")
+    plan_type_str = metadata.get("plan_type")
+    student_count = metadata.get("student_count")
+    duration_days = int(metadata.get("duration_days", SCHOOL_DURATION_DAYS))
 
     missing = [k for k, v in {
         "org_id": org_id_str, "exam": exam, "plan_type": plan_type_str,
@@ -457,15 +451,14 @@ def _grant_org_entitlement(
 
     expiry = compute_expiry(duration_days)
 
-    # max_world_index = 5 for all school plans (all worlds unlocked)
     from ..utils.world_config import PLAN_WORLD_LIMIT
-    max_world_index = PLAN_WORLD_LIMIT["basic"]  # 5
+    max_world_index = PLAN_WORLD_LIMIT["basic"]  # 5 — all worlds unlocked
 
     entitlement = Entitlement(
         user_id=None,
         org_id=org.id,
         exam=exam,
-        plan_id=PlanId.PREMIUM,   # schools always get full access
+        plan_id=PlanId.PREMIUM,
         plan_type=plan_type,
         max_world_index=max_world_index,
         entitlement_starts_at=now,
@@ -519,3 +512,68 @@ def get_entitlements():
         "org_entitlements":        [e.to_dict() for e in org_entitlements],
         "trials":                  [t.to_dict() for t in trials],
     }), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# GET /api/billing/admin/invoice/<invoice_number>
+# ═════════════════════════════════════════════════════════════════════════════
+
+@billing_bp.route("/admin/invoice/<invoice_number>", methods=["GET"])
+@roles_required(*_ADMIN_ROLE)
+def download_invoice(invoice_number: str):
+    """
+    Generate and stream a bilingual PDF invoice for a school payment.
+
+    All invoice data passed as query params — generated on-the-fly from the
+    create-school-checkout response stored in the admin panel.
+
+    Query params:
+        org_name          string
+        exam              string   qudurat | tahsili
+        plan_tier         string   standard | volume
+        student_count     int
+        price_per_student float    SAR
+        total_sar         float
+        expires_days      int      default 365
+
+    Returns a PDF file download.
+    """
+    from ..utils.invoice_pdf import generate_school_invoice_pdf
+
+    args = request.args
+
+    org_name      = args.get("org_name", "")
+    exam          = args.get("exam", "")
+    plan_tier     = args.get("plan_tier", "standard")
+    student_count = args.get("student_count", "0")
+    price_each    = args.get("price_per_student", "0")
+    total_sar     = args.get("total_sar", "0")
+    expires_days  = args.get("expires_days", "365")
+
+    invoice_data = {
+        "invoice_number":    invoice_number,
+        "org_name":          org_name or "—",
+        "exam":              exam or "qudurat",
+        "plan_tier":         plan_tier,
+        "student_count":     int(student_count),
+        "price_per_student": float(price_each),
+        "total_sar":         float(total_sar),
+        "expires_days":      int(expires_days),
+        "generated_at":      datetime.now(timezone.utc).strftime("%d %B %Y"),
+    }
+
+    try:
+        pdf_bytes = generate_school_invoice_pdf(invoice_data)
+    except Exception as e:
+        current_app.logger.error(f"Invoice PDF generation failed: {e}", exc_info=True)
+        return error_response("pdf_error", "Could not generate invoice PDF.", 500)
+
+    safe_name = invoice_number.replace("/", "-")
+    return FlaskResponse(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="DrFahm_Invoice_{safe_name}.pdf"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    ), 200
