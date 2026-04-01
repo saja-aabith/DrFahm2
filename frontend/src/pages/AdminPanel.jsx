@@ -2774,18 +2774,14 @@ function CreateOrgModal({ onClose, onCreated }) {
     </Modal>
   );
 }
-
 // ── SPLICE INSTRUCTIONS ───────────────────────────────────────────────────────
-// In AdminPanel.jsx, find the existing OrgDetailModal function:
-//
-//   function OrgDetailModal({ org, onClose, onRefresh }) {
-//
-// Delete the entire function (from that line to its closing brace).
-// Paste this entire file contents in its place.
-// No other changes to AdminPanel.jsx.
+// Find the existing OrgDetailModal function in AdminPanel.jsx.
+// Delete it from `function OrgDetailModal` to its closing `}`.
+// Paste this entire file contents in its place (delete this comment block too).
+// No other changes to AdminPanel.jsx needed.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── School tier config (mirrors Schools.jsx and backend config) ───────────────
+// ── School tier config ────────────────────────────────────────────────────────
 const SCHOOL_TIERS = [
   { id: 'standard', label: 'Standard', pricePerStudent: 99,  minStudents: 30,  color: '#16a34a' },
   { id: 'volume',   label: 'Volume',   pricePerStudent: 75,  minStudents: 100, color: '#7c3aed' },
@@ -2797,50 +2793,74 @@ function getSchoolTier(count) {
   return null;
 }
 
-function OrgDetailModal({ org, onClose, onRefresh }) {
-  const [detail,       setDetail]       = useState(null);
-  const [flash,        showFlash]       = useFlash();
+function daysRemaining(isoDate) {
+  if (!isoDate) return null;
+  const diff = new Date(isoDate) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
 
-  // Payment link generator state
-  const [plExam,         setPlExam]         = useState('qudurat');
-  const [plCount,        setPlCount]        = useState('');
-  const [plGenerating,   setPlGenerating]   = useState(false);
-  const [plResult,       setPlResult]       = useState(null);  // checkout response
-  const [plCopied,       setPlCopied]       = useState(false);
-  const [plDownloading,  setPlDownloading]  = useState(false);
+function entitlementStatusColor(days) {
+  if (days <= 0)  return { color: '#dc2626', label: 'Expired',     pill: 'red'   };
+  if (days <= 60) return { color: '#d97706', label: `${days}d left`, pill: 'amber' };
+  return               { color: '#15803d', label: `${days}d left`, pill: 'green' };
+}
+
+function OrgDetailModal({ org, onClose, onRefresh }) {
+  const [detail,      setDetail]      = useState(null);
+  const [flash,       showFlash]      = useFlash();
+  const [refreshKey,  setRefreshKey]  = useState(0);
+
+  // Payment link state
+  const [plExam,        setPlExam]        = useState('qudurat');
+  const [plCount,       setPlCount]       = useState('');
+  const [plGenerating,  setPlGenerating]  = useState(false);
+  const [plResult,      setPlResult]      = useState(null);
+  const [plCopied,      setPlCopied]      = useState(false);
+  const [plDownloading, setPlDownloading] = useState(false);
+
+  // Leader creation state
+  const [leaderUsername, setLeaderUsername] = useState('');
+  const [leaderPassword, setLeaderPassword] = useState('');
+  const [leaderCreating, setLeaderCreating] = useState(false);
+  const [leaderCreated,  setLeaderCreated]  = useState(null); // { username, password }
+  const [showLeaderForm, setShowLeaderForm] = useState(false);
+
+  // Student generation state
+  const [genCount,      setGenCount]      = useState('');
+  const [genLoading,    setGenLoading]    = useState(false);
+  const [genResult,     setGenResult]     = useState(null); // { created, students }
+  const [showGenForm,   setShowGenForm]   = useState(false);
+  const [csvDownloading, setCsvDownloading] = useState(false);
+
+  const reload = () => setRefreshKey(k => k + 1);
 
   useEffect(() => {
+    setDetail(null);
     adminApi.getOrg(org.id).then(setDetail).catch(() => {});
-  }, [org.id]);
+  }, [org.id, refreshKey]);
 
+  // ── Payment link helpers ──
   const plCountNum = parseInt(plCount) || 0;
   const plTier     = getSchoolTier(plCountNum);
   const plTotal    = plTier ? plTier.pricePerStudent * plCountNum : 0;
 
   const handleGenerateLink = async () => {
     if (!plTier) return;
-    setPlGenerating(true);
-    setPlResult(null);
+    setPlGenerating(true); setPlResult(null);
     try {
       const result = await adminApi.createSchoolCheckout({
-        org_id:        org.id,
-        exam:          plExam,
-        student_count: plCountNum,
-        plan_tier:     plTier.id,
+        org_id: org.id, exam: plExam,
+        student_count: plCountNum, plan_tier: plTier.id,
       });
       setPlResult(result);
-    } catch (e) {
-      showFlash(e?.error?.message || 'Failed to generate payment link.', 'error');
-    } finally {
-      setPlGenerating(false);
-    }
+    } catch (e) { showFlash(e?.error?.message || 'Failed to generate payment link.', 'error'); }
+    finally { setPlGenerating(false); }
   };
 
   const handleCopyLink = () => {
     if (!plResult?.checkout_url) return;
     navigator.clipboard.writeText(plResult.checkout_url).then(() => {
-      setPlCopied(true);
-      setTimeout(() => setPlCopied(false), 2500);
+      setPlCopied(true); setTimeout(() => setPlCopied(false), 2500);
     });
   };
 
@@ -2849,128 +2869,203 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
     setPlDownloading(true);
     try {
       const res = await adminApi.downloadSchoolInvoice(plResult.invoice_number, {
-        org_name:          plResult.org_name,
-        exam:              plResult.exam,
-        plan_tier:         plResult.plan_tier,
-        student_count:     plResult.student_count,
-        price_per_student: plResult.price_per_student,
-        total_sar:         plResult.total_sar,
-        expires_days:      plResult.expires_days,
+        org_name: plResult.org_name, exam: plResult.exam,
+        plan_tier: plResult.plan_tier, student_count: plResult.student_count,
+        price_per_student: plResult.price_per_student, total_sar: plResult.total_sar,
+        expires_days: plResult.expires_days,
       });
       if (!res.ok) throw new Error('Download failed');
       const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `DrFahm_Invoice_${plResult.invoice_number}.pdf`;
-      a.click();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `DrFahm_Invoice_${plResult.invoice_number}.pdf`; a.click();
       URL.revokeObjectURL(url);
-    } catch (e) {
-      showFlash('Failed to download invoice PDF.', 'error');
-    } finally {
-      setPlDownloading(false);
-    }
+    } catch { showFlash('Failed to download invoice PDF.', 'error'); }
+    finally { setPlDownloading(false); }
   };
 
-  const handleResetLink = () => {
-    setPlResult(null);
-    setPlCopied(false);
-    setPlCount('');
+  const handleResetLink = () => { setPlResult(null); setPlCopied(false); setPlCount(''); };
+
+  // ── Leader creation ──
+  const handleCreateLeader = async () => {
+    if (!leaderUsername.trim()) return;
+    setLeaderCreating(true);
+    try {
+      const result = await adminApi.createOrgLeader(org.id, {
+        username: leaderUsername.trim(),
+        password: leaderPassword.trim() || undefined,
+      });
+      setLeaderCreated({ username: result.user.username, password: result.password });
+      setShowLeaderForm(false);
+      reload();
+      showFlash('School leader created successfully.');
+    } catch (e) { showFlash(e?.error?.message || 'Failed to create leader.', 'error'); }
+    finally { setLeaderCreating(false); }
+  };
+
+  // ── Student generation ──
+  const handleGenerateStudents = async () => {
+    const count = parseInt(genCount);
+    if (!count || count < 1 || count > 500) {
+      showFlash('Enter a count between 1 and 500.', 'error'); return;
+    }
+    setGenLoading(true);
+    try {
+      const result = await adminApi.generateStudents(org.id, { count });
+      setGenResult(result);
+      setShowGenForm(false);
+      reload();
+      showFlash(`${result.created} student accounts created.`);
+    } catch (e) { showFlash(e?.error?.message || 'Failed to generate students.', 'error'); }
+    finally { setGenLoading(false); }
+  };
+
+  const handleExportCsv = async () => {
+    setCsvDownloading(true);
+    try {
+      const res = await adminApi.exportStudentsCsv(org.id);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${org.slug}_students.csv`; a.click();
+      URL.revokeObjectURL(url);
+    } catch { showFlash('Failed to export students CSV.', 'error'); }
+    finally { setCsvDownloading(false); }
   };
 
   if (!detail) return <Modal title={org.name} onClose={onClose}><div className="spinner" /></Modal>;
 
+  const sectionHead = (label) => (
+    <div style={{
+      fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-secondary)',
+      textTransform: 'uppercase', letterSpacing: '0.4px',
+      borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 12,
+    }}>{label}</div>
+  );
+
   return (
-    <Modal title={org.name} onClose={onClose} width="760px">
+    <Modal title={org.name} onClose={onClose} width="800px">
       {flash && (
         <div className={`alert alert-${flash.type === 'error' ? 'error' : 'success'}`}
           style={{ marginBottom: 12 }}>{flash.msg}</div>
       )}
 
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        Slug: <code>{org.slug}</code>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 20, fontSize: '0.88rem' }}>
+        Slug: <code>{org.slug}</code> · ID: {org.id}
       </p>
 
-      {/* ── Generate Payment Link ── */}
+      {/* ══ ENTITLEMENTS ══════════════════════════════════════════════════════ */}
+      <div style={{ marginBottom: 24 }}>
+        {sectionHead('📋 Active Licences')}
+        {detail.entitlements?.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {detail.entitlements.map((e) => {
+              const days   = daysRemaining(e.entitlement_expires_at);
+              const status = entitlementStatusColor(days);
+              return (
+                <div key={e.id} style={{
+                  padding: '12px 14px', borderRadius: 8,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', textTransform: 'capitalize', marginBottom: 4 }}>
+                        {e.exam === 'qudurat' ? 'Qudurat — قدرات' : 'Tahsili — تحصيلي'}
+                      </div>
+                      {e.student_count && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                          👤 {e.student_count} students
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Expires {new Date(e.entitlement_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <Pill color={status.pill}>{days <= 0 ? 'Expired' : 'Active'}</Pill>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: status.color, marginTop: 4 }}>
+                        {days <= 0 ? 'Renewal needed' : `${days} days left`}
+                      </div>
+                    </div>
+                  </div>
+                  {days > 0 && days <= 60 && (
+                    <div style={{
+                      marginTop: 8, padding: '5px 8px', borderRadius: 5, fontSize: '0.78rem',
+                      background: 'rgba(217,119,6,0.08)', color: '#b45309',
+                      border: '1px solid rgba(217,119,6,0.2)',
+                    }}>
+                      ⚠ Renewal due soon — generate a new payment link to extend
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+            No licences yet — generate a payment link below to get started.
+          </p>
+        )}
+      </div>
+
+      {/* ══ PAYMENT LINK ══════════════════════════════════════════════════════ */}
       <div style={{
-        padding: '16px 18px', borderRadius: 10, marginBottom: 20,
+        padding: '16px 18px', borderRadius: 10, marginBottom: 24,
         background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.2)',
       }}>
-        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 14 }}>
-          💳 Generate School Payment Link
-        </div>
+        {sectionHead('💳 Generate Payment Link')}
 
         {!plResult ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-              {/* Exam */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Exam</label>
-                <select className="form-input" value={plExam} onChange={e => { setPlExam(e.target.value); }}>
+                <select className="form-input" value={plExam} onChange={e => setPlExam(e.target.value)}>
                   <option value="qudurat">Qudurat — قدرات</option>
                   <option value="tahsili">Tahsili — تحصيلي</option>
                 </select>
               </div>
-
-              {/* Student count */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Number of Students</label>
                 <input type="number" className="form-input" min={1} value={plCount}
                   onChange={e => setPlCount(e.target.value)} placeholder="e.g. 80" />
               </div>
-
-              {/* Auto tier */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Tier (auto)</label>
                 <div style={{
                   padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
                   fontSize: '0.88rem', minHeight: 38, display: 'flex', alignItems: 'center',
                   background: 'rgba(255,255,255,0.03)',
-                  color: plTier ? plTier.color : 'var(--text-muted)',
-                  fontWeight: plTier ? 700 : 400,
+                  color: plTier ? plTier.color : 'var(--text-muted)', fontWeight: plTier ? 700 : 400,
                 }}>
-                  {plTier
-                    ? `${plTier.label} — SAR ${plTier.pricePerStudent}/student`
+                  {plTier ? `${plTier.label} — SAR ${plTier.pricePerStudent}/student`
                     : plCountNum > 0 ? '⚠ Minimum 30 students' : '— enter student count'}
                 </div>
               </div>
             </div>
 
-            {/* Price summary */}
             {plTier && plCountNum > 0 && (
               <div style={{
                 padding: '10px 14px', borderRadius: 8, marginBottom: 12,
                 background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
                 display: 'flex', gap: 24, alignItems: 'center', fontSize: '0.88rem',
               }}>
-                <span style={{ color: 'var(--text-muted)' }}>
-                  {plCountNum} students × SAR {plTier.pricePerStudent}
-                </span>
-                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: plTier.color }}>
-                  = SAR {plTotal.toLocaleString()}
-                </span>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                  365 days · all worlds
-                </span>
+                <span style={{ color: 'var(--text-muted)' }}>{plCountNum} students × SAR {plTier.pricePerStudent}</span>
+                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: plTier.color }}>= SAR {plTotal.toLocaleString()}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>365 days · all worlds</span>
               </div>
             )}
 
-            <button
-              className="btn btn-violet"
-              onClick={handleGenerateLink}
-              disabled={plGenerating || !plTier || plCountNum < 1}
-              style={{ fontWeight: 700 }}>
+            <button className="btn btn-violet" onClick={handleGenerateLink}
+              disabled={plGenerating || !plTier || plCountNum < 1} style={{ fontWeight: 700 }}>
               {plGenerating ? '…' : '⚡ Generate Payment Link'}
             </button>
-
             {!plTier && plCountNum > 0 && plCountNum < 30 && (
-              <p style={{ margin: '8px 0 0', fontSize: '0.82rem', color: '#b45309' }}>
-                Minimum 30 students required for school pricing.
-              </p>
+              <p style={{ margin: '8px 0 0', fontSize: '0.82rem', color: '#b45309' }}>Minimum 30 students required.</p>
             )}
           </>
         ) : (
-          /* Result screen */
           <div>
             <div style={{
               padding: '12px 14px', borderRadius: 8, marginBottom: 14,
@@ -2979,108 +3074,177 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
             }}>
               ✓ Payment link generated — Invoice #{plResult.invoice_number}
             </div>
-
-            {/* Summary */}
-            <div style={{ display: 'flex', gap: 20, marginBottom: 14, fontSize: '0.85rem' }}>
+            <div style={{ display: 'flex', gap: 20, marginBottom: 14, fontSize: '0.85rem', flexWrap: 'wrap' }}>
               <span><span style={{ color: 'var(--text-muted)' }}>School:</span> <strong>{plResult.org_name}</strong></span>
               <span><span style={{ color: 'var(--text-muted)' }}>Exam:</span> <strong style={{ textTransform: 'capitalize' }}>{plResult.exam}</strong></span>
               <span><span style={{ color: 'var(--text-muted)' }}>Students:</span> <strong>{plResult.student_count}</strong></span>
               <span><span style={{ color: 'var(--text-muted)' }}>Total:</span> <strong style={{ color: '#7c3aed' }}>SAR {plResult.total_sar?.toLocaleString()}</strong></span>
             </div>
-
-            {/* URL display */}
             <div style={{
               padding: '10px 12px', borderRadius: 8, marginBottom: 12,
               background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border)',
               fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)',
               wordBreak: 'break-all', lineHeight: 1.6,
-            }}>
-              {plResult.checkout_url}
-            </div>
-
-            {/* Action buttons */}
+            }}>{plResult.checkout_url}</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-violet"
-                onClick={handleCopyLink}
-                style={{ fontWeight: 700 }}>
+              <button className="btn btn-violet" onClick={handleCopyLink} style={{ fontWeight: 700 }}>
                 {plCopied ? '✓ Copied!' : '📋 Copy Link'}
               </button>
-              <button
-                className="btn btn-ghost"
-                onClick={handleDownloadInvoice}
-                disabled={plDownloading}
-                style={{ fontWeight: 600 }}>
+              <button className="btn btn-ghost" onClick={handleDownloadInvoice} disabled={plDownloading} style={{ fontWeight: 600 }}>
                 {plDownloading ? '…' : '⬇ Download Invoice PDF'}
               </button>
-              <a
-                href={plResult.checkout_url}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-ghost"
-                style={{ fontSize: '0.85rem' }}>
+              <a href={plResult.checkout_url} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ fontSize: '0.85rem' }}>
                 Open link ↗
               </a>
-              <button className="btn btn-ghost btn-sm" onClick={handleResetLink}
-                style={{ marginLeft: 'auto', fontSize: '0.82rem' }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleResetLink} style={{ marginLeft: 'auto', fontSize: '0.82rem' }}>
                 ↩ Generate another
               </button>
             </div>
-
             <p style={{ margin: '10px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Send the link to the school leader via WhatsApp. Once paid, the org entitlement
-              is granted automatically — no manual step needed.
+              Send the link to the school leader via WhatsApp. Entitlement is granted automatically once paid.
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Leader ── */}
-      <h4 style={{ marginBottom: 8 }}>Leader</h4>
-      {detail.leader
-        ? <p>{detail.leader.username} (ID: {detail.leader.id})</p>
-        : <p style={{ color: 'var(--text-muted)' }}>No leader assigned yet.</p>}
+      {/* ══ LEADER ════════════════════════════════════════════════════════════ */}
+      <div style={{ marginBottom: 24 }}>
+        {sectionHead('👤 School Leader')}
+        {detail.leader ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 14px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
+            fontSize: '0.88rem',
+          }}>
+            <Pill color="blue">Leader</Pill>
+            <span style={{ fontWeight: 600 }}>{detail.leader.username}</span>
+            <span style={{ color: 'var(--text-muted)' }}>ID: {detail.leader.id}</span>
+          </div>
+        ) : (
+          <>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 10 }}>
+              No leader assigned. The leader can log in and manage student accounts.
+            </p>
 
-      {/* ── Students ── */}
-      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Students ({detail.students?.length || 0})</h4>
-      {detail.students?.length > 0
-        ? (
-          <div style={{ maxHeight: 200, overflow: 'auto' }}>
+            {leaderCreated ? (
+              <div style={{
+                padding: '12px 14px', borderRadius: 8,
+                background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)',
+                fontSize: '0.85rem',
+              }}>
+                <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 6 }}>✓ Leader account created — save these credentials now</div>
+                <div>Username: <strong>{leaderCreated.username}</strong></div>
+                <div>Password: <strong style={{ fontFamily: 'monospace' }}>{leaderCreated.password}</strong></div>
+                <p style={{ margin: '8px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  This password cannot be retrieved again. Share it securely with the school.
+                </p>
+              </div>
+            ) : showLeaderForm ? (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 160 }}>
+                  <label className="form-label">Username</label>
+                  <input className="form-input" value={leaderUsername}
+                    onChange={e => setLeaderUsername(e.target.value)}
+                    placeholder={`${org.slug}-leader`} />
+                </div>
+                <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 160 }}>
+                  <label className="form-label">Password (blank = random)</label>
+                  <input className="form-input" value={leaderPassword}
+                    onChange={e => setLeaderPassword(e.target.value)}
+                    placeholder="Leave blank for auto-generated" />
+                </div>
+                <button className="btn btn-green" onClick={handleCreateLeader}
+                  disabled={leaderCreating || !leaderUsername.trim()}>
+                  {leaderCreating ? '…' : 'Create Leader'}
+                </button>
+                <button className="btn btn-ghost" onClick={() => setShowLeaderForm(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowLeaderForm(true)}>
+                + Add School Leader
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ══ STUDENTS ══════════════════════════════════════════════════════════ */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          {sectionHead(`🎓 Students (${detail.students?.length || 0})`)}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            {detail.students?.length > 0 && (
+              <button className="btn btn-ghost btn-sm" onClick={handleExportCsv} disabled={csvDownloading}>
+                {csvDownloading ? '…' : '⬇ Export CSV'}
+              </button>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={() => { setShowGenForm(!showGenForm); setGenResult(null); }}>
+              {showGenForm ? 'Cancel' : '+ Generate Accounts'}
+            </button>
+          </div>
+        </div>
+
+        {showGenForm && (
+          <div style={{
+            padding: '12px 14px', borderRadius: 8, marginBottom: 12,
+            background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
+          }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 10 }}>
+              Generate student accounts for this school. Usernames are auto-created from the school slug.
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Number of accounts (max 500)</label>
+                <input type="number" className="form-input" min={1} max={500}
+                  value={genCount} onChange={e => setGenCount(e.target.value)} placeholder="e.g. 100" style={{ width: 160 }} />
+              </div>
+              <button className="btn btn-green" onClick={handleGenerateStudents}
+                disabled={genLoading || !genCount}>
+                {genLoading ? 'Generating…' : 'Generate'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {genResult && (
+          <div style={{
+            padding: '12px 14px', borderRadius: 8, marginBottom: 12,
+            background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)',
+            fontSize: '0.85rem',
+          }}>
+            <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 4 }}>
+              ✓ {genResult.created} accounts created — export the CSV for credentials
+            </div>
+            <button className="btn btn-green btn-sm" onClick={handleExportCsv} disabled={csvDownloading}>
+              {csvDownloading ? '…' : '⬇ Download Credentials CSV'}
+            </button>
+          </div>
+        )}
+
+        {detail.students?.length > 0 ? (
+          <div style={{
+            maxHeight: 160, overflow: 'auto', borderRadius: 8,
+            background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+            padding: '8px 12px',
+          }}>
             {detail.students.map((s) => (
-              <div key={s.id} style={{ fontSize: '0.85rem', padding: '2px 0' }}>{s.username}</div>
+              <div key={s.id} style={{
+                fontSize: '0.83rem', padding: '3px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                color: 'var(--text-secondary)',
+              }}>
+                {s.username}
+                {!s.is_active && <span style={{ marginLeft: 8, fontSize: '0.72rem', color: '#dc2626' }}>inactive</span>}
+              </div>
             ))}
           </div>
-        )
-        : <p style={{ color: 'var(--text-muted)' }}>No students yet.</p>}
+        ) : (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>No students yet.</p>
+        )}
+      </div>
 
-      {/* ── Entitlements ── */}
-      <h4 style={{ marginTop: 16, marginBottom: 8 }}>Entitlements</h4>
-      {detail.entitlements?.length > 0
-        ? detail.entitlements.map((e) => (
-            <div key={e.id} className="card" style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                    {e.exam} — {e.plan_id}
-                    {e.student_count && (
-                      <span style={{ marginLeft: 8, fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                        · {e.student_count} students
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Expires: {new Date(e.entitlement_expires_at).toLocaleDateString()}
-                  </div>
-                </div>
-                {e.is_active
-                  ? <Pill color="green">Active</Pill>
-                  : <Pill color="gray">Expired</Pill>}
-              </div>
-            </div>
-          ))
-        : <p style={{ color: 'var(--text-muted)' }}>No entitlements yet.</p>}
-
-      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+      <div style={{ display: 'flex', gap: 10 }}>
         <button className="btn btn-ghost" onClick={onClose}>Close</button>
       </div>
     </Modal>
