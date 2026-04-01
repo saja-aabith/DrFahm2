@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
-  const { register } = useAuth();
-  const navigate     = useNavigate();
+  const { register }     = useAuth();
+  const navigate         = useNavigate();
+  const [searchParams]   = useSearchParams();
 
-  const [form, setForm]     = useState({ username: '', email: '', password: '', confirm: '' });
-  const [error, setError]   = useState('');
+  // Preserve exam context from home page CTA ("Start here — Qudurat")
+  const examParam = searchParams.get('exam');
+
+  const [form, setForm]       = useState({ username: '', email: '', password: '', confirm: '' });
+  const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -28,7 +32,13 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form.username.trim(), form.email.trim() || undefined, form.password);
-      navigate('/dashboard', { replace: true });
+      // If student came from a specific exam CTA, take them straight in.
+      // Trial starts automatically on first world-map request.
+      if (examParam && ['qudurat', 'tahsili'].includes(examParam)) {
+        navigate(`/exam/${examParam}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(err?.error?.message || 'Registration failed. Please try again.');
     } finally {
@@ -43,7 +53,11 @@ export default function Register() {
           <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
         </div>
         <h1 className="auth-title">Create your account</h1>
-        <p className="auth-subtitle">Start with a free 7-day trial — no credit card needed</p>
+        <p className="auth-subtitle">
+          {examParam
+            ? `Start your free 7-day ${examParam === 'qudurat' ? 'Qudurat' : 'Tahsili'} trial — no credit card needed`
+            : 'Start with a free 7-day trial — no credit card needed'}
+        </p>
 
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -64,7 +78,9 @@ export default function Register() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
+            <label className="form-label">
+              Email <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+            </label>
             <input
               className="form-input"
               type="email"

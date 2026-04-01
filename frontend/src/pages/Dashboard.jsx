@@ -23,23 +23,13 @@ const EXAM_INFO = {
 
 function TrialBadge({ trial }) {
   if (!trial) return null;
-  const now     = new Date();
-  const expires = new Date(trial.trial_expires_at);
-  const active  = now < expires;
+  const now      = new Date();
+  const expires  = new Date(trial.trial_expires_at);
+  const active   = now < expires;
   const daysLeft = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
 
-  if (!active) {
-    return <span className="plan-pill expired">Trial Expired</span>;
-  }
+  if (!active) return <span className="plan-pill expired">Trial Expired</span>;
   return <span className="plan-pill trial">{daysLeft}d trial left</span>;
-}
-
-function EntitlementBadge({ entitlement }) {
-  if (!entitlement) return null;
-  const expires = new Date(entitlement.entitlement_expires_at);
-  const active  = new Date() < expires;
-  if (!active) return <span className="plan-pill expired">Expired</span>;
-  return <span className={`plan-pill ${entitlement.plan_id}`} style={{ textTransform: 'capitalize' }}>{entitlement.plan_id}</span>;
 }
 
 function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
@@ -47,7 +37,6 @@ function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
   const trial = trials?.find((t) => t.exam === examKey);
   const ent   = entitlements?.find((e) => e.exam === examKey);
 
-  // Compute progress from flat worlds list returned by /progress endpoint
   let worldsCompleted = 0;
   let totalWorlds     = info.worlds;
   if (progressData) {
@@ -61,32 +50,69 @@ function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
     <Link to={`/exam/${examKey}`} className={`exam-card ${examKey}`}>
       <div className={`exam-badge ${examKey}`}>{examKey.toUpperCase()}</div>
       <h3 className="exam-card-title">
-        {info.label} <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.9rem' }}>/ {info.arabic}</span>
+        {info.label}{' '}
+        <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.9rem' }}>
+          / {info.arabic}
+        </span>
       </h3>
       <p className="exam-card-desc">{info.description}</p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {isAdmin && <span className="plan-pill premium">Admin — Full Access</span>}
-        {!isAdmin && ent  && <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>{ent.plan_id} Plan</span>}
+        {!isAdmin && ent  && (
+          <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>
+            {ent.plan_id} Plan
+          </span>
+        )}
         {!isAdmin && !ent && <TrialBadge trial={trial} />}
         {!isAdmin && !ent && !trial && <span className="plan-pill trial">7-day trial available</span>}
       </div>
 
       <div className="exam-progress-bar">
-        <div className="exam-progress-fill" style={{ width: `${pct}%`, background: examKey === 'tahsili' ? 'var(--green)' : 'var(--violet)' }} />
+        <div
+          className="exam-progress-fill"
+          style={{
+            width: `${pct}%`,
+            background: examKey === 'tahsili' ? 'var(--green)' : 'var(--violet)',
+          }}
+        />
       </div>
       <p className="exam-progress-label">{worldsCompleted} of {totalWorlds} worlds completed</p>
     </Link>
   );
 }
 
+// Determine what upgrade nudge state to show across all exams
+function getTrialState(trials, allEntitlements) {
+  const now = new Date();
+
+  // Check each exam
+  const examKeys = Object.keys(EXAM_INFO);
+
+  // Has any active paid plan?
+  const hasAnyPaid = allEntitlements.some(
+    (e) => now < new Date(e.entitlement_expires_at)
+  );
+  if (hasAnyPaid) return 'paid';
+
+  if (!trials || trials.length === 0) return 'no_trial';
+
+  const allExpired = trials.every((t) => now >= new Date(t.trial_expires_at));
+  const anyActive  = trials.some((t)  => now <  new Date(t.trial_expires_at));
+
+  if (allExpired) return 'expired';
+  if (anyActive)  return 'active_trial';
+  return 'no_trial';
+}
+
 export default function Dashboard() {
-  const { user }   = useAuth();
-  const isAdmin    = user?.role === 'drfahm_admin';
-  const [billingData, setBillingData]   = useState(null);
-  const [progressMap, setProgressMap]   = useState({});
-  const [loadingBilling, setLoadingBilling] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(true);
+  const { user }  = useAuth();
+  const isAdmin   = user?.role === 'drfahm_admin';
+
+  const [billingData,      setBillingData]      = useState(null);
+  const [progressMap,      setProgressMap]      = useState({});
+  const [loadingBilling,   setLoadingBilling]   = useState(true);
+  const [loadingProgress,  setLoadingProgress]  = useState(true);
 
   useEffect(() => {
     billing.getEntitlements()
@@ -115,7 +141,8 @@ export default function Dashboard() {
     ...(billingData?.individual_entitlements || []),
     ...(billingData?.org_entitlements        || []),
   ];
-  const trials = billingData?.trials || [];
+  const trials     = billingData?.trials || [];
+  const trialState = isAdmin ? 'paid' : getTrialState(trials, allEntitlements);
 
   return (
     <>
@@ -174,16 +201,52 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Upgrade nudge if no paid plan (hidden for admins) */}
-        {!isAdmin && !loading && allEntitlements.length === 0 && (
+        {/* Upgrade nudge — context-aware, hidden for admins and paid users */}
+        {!isAdmin && !loading && trialState !== 'paid' && (
           <div className="paywall-banner">
-            <div className="paywall-text">
-              <h3>Unlock all 5 worlds per track</h3>
-              <p>Your free trial covers World 1 in each track. Upgrade to access the full exam journey.</p>
-            </div>
-            <div className="paywall-actions">
-              <Link to="/pricing" className="btn btn-violet btn-sm">View Plans</Link>
-            </div>
+            {trialState === 'expired' && (
+              <>
+                <div className="paywall-text">
+                  <h3>Your free trial has ended</h3>
+                  <p>
+                    Upgrade to continue your exam preparation and regain access to
+                    all 5 worlds per track.
+                  </p>
+                </div>
+                <div className="paywall-actions">
+                  <Link to="/pricing" className="btn btn-violet btn-sm">Upgrade now</Link>
+                </div>
+              </>
+            )}
+
+            {trialState === 'active_trial' && (
+              <>
+                <div className="paywall-text">
+                  <h3>Unlock all 5 worlds per track</h3>
+                  <p>
+                    Your free trial covers World 1 in each track. Upgrade to access
+                    the full exam journey.
+                  </p>
+                </div>
+                <div className="paywall-actions">
+                  <Link to="/pricing" className="btn btn-violet btn-sm">View Plans</Link>
+                </div>
+              </>
+            )}
+
+            {trialState === 'no_trial' && (
+              <>
+                <div className="paywall-text">
+                  <h3>Start your free 7-day trial</h3>
+                  <p>
+                    Click any exam above to begin. World 1 is free — no credit card needed.
+                  </p>
+                </div>
+                <div className="paywall-actions">
+                  <Link to="/pricing" className="btn btn-ghost btn-sm">View Plans</Link>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
