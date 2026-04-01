@@ -2782,28 +2782,7 @@ function CreateOrgModal({ onClose, onCreated }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── School tier config ────────────────────────────────────────────────────────
-const SCHOOL_TIERS = [
-  { id: 'standard', label: 'Standard', pricePerStudent: 99,  minStudents: 30,  color: '#16a34a' },
-  { id: 'volume',   label: 'Volume',   pricePerStudent: 75,  minStudents: 100, color: '#7c3aed' },
-];
 
-function getSchoolTier(count) {
-  if (count >= 100) return SCHOOL_TIERS[1];
-  if (count >= 30)  return SCHOOL_TIERS[0];
-  return null;
-}
-
-function daysRemaining(isoDate) {
-  if (!isoDate) return null;
-  const diff = new Date(isoDate) - new Date();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function entitlementStatusColor(days) {
-  if (days <= 0)  return { color: '#dc2626', label: 'Expired',     pill: 'red'   };
-  if (days <= 60) return { color: '#d97706', label: `${days}d left`, pill: 'amber' };
-  return               { color: '#15803d', label: `${days}d left`, pill: 'green' };
-}
 
 // ── SPLICE INSTRUCTIONS ───────────────────────────────────────────────────────
 // Replace the entire OrgDetailModal function in AdminPanel.jsx with this.
