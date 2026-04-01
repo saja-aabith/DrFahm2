@@ -2805,6 +2805,34 @@ function entitlementStatusColor(days) {
   return               { color: '#15803d', label: `${days}d left`, pill: 'green' };
 }
 
+// ── SPLICE INSTRUCTIONS ───────────────────────────────────────────────────────
+// Replace the entire OrgDetailModal function in AdminPanel.jsx with this.
+// Delete this comment block too.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SCHOOL_TIERS = [
+  { id: 'standard', label: 'Standard', pricePerStudent: 99,  minStudents: 30,  color: '#16a34a' },
+  { id: 'volume',   label: 'Volume',   pricePerStudent: 75,  minStudents: 100, color: '#7c3aed' },
+];
+
+function getSchoolTier(count) {
+  if (count >= 100) return SCHOOL_TIERS[1];
+  if (count >= 30)  return SCHOOL_TIERS[0];
+  return null;
+}
+
+function daysRemaining(isoDate) {
+  if (!isoDate) return null;
+  const diff = new Date(isoDate) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function entitlementStatusColor(days) {
+  if (days <= 0)  return { color: '#dc2626', label: 'Expired',      pill: 'red'   };
+  if (days <= 60) return { color: '#d97706', label: `${days}d left`, pill: 'amber' };
+  return               { color: '#15803d', label: `${days}d left`, pill: 'green' };
+}
+
 function OrgDetailModal({ org, onClose, onRefresh }) {
   const [detail,      setDetail]      = useState(null);
   const [flash,       showFlash]      = useFlash();
@@ -2822,14 +2850,14 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
   const [leaderUsername, setLeaderUsername] = useState('');
   const [leaderPassword, setLeaderPassword] = useState('');
   const [leaderCreating, setLeaderCreating] = useState(false);
-  const [leaderCreated,  setLeaderCreated]  = useState(null); // { username, password }
+  const [leaderCreated,  setLeaderCreated]  = useState(null);
   const [showLeaderForm, setShowLeaderForm] = useState(false);
 
   // Student generation state
-  const [genCount,      setGenCount]      = useState('');
-  const [genLoading,    setGenLoading]    = useState(false);
-  const [genResult,     setGenResult]     = useState(null); // { created, students }
-  const [showGenForm,   setShowGenForm]   = useState(false);
+  const [genCount,       setGenCount]       = useState('');
+  const [genLoading,     setGenLoading]     = useState(false);
+  const [genResult,      setGenResult]      = useState(null); // { created, students: [{username, password}] }
+  const [showGenForm,    setShowGenForm]    = useState(false);
   const [csvDownloading, setCsvDownloading] = useState(false);
 
   const reload = () => setRefreshKey(k => k + 1);
@@ -2920,6 +2948,21 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
     finally { setGenLoading(false); }
   };
 
+  // ── Credentials CSV — built client-side from genResult so passwords are included ──
+  const handleDownloadCredentials = () => {
+    if (!genResult?.students?.length) return;
+    const header = 'username,password\n';
+    const rows   = genResult.students.map(s => `${s.username},${s.password}`).join('\n');
+    const blob   = new Blob([header + rows], { type: 'text/csv' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href       = url;
+    a.download   = `${org.slug}_credentials.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Export CSV (usernames only — no passwords, used for existing students) ──
   const handleExportCsv = async () => {
     setCsvDownloading(true);
     try {
@@ -2955,7 +2998,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
         Slug: <code>{org.slug}</code> · ID: {org.id}
       </p>
 
-      {/* ══ ENTITLEMENTS ══════════════════════════════════════════════════════ */}
+      {/* ══ ACTIVE LICENCES ═══════════════════════════════════════════════════ */}
       <div style={{ marginBottom: 24 }}>
         {sectionHead('📋 Active Licences')}
         {detail.entitlements?.length > 0 ? (
@@ -2970,7 +3013,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.92rem', textTransform: 'capitalize', marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', marginBottom: 4 }}>
                         {e.exam === 'qudurat' ? 'Qudurat — قدرات' : 'Tahsili — تحصيلي'}
                       </div>
                       {e.student_count && (
@@ -3015,7 +3058,6 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
         background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.2)',
       }}>
         {sectionHead('💳 Generate Payment Link')}
-
         {!plResult ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -3044,7 +3086,6 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
                 </div>
               </div>
             </div>
-
             {plTier && plCountNum > 0 && (
               <div style={{
                 padding: '10px 14px', borderRadius: 8, marginBottom: 12,
@@ -3056,7 +3097,6 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>365 days · all worlds</span>
               </div>
             )}
-
             <button className="btn btn-violet" onClick={handleGenerateLink}
               disabled={plGenerating || !plTier || plCountNum < 1} style={{ fontWeight: 700 }}>
               {plGenerating ? '…' : '⚡ Generate Payment Link'}
@@ -3126,7 +3166,6 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 10 }}>
               No leader assigned. The leader can log in and manage student accounts.
             </p>
-
             {leaderCreated ? (
               <div style={{
                 padding: '12px 14px', borderRadius: 8,
@@ -3175,7 +3214,8 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
           {sectionHead(`🎓 Students (${detail.students?.length || 0})`)}
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             {detail.students?.length > 0 && (
-              <button className="btn btn-ghost btn-sm" onClick={handleExportCsv} disabled={csvDownloading}>
+              <button className="btn btn-ghost btn-sm" onClick={handleExportCsv} disabled={csvDownloading}
+                title="Exports usernames only — passwords are not stored in plain text">
                 {csvDownloading ? '…' : '⬇ Export CSV'}
               </button>
             )}
@@ -3191,13 +3231,15 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
             background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
           }}>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 10 }}>
-              Generate student accounts for this school. Usernames are auto-created from the school slug.
+              Usernames are generated as <code style={{ fontSize: '0.82rem' }}>{org.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_student_1</code>, <code style={{ fontSize: '0.82rem' }}>_student_2</code>, etc.
+              Download the credentials CSV immediately after — passwords cannot be retrieved later.
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Number of accounts (max 500)</label>
                 <input type="number" className="form-input" min={1} max={500}
-                  value={genCount} onChange={e => setGenCount(e.target.value)} placeholder="e.g. 100" style={{ width: 160 }} />
+                  value={genCount} onChange={e => setGenCount(e.target.value)}
+                  placeholder="e.g. 100" style={{ width: 160 }} />
               </div>
               <button className="btn btn-green" onClick={handleGenerateStudents}
                 disabled={genLoading || !genCount}>
@@ -3207,6 +3249,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
           </div>
         )}
 
+        {/* Credentials banner — shown after generation, uses client-side CSV with passwords */}
         {genResult && (
           <div style={{
             padding: '12px 14px', borderRadius: 8, marginBottom: 12,
@@ -3214,10 +3257,13 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
             fontSize: '0.85rem',
           }}>
             <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 4 }}>
-              ✓ {genResult.created} accounts created — export the CSV for credentials
+              ✓ {genResult.created} accounts created
             </div>
-            <button className="btn btn-green btn-sm" onClick={handleExportCsv} disabled={csvDownloading}>
-              {csvDownloading ? '…' : '⬇ Download Credentials CSV'}
+            <div style={{ color: 'var(--text-secondary)', marginBottom: 8, fontSize: '0.82rem' }}>
+              ⚠ Download the credentials CSV now — passwords are not stored and cannot be retrieved later.
+            </div>
+            <button className="btn btn-green btn-sm" onClick={handleDownloadCredentials}>
+              ⬇ Download Credentials CSV (with passwords)
             </button>
           </div>
         )}

@@ -1032,30 +1032,6 @@ def topic_coverage():
 @admin_bp.route("/questions/find-duplicates", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def find_duplicates():
-    """
-    Find exact duplicate questions within a section (across all exams and worlds).
-
-    Uses the same _normalize_text logic as bulk CSV upload:
-      - lowercase, collapse whitespace, strip punctuation
-
-    Scope: all non-deleted questions in the given section, regardless of
-    exam, world assignment, or active status.
-
-    Body:
-      section  string  required — math | verbal | biology | chemistry | physics
-
-    Response:
-      {
-        section, total_groups, total_duplicate_questions,
-        duplicate_groups: [
-          {
-            count, normalized_preview,
-            questions: [{ id, exam, world_key, question_text,
-                          correct_answer, is_active, review_status }]
-          }
-        ]
-      }
-    """
     data    = request.get_json(silent=True) or {}
     section = (data.get("section") or "").strip().lower()
 
@@ -1063,7 +1039,6 @@ def find_duplicates():
         return bad_request("invalid_section",
                            f"section is required. Valid: {sorted(_ALL_SECTIONS)}")
 
-    # Fetch all non-deleted questions in this section (lightweight projection)
     rows = db.session.query(
         Question.id, Question.exam, Question.world_key,
         Question.question_text, Question.correct_answer,
@@ -1073,7 +1048,6 @@ def find_duplicates():
         Question.deleted_at.is_(None),
     ).order_by(Question.id).all()
 
-    # Group by normalized text
     buckets: dict = {}
     for row in rows:
         key = _normalize_text(row.question_text)
@@ -1081,7 +1055,6 @@ def find_duplicates():
             buckets[key] = []
         buckets[key].append(row)
 
-    # Only return groups with 2+ questions
     duplicate_groups = []
     for key, qs in buckets.items():
         if len(qs) < 2:
@@ -1103,9 +1076,7 @@ def find_duplicates():
             ],
         })
 
-    # Sort: most copies first, then by earliest question id
     duplicate_groups.sort(key=lambda g: (-g["count"], g["questions"][0]["id"]))
-
     total_duplicate_questions = sum(g["count"] for g in duplicate_groups)
 
     return jsonify({
@@ -1178,7 +1149,6 @@ def list_questions():
         Question.world_key.nullslast(), Question.index.nullslast(),
     )
 
-    # ids_only=true — return just IDs with no per_page cap (used by Select All)
     if ids_only:
         id_list = [row[0] for row in q.with_entities(Question.id).all()]
         return jsonify({"ids": id_list, "total": len(id_list)}), 200
@@ -1843,31 +1813,58 @@ def create_org_leader(org_id: int):
 @admin_bp.route("/orgs/<int:org_id>/students/generate", methods=["POST"])
 @roles_required(*_ADMIN_ROLE)
 def generate_students(org_id: int):
+    """
+    Generate student accounts for a school org.
+
+    Username format: {schoolname}_student_{N}
+    e.g. alforsanschool_student_1, alforsanschool_student_2
+
+    - schoolname derived from org.name: lowercased, all non-alphanumeric chars stripped
+    - N is sequential, continuing from existing student count
+    - Collision fallback appends a random 4-digit suffix if needed
+    """
     admin = _get_current_user()
     org   = Org.query.get(org_id)
     if not org:
         return error_response("not_found", "Org not found.", 404)
+
     data  = request.get_json(silent=True) or {}
     count = data.get("count", 10)
     if not isinstance(count, int) or count < 1 or count > 500:
         return bad_request("validation_error", "count must be 1–500.")
-    prefix  = org.slug[:8]
+
+    # Derive clean name prefix from org name:  "AlForsan School" → "alforsanschool"
+    name_prefix = re.sub(r'[^a-z0-9]', '', org.name.lower())
+    if not name_prefix:
+        # Fallback: use slug with dashes stripped
+        name_prefix = org.slug.replace('-', '').replace('_', '')[:20]
+
+    # Start sequential numbering after existing students for this org
+    existing_count = User.query.filter_by(
+        org_id=org.id, role=UserRole.STUDENT
+    ).count()
+
     created = []
-    for _ in range(count):
-        for _ in range(10):
-            username = f"{prefix}_{_random_username_suffix()}"
-            if not User.query.filter_by(username=username).first():
-                break
-        else:
-            continue
+    for i in range(count):
+        student_num = existing_count + i + 1
+        username    = f"{name_prefix}_student_{student_num}"
+
+        # Collision fallback (edge case — sequential should never collide)
+        if User.query.filter_by(username=username).first():
+            username = f"{name_prefix}_student_{student_num}_{_random_username_suffix(4)}"
+
         password = _random_password()
         student  = User(username=username, role=UserRole.STUDENT, org_id=org.id)
         student.set_password(password)
         db.session.add(student)
         created.append({"username": username, "password": password})
+
     db.session.commit()
-    return jsonify({"created": len(created), "students": created,
-                    "message": f"{len(created)} student accounts created for {org.name}."}), 201
+    return jsonify({
+        "created":  len(created),
+        "students": created,
+        "message":  f"{len(created)} student accounts created for {org.name}.",
+    }), 201
 
 
 @admin_bp.route("/orgs/<int:org_id>/students/export", methods=["GET"])
@@ -2023,19 +2020,15 @@ def get_stats():
         .filter(Question.deleted_at.is_(None)).group_by(Question.section).all()
     )
 
-    # K4: Review status breakdown — initialise all statuses to 0 so frontend
-    # always gets a complete dict regardless of which statuses exist in DB.
     by_review_status = {s.value: 0 for s in ReviewStatus}
     review_rows = db.session.query(
         Question.review_status,
         func.count(Question.id).label("cnt"),
     ).filter(Question.deleted_at.is_(None)).group_by(Question.review_status).all()
     for row in review_rows:
-        # NULL review_status (legacy rows) counts as unreviewed
         key = row.review_status.value if row.review_status else ReviewStatus.UNREVIEWED.value
         by_review_status[key] = by_review_status.get(key, 0) + int(row.cnt)
 
-    # K4: Per-section detail (active, reviewed, unassigned counts per section)
     section_rows = db.session.query(
         Question.section,
         func.count(Question.id).label("total"),
@@ -2061,8 +2054,8 @@ def get_stats():
             "unassigned":        unassigned_questions,
             "per_exam":          questions_per_exam,
             "per_section":       questions_per_section,
-            "by_review_status":  by_review_status,   # K4
-            "by_section_detail": by_section_detail,  # K4
+            "by_review_status":  by_review_status,
+            "by_section_detail": by_section_detail,
         },
         "users":        {"students": total_users},
         "orgs":         {"total": total_orgs},
