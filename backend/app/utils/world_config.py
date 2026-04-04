@@ -210,11 +210,25 @@ def get_questions_per_level(world_key: str) -> int:
 def get_level_question_range(world_key: str, level_number: int) -> tuple[int, int]:
     """
     Returns (start_index, end_index) inclusive, 1-based, for the given level.
+
+    NON-CUMULATIVE: each level gets its own unique slice of questions.
+
+    Examples (world_key="math_100", 10 qpl):
+      level 1  → (1,  10)
+      level 2  → (11, 20)
+      level 10 → (91, 100)
+
+    Examples (world_key="math_150", 15 qpl):
+      level 1  → (1,  15)
+      level 2  → (16, 30)
+      level 10 → (136, 150)
     """
     if not (1 <= level_number <= LEVELS_PER_WORLD):
         raise ValueError(f"level_number must be 1–{LEVELS_PER_WORLD}, got {level_number}")
-    qpl = get_questions_per_level(world_key)
-    return (1, level_number * qpl)
+    qpl   = get_questions_per_level(world_key)
+    start = (level_number - 1) * qpl + 1
+    end   = level_number * qpl
+    return (start, end)
 
 
 # ── Display names ─────────────────────────────────────────────────────────────
@@ -228,11 +242,11 @@ SECTION_NAMES: dict[str, dict] = {
 }
 
 TIER_NAMES: dict[int, dict] = {
-    100: {"en": "Bidaya",  "ar": "البداية"},   # The Beginning
-    150: {"en": "Su'ood",  "ar": "الصعود"},    # The Ascent
-    200: {"en": "Tahadi",  "ar": "التحدي"},    # The Challenge
-    250: {"en": "Itqan",   "ar": "الإتقان"},   # The Mastery
-    300: {"en": "Qimma",   "ar": "القمة"},     # The Summit
+    100: {"en": "Bidaya",  "ar": "البداية"},
+    150: {"en": "Su'ood", "ar": "الصعود"},
+    200: {"en": "Tahadi",  "ar": "التحدي"},
+    250: {"en": "Itqan",   "ar": "الإتقان"},
+    300: {"en": "Qimma",   "ar": "القمة"},
 }
 
 

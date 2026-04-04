@@ -433,7 +433,11 @@ function ExamScreen({
 
 // ── RESULTS SCREEN ────────────────────────────────────────────────────────────
 
-function ResultsScreen({ exam, worldKey, levelNumber, passed, score, total, scorePercent, passThreshold, worldCompleted, timeTakenSeconds, onRetry }) {
+function ResultsScreen({
+  exam, worldKey, levelNumber,
+  passed, score, total, scorePercent,
+  passThreshold, worldCompleted, timeTakenSeconds, onRetry,
+}) {
   const nextLevel  = levelNumber < 10 ? levelNumber + 1 : null;
   const scoreColor = passed ? '#4ade80' : '#f87171';
 
@@ -508,27 +512,30 @@ export default function LevelPage() {
   const navigate    = useNavigate();
   const levelNumber = parseInt(levelParam, 10);
 
-  const [questions,   setQuestions]   = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [loadError,   setLoadError]   = useState('');
-  const [answers,     setAnswers]     = useState({});
-  const [feedback,    setFeedback]    = useState({});
-  const [showBurst,   setShowBurst]   = useState(false);
-  const [currentIdx,  setCurrentIdx]  = useState(0);
-  const [submitting,  setSubmitting]  = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [timeLeft,    setTimeLeft]    = useState(0);
-  const [totalTime,   setTotalTime]   = useState(0);
+  const [questions,       setQuestions]       = useState([]);
+  const [loading,         setLoading]         = useState(true);
+  const [loadError,       setLoadError]       = useState('');
+  const [answers,         setAnswers]         = useState({});
+  const [feedback,        setFeedback]        = useState({});
+  const [showBurst,       setShowBurst]       = useState(false);
+  const [currentIdx,      setCurrentIdx]      = useState(0);
+  const [submitting,      setSubmitting]      = useState(false);
+  const [submitError,     setSubmitError]     = useState('');
+  const [timeLeft,        setTimeLeft]        = useState(0);
+  const [totalTime,       setTotalTime]       = useState(0);
   const timerRef      = useRef(null);
   const autoSubmitRef = useRef(false);
   const startTimeRef  = useRef(null);
   const [timeTakenSeconds, setTimeTakenSeconds] = useState(0);
-  const [results,        setResults]        = useState(null);
-  const [passed,         setPassed]         = useState(false);
-  const [score,          setScore]          = useState(0);
-  const [scorePercent,   setScorePercent]   = useState(0);
-  const [passThreshold,  setPassThreshold]  = useState(70);
-  const [worldCompleted, setWorldCompleted] = useState(false);
+  const [results,         setResults]         = useState(null);
+  const [passed,          setPassed]          = useState(false);
+  const [score,           setScore]           = useState(0);
+  // submittedTotal: actual question count for this level from the submit response.
+  // Fixes score display bug where questions.length was the cumulative count.
+  const [submittedTotal,  setSubmittedTotal]  = useState(0);
+  const [scorePercent,    setScorePercent]    = useState(0);
+  const [passThreshold,   setPassThreshold]   = useState(100);
+  const [worldCompleted,  setWorldCompleted]  = useState(false);
 
   useEffect(() => {
     if (!['qudurat', 'tahsili'].includes(exam) || isNaN(levelNumber) || levelNumber < 1 || levelNumber > 10) {
@@ -616,7 +623,7 @@ export default function LevelPage() {
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
     clearInterval(timerRef.current);
-    // M1: capture elapsed seconds — sent to backend as duration_seconds for leaderboard tiebreaker
+    // M1: capture elapsed seconds for leaderboard tiebreaker
     const elapsed = startTimeRef.current ? Math.floor((Date.now() - startTimeRef.current) / 1000) : 0;
     setTimeTakenSeconds(elapsed);
     setSubmitting(true);
@@ -624,13 +631,16 @@ export default function LevelPage() {
     const payload = {};
     Object.entries(answers).forEach(([qId, ans]) => { payload[qId] = ans; });
     try {
-      // M1: pass elapsed so backend can store duration_seconds on first passing attempt
+      // M1: pass elapsed so backend stores duration_seconds on first passing attempt
       const data = await examsApi.submitLevel(exam, worldKey, levelNumber, payload, elapsed);
       setResults(true);
       setPassed(data.passed);
       setScore(data.score);
+      // Score display fix: use data.total (questions in this level) not questions.length
+      // (questions.length was the cumulative count before the question range fix)
+      setSubmittedTotal(data.total ?? questionsRef.current.length);
       setScorePercent(data.score_pct ?? (data.total > 0 ? (data.score / data.total) * 100 : 0));
-      setPassThreshold(data.pass_threshold_pct ?? 70);
+      setPassThreshold(data.pass_threshold_pct ?? 100);
       setWorldCompleted(data.world_completed ?? false);
     } catch (err) {
       setSubmitError(err?.error?.message || 'Submission failed. Please try again.');
@@ -648,6 +658,7 @@ export default function LevelPage() {
     setResults(null);
     setPassed(false);
     setScore(0);
+    setSubmittedTotal(0);
     setScorePercent(0);
     setWorldCompleted(false);
     setSubmitting(false);
@@ -702,7 +713,8 @@ export default function LevelPage() {
     return (
       <ResultsScreen
         exam={exam} worldKey={worldKey} levelNumber={levelNumber}
-        passed={passed} score={score} total={questions.length}
+        passed={passed} score={score}
+        total={submittedTotal || questions.length}
         scorePercent={scorePercent} passThreshold={passThreshold}
         worldCompleted={worldCompleted} timeTakenSeconds={timeTakenSeconds}
         onRetry={handleRetry}

@@ -50,6 +50,7 @@ Endpoints:
     PATCH  /api/admin/users/:user_id/activate
     PATCH  /api/admin/users/:user_id/deactivate
     POST   /api/admin/users/:user_id/reset-password
+    DELETE /api/admin/users/:user_id                    (M1 delete)
 
   Stats
     GET    /api/admin/stats
@@ -830,7 +831,6 @@ def approve_ai_review(question_id: int):
     if accept_hint and q.llm_proposed_hint:
         q.hint = q.llm_proposed_hint
 
-    # K1 — topic acceptance
     accept_topic = bool(data.get("accept_topic", True))
     if accept_topic:
         topic_to_set = (data.get("topic") or "").strip().lower() or q.llm_predicted_topic
@@ -1833,13 +1833,10 @@ def generate_students(org_id: int):
     if not isinstance(count, int) or count < 1 or count > 500:
         return bad_request("validation_error", "count must be 1–500.")
 
-    # Derive clean name prefix from org name:  "AlForsan School" → "alforsanschool"
     name_prefix = re.sub(r'[^a-z0-9]', '', org.name.lower())
     if not name_prefix:
-        # Fallback: use slug with dashes stripped
         name_prefix = org.slug.replace('-', '').replace('_', '')[:20]
 
-    # Start sequential numbering after existing students for this org
     existing_count = User.query.filter_by(
         org_id=org.id, role=UserRole.STUDENT
     ).count()
@@ -1849,7 +1846,6 @@ def generate_students(org_id: int):
         student_num = existing_count + i + 1
         username    = f"{name_prefix}_student_{student_num}"
 
-        # Collision fallback (edge case — sequential should never collide)
         if User.query.filter_by(username=username).first():
             username = f"{name_prefix}_student_{student_num}_{_random_username_suffix(4)}"
 
@@ -1993,6 +1989,38 @@ def reset_user_password(user_id: int):
     db.session.commit()
     return jsonify({"user": user.to_dict(), "password": new_password,
                     "message": "Password reset. Save it — it cannot be retrieved later."}), 200
+
+
+@admin_bp.route("/users/<int:user_id>", methods=["DELETE"])
+@roles_required(*_ADMIN_ROLE)
+def delete_user(user_id: int):
+    """
+    Hard-delete a user account.
+
+    Restrictions:
+    - Cannot delete your own account.
+    - Cannot delete drfahm_admin accounts (use deactivate instead).
+
+    Cascades via DB FK (ondelete=CASCADE):
+    LevelProgress, WorldProgress, ExamTrial, Entitlement rows for this user
+    are deleted automatically.
+    """
+    admin = _get_current_user()
+    user  = db.session.get(User, user_id)
+    if not user:
+        return error_response("not_found", "User not found.", 404)
+    if user.id == admin.id:
+        return forbidden("self_delete", "You cannot delete your own account.")
+    if user.role == UserRole.DRFAHM_ADMIN:
+        return forbidden("delete_admin",
+                         "Admin accounts cannot be deleted. Use deactivate instead.")
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({
+        "message":          f"User '{username}' permanently deleted.",
+        "deleted_username": username,
+    }), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
