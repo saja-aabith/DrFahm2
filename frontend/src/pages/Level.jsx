@@ -543,6 +543,33 @@ export default function LevelPage() {
     }
   }, [exam, levelNumber, navigate]);
 
+  // ── Reset all gameplay state when navigating between levels ────────────────
+  // React Router does NOT remount LevelPage when only URL params change.
+  // Without this, old `results`, `score`, etc. from the previous level persist
+  // into the next level — making it appear "auto-passed" immediately.
+  useEffect(() => {
+    setLoading(true);           // prevents "no questions" flash during reset
+    setQuestions([]);
+    setAnswers({});
+    setFeedback({});
+    setShowBurst(false);
+    setCurrentIdx(0);
+    setResults(null);
+    setPassed(false);
+    setScore(0);
+    setSubmittedTotal(0);
+    setScorePercent(0);
+    setWorldCompleted(false);
+    setSubmitting(false);
+    setSubmitError('');
+    setTimeTakenSeconds(0);
+    setLoadError('');
+    autoSubmitRef.current = false;
+    clearInterval(timerRef.current);
+    startTimeRef.current = null;
+  }, [exam, worldKey, levelNumber]);
+  // ────────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!exam || !worldKey || isNaN(levelNumber)) return;
     setLoading(true);
