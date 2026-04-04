@@ -9,21 +9,26 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 
 const EXAM_LABELS = {
-  qudurat: 'Qudurat — القدرات',
-  tahsili: 'Tahsili — التحصيلي',
+  qudurat: 'Qudurat \u2014 \u0627\u0644\u0642\u062f\u0631\u0627\u062a',
+  tahsili: 'Tahsili \u2014 \u0627\u0644\u062a\u062d\u0635\u064a\u0644\u064a',
+};
+
+const EXAM_SHORT = {
+  qudurat: 'Qudurat',
+  tahsili: 'Tahsili',
 };
 
 const TRACK_LABELS_AR = {
-  math:      'الرياضيات',
-  verbal:    'اللفظي',
-  biology:   'الأحياء',
-  chemistry: 'الكيمياء',
-  physics:   'الفيزياء',
+  math:      '\u0627\u0644\u0631\u064a\u0627\u0636\u064a\u0627\u062a',
+  verbal:    '\u0627\u0644\u0644\u0641\u0638\u064a',
+  biology:   '\u0627\u0644\u0623\u062d\u064a\u0627\u0621',
+  chemistry: '\u0627\u0644\u0643\u064a\u0645\u064a\u0627\u0621',
+  physics:   '\u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0621',
 };
 
 const LOCK_MESSAGES = {
   no_entitlement:    'Start your free trial to unlock',
-  trial_expired:     'Trial expired — upgrade to continue',
+  trial_expired:     'Trial expired \u2014 upgrade to continue',
   beyond_trial_cap:  'Upgrade to access this world',
   prereq_incomplete: 'Complete the previous world first',
   level_locked:      'Pass the previous level first',
@@ -36,8 +41,14 @@ const RANK_STYLES = [
   { bg: 'rgba(251,146,60,0.15)',  border: 'rgba(251,146,60,0.4)',  color: '#fb923c' },
 ];
 
+const CONF_COLOR = {
+  high:   '#15803d',
+  medium: '#0891b2',
+  low:    '#b45309',
+};
+
 function fmtAvg(seconds) {
-  if (seconds == null) return '—';
+  if (seconds == null) return '\u2014';
   const s = Math.round(seconds);
   if (s < 60) return `${s}s`;
   return `${Math.floor(s / 60)}m ${s % 60}s`;
@@ -61,6 +72,56 @@ function RankBadge({ rank }) {
     <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
       #{rank}
     </span>
+  );
+}
+
+// ── M2: Predicted Score Banner ────────────────────────────────────────────────
+
+function PredictedScoreBanner({ exam, data }) {
+  if (!data || data.score == null) return null;
+  const confColor  = CONF_COLOR[data.confidence] || 'var(--text-primary)';
+  const confLabel  = data.confidence === 'high'   ? 'high confidence'
+                   : data.confidence === 'medium' ? 'medium confidence'
+                   : 'low confidence (complete more levels)';
+  const hasSections = Object.keys(data.sections || {}).length > 1;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 16,
+      padding: '12px 18px', borderRadius: 10, marginBottom: 20,
+      background: 'var(--bg-card, rgba(255,255,255,0.04))',
+      border: '1px solid var(--border)',
+    }}>
+      <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎯</span>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+          Predicted {EXAM_SHORT[exam] || exam} score
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '1.7rem', fontWeight: 800, lineHeight: 1, color: confColor }}>
+            {data.score}%
+          </span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            {confLabel} &middot; {data.based_on_levels} level{data.based_on_levels !== 1 ? 's' : ''} passed
+          </span>
+        </div>
+      </div>
+
+      {hasSections && (
+        <div style={{
+          display: 'flex', gap: 16, flexShrink: 0,
+          paddingLeft: 16, borderLeft: '1px solid var(--border)',
+        }}>
+          {Object.entries(data.sections).map(([sec, score]) => (
+            <div key={sec} style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: confColor }}>{score}%</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 2 }}>{sec}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -92,135 +153,62 @@ function LeaderboardView({ exam }) {
     return <div className="alert alert-error" style={{ marginTop: 24 }}>{error}</div>;
   }
 
-  const top          = data?.top || [];
-  const currentUser  = data?.current_user || null;
-  const isEmpty      = top.length === 0;
+  const top         = data?.top || [];
+  const currentUser = data?.current_user || null;
+  const isEmpty     = top.length === 0;
   const currentInTop = top.some((r) => r.is_current_user);
-
-  const colGrid = '52px 1fr 90px 110px';
+  const colGrid     = '52px 1fr 90px 110px';
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
-
       {isEmpty ? (
-        <div style={{
-          textAlign: 'center', padding: '60px 24px',
-          background: 'var(--bg-card, rgba(255,255,255,0.03))',
-          border: '1px solid var(--border)', borderRadius: 14,
-        }}>
-          {/* Empty state — bigger trophy */}
+        <div style={{ textAlign: 'center', padding: '60px 24px', background: 'var(--bg-card, rgba(255,255,255,0.03))', border: '1px solid var(--border)', borderRadius: 14 }}>
           <Trophy size={52} strokeWidth={1.4} style={{ color: 'var(--text-muted)', marginBottom: 14 }} />
-          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>
-            No rankings yet
-          </div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Be the first to complete a level and claim the top spot.
-          </div>
+          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>No rankings yet</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Be the first to complete a level and claim the top spot.</div>
         </div>
       ) : (
         <>
-          <div style={{
-            background: 'var(--bg-card, rgba(255,255,255,0.03))',
-            border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden',
-          }}>
-            {/* Header */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: colGrid,
-              padding: '10px 20px', borderBottom: '1px solid var(--border)',
-              fontSize: '0.72rem', fontWeight: 700,
-              textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)',
-              alignItems: 'center',
-            }}>
+          <div style={{ background: 'var(--bg-card, rgba(255,255,255,0.03))', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: colGrid, padding: '10px 20px', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', alignItems: 'center' }}>
               <span>Rank</span>
               <span>Username</span>
-              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-                <Layers size={14} strokeWidth={2} /> Levels
-              </span>
-              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-                <Clock size={14} strokeWidth={2} /> Avg Time
-              </span>
+              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}><Layers size={14} strokeWidth={2} /> Levels</span>
+              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}><Clock size={14} strokeWidth={2} /> Avg Time</span>
             </div>
-
             {top.map((row) => {
               const isMe = row.is_current_user;
               return (
-                <div
-                  key={row.rank}
-                  style={{
-                    display: 'grid', gridTemplateColumns: colGrid,
-                    padding: '13px 20px', borderBottom: '1px solid var(--border)',
-                    background: isMe ? 'rgba(139,92,246,0.08)' : 'transparent',
-                    alignItems: 'center',
-                  }}
-                >
+                <div key={row.rank} style={{ display: 'grid', gridTemplateColumns: colGrid, padding: '13px 20px', borderBottom: '1px solid var(--border)', background: isMe ? 'rgba(139,92,246,0.08)' : 'transparent', alignItems: 'center' }}>
                   <RankBadge rank={row.rank} />
-
-                  <span style={{
-                    fontWeight: isMe ? 700 : 500, fontSize: '0.93rem',
-                    color: isMe ? 'var(--violet-light, #a78bfa)' : 'var(--text-primary)',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                  }}>
+                  <span style={{ fontWeight: isMe ? 700 : 500, fontSize: '0.93rem', color: isMe ? 'var(--violet-light, #a78bfa)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {row.username}
-                    {isMe && (
-                      <span style={{
-                        fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10,
-                        background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)',
-                        color: 'var(--violet-light, #a78bfa)', letterSpacing: '0.3px',
-                      }}>you</span>
-                    )}
+                    {isMe && <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--violet-light, #a78bfa)', letterSpacing: '0.3px' }}>you</span>}
                   </span>
-
-                  <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>
-                    {row.levels_passed}
-                  </span>
-
-                  <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmtAvg(row.avg_seconds_per_level)}
-                  </span>
+                  <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{row.levels_passed}</span>
+                  <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>{fmtAvg(row.avg_seconds_per_level)}</span>
                 </div>
               );
             })}
           </div>
-
-          {/* Current user outside top N */}
           {!currentInTop && currentUser && (
-            <div style={{
-              marginTop: 12, padding: '14px 20px', borderRadius: 12,
-              background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.25)',
-              display: 'grid', gridTemplateColumns: colGrid, alignItems: 'center',
-            }}>
-              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--violet-light, #a78bfa)' }}>
-                #{currentUser.rank}
-              </span>
+            <div style={{ marginTop: 12, padding: '14px 20px', borderRadius: 12, background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.25)', display: 'grid', gridTemplateColumns: colGrid, alignItems: 'center' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--violet-light, #a78bfa)' }}>#{currentUser.rank}</span>
               <span style={{ fontWeight: 700, color: 'var(--violet-light, #a78bfa)', fontSize: '0.93rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                 {currentUser.username}
-                <span style={{
-                  fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10,
-                  background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)',
-                  color: 'var(--violet-light, #a78bfa)',
-                }}>you</span>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--violet-light, #a78bfa)' }}>you</span>
               </span>
-              <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>
-                {currentUser.levels_passed}
-              </span>
-              <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtAvg(currentUser.avg_seconds_per_level)}
-              </span>
+              <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{currentUser.levels_passed}</span>
+              <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>{fmtAvg(currentUser.avg_seconds_per_level)}</span>
             </div>
           )}
-
           {!currentUser && (
-            <div style={{
-              marginTop: 12, padding: '12px 16px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
-              fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center',
-            }}>
+            <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>
               Complete a level to appear on the leaderboard.
             </div>
           )}
-
           <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right', paddingRight: 4 }}>
-            Avg Time = average seconds per passed level · — means no timing data yet
+            Avg Time = average seconds per passed level &middot; &mdash; means no timing data yet
           </div>
         </>
       )}
@@ -233,31 +221,19 @@ function LeaderboardView({ exam }) {
 function LevelNode({ level, examKey, worldKey }) {
   const navigate = useNavigate();
   const { level_number, locked, lock_reason, passed } = level;
-
   const status = passed ? 'passed' : locked ? 'locked' : 'unlocked';
-
-  const handleClick = () => {
-    if (locked) return;
-    navigate(`/exam/${examKey}/world/${worldKey}/level/${level_number}`);
-  };
-
+  const handleClick = () => { if (locked) return; navigate(`/exam/${examKey}/world/${worldKey}/level/${level_number}`); };
   return (
-    <div
-      className={`level-node ${status}`}
-      onClick={handleClick}
+    <div className={`level-node ${status}`} onClick={handleClick}
       title={locked ? LOCK_MESSAGES[lock_reason] || lock_reason : `Level ${level_number}`}
-      role="button"
-      tabIndex={locked ? -1 : 0}
+      role="button" tabIndex={locked ? -1 : 0}
       onKeyDown={(e) => e.key === 'Enter' && !locked && handleClick()}
-      aria-label={`Level ${level_number} — ${status}${locked ? ': ' + (LOCK_MESSAGES[lock_reason] || lock_reason) : ''}`}
-    >
+      aria-label={`Level ${level_number} \u2014 ${status}${locked ? ': ' + (LOCK_MESSAGES[lock_reason] || lock_reason) : ''}`}>
       <span className="level-node-num">{level_number}</span>
       <span className="level-node-icon">
-        {passed
-          ? <CheckCircle size={16} strokeWidth={2.5} />
-          : locked
-          ? <Lock size={14} strokeWidth={2.5} />
-          : <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>→</span>}
+        {passed ? <CheckCircle size={16} strokeWidth={2.5} />
+          : locked ? <Lock size={14} strokeWidth={2.5} />
+          : <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>&rarr;</span>}
       </span>
     </div>
   );
@@ -268,56 +244,31 @@ function LevelNode({ level, examKey, worldKey }) {
 function WorldCard({ world, examKey, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
   const { world_key, world_name, world_name_ar, index, locked, lock_reason, levels } = world;
-
   const passedCount = levels.filter((l) => l.passed).length;
   const allPassed   = passedCount === 10;
-
   return (
     <div className={`world-card ${locked ? 'locked' : 'unlocked'}`}>
       <div className="world-card-header" onClick={() => setOpen(!open)}>
         <div className="world-header-left">
-          <div className={`world-index-badge ${locked ? 'locked' : 'unlocked'}`}>
-            W{index}
-          </div>
+          <div className={`world-index-badge ${locked ? 'locked' : 'unlocked'}`}>W{index}</div>
           <div>
             <div className="world-name">
               {world_name}
-              {world_name_ar && (
-                <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', marginLeft: 8 }}>
-                  {world_name_ar}
-                </span>
-              )}
+              {world_name_ar && <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', marginLeft: 8 }}>{world_name_ar}</span>}
             </div>
-            <div className="world-meta">
-              {locked
-                ? (LOCK_MESSAGES[lock_reason] || lock_reason)
-                : `${passedCount}/10 levels passed`}
-            </div>
+            <div className="world-meta">{locked ? (LOCK_MESSAGES[lock_reason] || lock_reason) : `${passedCount}/10 levels passed`}</div>
           </div>
         </div>
         <div className="world-status-right">
-          {allPassed && !locked && (
-            <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <CheckCircle size={17} strokeWidth={2.5} /> Complete
-            </span>
-          )}
+          {allPassed && !locked && <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={17} strokeWidth={2.5} /> Complete</span>}
           {locked && <Lock size={18} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
-          {open
-            ? <ChevronUp  size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
-            : <ChevronDown size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
+          {open ? <ChevronUp size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
+                : <ChevronDown size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
         </div>
       </div>
-
       {open && (
         <div className="world-levels-grid">
-          {levels.map((level) => (
-            <LevelNode
-              key={level.level_number}
-              level={level}
-              examKey={examKey}
-              worldKey={world_key}
-            />
-          ))}
+          {levels.map((level) => <LevelNode key={level.level_number} level={level} examKey={examKey} worldKey={world_key} />)}
         </div>
       )}
     </div>
@@ -330,11 +281,7 @@ function TrackTabs({ tracks, activeTrack, onSelect }) {
   return (
     <div className="track-tabs">
       {tracks.map((track) => (
-        <button
-          key={track.track_key}
-          className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`}
-          onClick={() => onSelect(track.track_key)}
-        >
+        <button key={track.track_key} className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`} onClick={() => onSelect(track.track_key)}>
           <span className="track-tab-en">{track.track_name}</span>
           <span className="track-tab-ar">{TRACK_LABELS_AR[track.track_key] || ''}</span>
         </button>
@@ -347,15 +294,10 @@ function TrackTabs({ tracks, activeTrack, onSelect }) {
 
 function TrackProgressBar({ track }) {
   const totalWorlds     = track.worlds.length;
-  const completedWorlds = track.worlds.filter((w) =>
-    w.levels.filter((l) => l.passed).length === 10
-  ).length;
-  const totalLevels  = totalWorlds * 10;
-  const passedLevels = track.worlds.reduce(
-    (sum, w) => sum + w.levels.filter((l) => l.passed).length, 0
-  );
-  const pct = totalLevels > 0 ? Math.round((passedLevels / totalLevels) * 100) : 0;
-
+  const completedWorlds = track.worlds.filter((w) => w.levels.filter((l) => l.passed).length === 10).length;
+  const totalLevels     = totalWorlds * 10;
+  const passedLevels    = track.worlds.reduce((sum, w) => sum + w.levels.filter((l) => l.passed).length, 0);
+  const pct             = totalLevels > 0 ? Math.round((passedLevels / totalLevels) * 100) : 0;
   return (
     <div className="track-progress-summary">
       <div className="track-progress-stats">
@@ -373,18 +315,7 @@ function TrackProgressBar({ track }) {
 
 function ViewToggleBtn({ active, onClick, icon: Icon, label }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8,
-        padding: '8px 18px', borderRadius: 8,
-        fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',
-        transition: 'all 0.15s',
-        background: active ? 'rgba(139,92,246,0.15)' : 'transparent',
-        border: active ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)',
-        color: active ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
-      }}
-    >
+    <button onClick={onClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 18px', borderRadius: 8, fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.15s', background: active ? 'rgba(139,92,246,0.15)' : 'transparent', border: active ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)', color: active ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)' }}>
       <Icon size={20} strokeWidth={2} />
       {label}
     </button>
@@ -400,12 +331,14 @@ export default function ExamPage() {
 
   const isAdmin = user?.role === 'drfahm_admin';
 
-  const [worldMap,     setWorldMap]     = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
-  const [entitlements, setEntitlements] = useState(null);
-  const [activeTrack,  setActiveTrack]  = useState(null);
-  const [view,         setView]         = useState('map');
+  const [worldMap,        setWorldMap]        = useState(null);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState('');
+  const [entitlements,    setEntitlements]    = useState(null);
+  const [activeTrack,     setActiveTrack]     = useState(null);
+  const [view,            setView]            = useState('map');
+  // M2: predicted score for the current user
+  const [predictedScore,  setPredictedScore]  = useState(null);
 
   useEffect(() => {
     if (!['qudurat', 'tahsili'].includes(exam)) {
@@ -416,9 +349,11 @@ export default function ExamPage() {
     Promise.all([
       examsApi.worldMap(exam),
       billing.getEntitlements().catch(() => null),
-    ]).then(([mapData, billingData]) => {
+      examsApi.predictedScore(exam).catch(() => null),   // M2
+    ]).then(([mapData, billingData, predData]) => {
       setWorldMap(mapData);
       setEntitlements(billingData);
+      setPredictedScore(predData);
       if (mapData?.tracks?.length > 0) {
         setActiveTrack(mapData.tracks[0].track_key);
       }
@@ -446,7 +381,7 @@ export default function ExamPage() {
         <Navbar />
         <div className="page">
           <div className="alert alert-error">{error}</div>
-          <Link to="/dashboard" className="btn btn-ghost" style={{ marginTop: 16 }}>← Back to Dashboard</Link>
+          <Link to="/dashboard" className="btn btn-ghost" style={{ marginTop: 16 }}>&larr; Back to Dashboard</Link>
         </div>
       </>
     );
@@ -476,7 +411,7 @@ export default function ExamPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <Link to="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
-            ← Dashboard
+            &larr; Dashboard
           </Link>
           <span style={{ color: 'var(--border)' }}>/</span>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
@@ -487,14 +422,14 @@ export default function ExamPage() {
         <div className="page-header">
           <h1 className="page-title">{EXAM_LABELS[exam] || exam}</h1>
           <p className="page-subtitle">
-            {totalTracks} {totalTracks === 1 ? 'track' : 'tracks'} · {worldsPerTrack} worlds each · 10 levels per world
+            {totalTracks} {totalTracks === 1 ? 'track' : 'tracks'} &middot; {worldsPerTrack} worlds each &middot; 10 levels per world
           </p>
         </div>
 
         {!isAdmin && !hasPaidPlan && trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
-              <h3>You're on the free trial — World 1 unlocked per track</h3>
+              <h3>You're on the free trial &mdash; World 1 unlocked per track</h3>
               <p>Upgrade to Basic for all 5 worlds, or Premium for the full experience.</p>
             </div>
             <div className="paywall-actions">
@@ -527,6 +462,10 @@ export default function ExamPage() {
               <TrackTabs tracks={tracks} activeTrack={activeTrack} onSelect={setActiveTrack} />
             )}
             {currentTrack && <TrackProgressBar track={currentTrack} />}
+
+            {/* M2: Predicted score banner — shown once the student has passed at least one level */}
+            <PredictedScoreBanner exam={exam} data={predictedScore} />
+
             <div className="world-map-grid">
               {currentTrack?.worlds?.map((world, idx) => (
                 <WorldCard

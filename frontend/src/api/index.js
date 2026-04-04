@@ -100,6 +100,12 @@ export const exams = {
   // M1: leaderboard for an exam (top 20 + current user rank)
   leaderboard: (exam) => request(`/api/exams/${exam}/leaderboard`),
 
+  // M2: predicted exam score for the current user.
+  // Returns: { score, sections, based_on_levels, confidence }
+  // Note: also injected into the submit_level response body — use that on the
+  // results screen to avoid an extra round-trip.
+  predictedScore: (exam) => request(`/api/exams/${exam}/predicted-score`),
+
   // Canonical names (used by Level.jsx)
   getQuestions: (exam, worldKey, levelNumber) =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/questions`),

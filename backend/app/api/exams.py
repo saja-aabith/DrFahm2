@@ -6,7 +6,7 @@ Key invariants enforced here:
 - Frontend renders exactly what backend returns — no lock logic on client.
 - Questions returned in index ASC order, no shuffling.
 - Correct answers NEVER returned in questions endpoint.
-- Pass threshold from config (PASS_THRESHOLD_PCT, default 70%).
+- Pass threshold from config (PASS_THRESHOLD_PCT, default 100%).
 - WorldProgress updated automatically when all 10 levels pass.
 
 TRACK-AWARE:
@@ -18,6 +18,12 @@ M1 ADDITIONS:
   - GET /<exam>/leaderboard — top 20 + current user rank.
     Primary sort:  levels_passed DESC.
     Tiebreaker:    avg duration_seconds ASC, nulls last (fastest wins).
+
+M2 ADDITIONS:
+  - GET /<exam>/predicted-score — weighted-depth prediction.
+  - predicted_score injected into submit_level response (no extra round-trip).
+  - Algorithm isolated in _compute_predicted_score(); constants in
+    _PREDICTION_CONFIG — change calibration without touching logic.
 """
 
 from datetime import datetime, timezone
@@ -35,6 +41,7 @@ from ..utils.world_config import (
     EXAM_WORLD_ORDER,
     EXAM_TRACKS,
     LEVELS_PER_WORLD,
+    WORLD_BAND,
     LockReason,
     get_world_index,
     get_track_world_index,
@@ -59,6 +66,81 @@ exams_bp = Blueprint("exams", __name__, url_prefix="/api/exams")
 # Maximum rows returned in the public leaderboard.
 _LEADERBOARD_TOP_N = 20
 
+# ── M2: Predicted score configuration ─────────────────────────────────────────
+# Change values here to re-calibrate the prediction without touching logic.
+_PREDICTION_CONFIG = {
+    # Score a student would receive with zero preparation (floor).
+    "base_score": 30,
+    # base_score + scale_range = 100 (ceiling at full completion).
+    "scale_range": 70,
+    # Theoretical max weight achievable in a single section.
+    # 10 levels × (1.0 + 1.5 + 2.0 + 2.5 + 3.0) = 100.0
+    "max_weight_per_section": 100.0,
+    # Minimum levels passed to reach each confidence tier.
+    "confidence_thresholds": {"medium": 10, "high": 30},
+}
+
+
+def _compute_predicted_score(passed_records: list) -> dict:
+    """
+    Predict exam score from a list of passed LevelProgress records.
+
+    Formula (weighted-depth):
+      weight per level  = world_band / 100   (World1=1.0 … World5=3.0)
+      section ratio     = sum(weights) / max_weight_per_section   (0–1)
+      section score     = base_score + ratio × scale_range
+      overall score     = average of section scores
+
+    Returns:
+        {
+            "score":           int | None,
+            "sections":        { section_key: int },
+            "based_on_levels": int,
+            "confidence":      "none" | "low" | "medium" | "high",
+        }
+
+    To swap the algorithm: replace only this function and keep the
+    _PREDICTION_CONFIG dict in sync with any new constants needed.
+    """
+    cfg = _PREDICTION_CONFIG
+
+    if not passed_records:
+        return {
+            "score": None,
+            "sections": {},
+            "based_on_levels": 0,
+            "confidence": "none",
+        }
+
+    by_section: dict[str, float] = {}
+    for lp in passed_records:
+        band    = WORLD_BAND.get(lp.world_key, 100)
+        weight  = band / 100.0
+        section = lp.world_key.split("_")[0]
+        by_section[section] = by_section.get(section, 0.0) + weight
+
+    sections_out: dict[str, int] = {}
+    completion_ratios: list[float] = []
+    for section, total_weight in by_section.items():
+        ratio  = min(total_weight / cfg["max_weight_per_section"], 1.0)
+        completion_ratios.append(ratio)
+        sections_out[section] = round(cfg["base_score"] + ratio * cfg["scale_range"])
+
+    overall_ratio = sum(completion_ratios) / len(completion_ratios)
+    predicted     = round(cfg["base_score"] + overall_ratio * cfg["scale_range"])
+
+    n = len(passed_records)
+    if   n >= cfg["confidence_thresholds"]["high"]:   confidence = "high"
+    elif n >= cfg["confidence_thresholds"]["medium"]: confidence = "medium"
+    else:                                              confidence = "low"
+
+    return {
+        "score":           predicted,
+        "sections":        sections_out,
+        "based_on_levels": n,
+        "confidence":      confidence,
+    }
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,12 +157,8 @@ def _validate_exam_param(exam: str):
 
 
 def _validate_world_key_param(world_key: str, exam: str):
-    """Validates world_key exists and belongs to exam. Returns error or None."""
     if world_key not in VALID_WORLD_KEYS:
-        return bad_request(
-            "invalid_world_key",
-            f"Invalid world_key: {world_key!r}."
-        )
+        return bad_request("invalid_world_key", f"Invalid world_key: {world_key!r}.")
     if world_key not in EXAM_WORLD_ORDER.get(exam, []):
         return bad_request(
             "world_not_in_exam",
@@ -90,12 +168,10 @@ def _validate_world_key_param(world_key: str, exam: str):
 
 
 def _validate_level_number(level_number_str: str):
-    """Parses and validates level_number. Returns (int, error | None)."""
     try:
         level_number = int(level_number_str)
     except (ValueError, TypeError):
-        return None, bad_request("invalid_level_number",
-                                 "level_number must be an integer.")
+        return None, bad_request("invalid_level_number", "level_number must be an integer.")
     if not (1 <= level_number <= LEVELS_PER_WORLD):
         return None, bad_request(
             "invalid_level_number",
@@ -105,22 +181,16 @@ def _validate_level_number(level_number_str: str):
 
 
 def _preload_world_progress(user_id: int, exam: str) -> dict:
-    """Returns {world_key: WorldProgress} for all worlds the user has touched."""
     rows = WorldProgress.query.filter_by(user_id=user_id, exam=exam).all()
     return {r.world_key: r for r in rows}
 
 
 def _preload_level_progress(user_id: int, exam: str) -> dict:
-    """Returns {(world_key, level_number): LevelProgress}."""
     rows = LevelProgress.query.filter_by(user_id=user_id, exam=exam).all()
     return {(r.world_key, r.level_number): r for r in rows}
 
 
 def _parse_duration_seconds(raw) -> int | None:
-    """
-    Safely parse duration_seconds from the submit body.
-    Returns a non-negative int or None. Silently discards invalid values.
-    """
     if raw is None:
         return None
     try:
@@ -135,37 +205,6 @@ def _parse_duration_seconds(raw) -> int | None:
 @exams_bp.route("/<exam>/world-map", methods=["GET"])
 @require_auth
 def world_map(exam: str):
-    """
-    Returns the full world map for an exam, grouped by tracks.
-
-    - Starts the per-exam trial on first call (if no trial + no entitlement).
-    - Frontend must render exactly what this returns.
-    - All lock logic lives here — never on the client.
-    - Tracks are independent: math and verbal progress separately.
-
-    Response shape:
-    {
-        "exam": "qudurat",
-        "tracks": [
-            {
-                "track_key": "math",
-                "track_name": "Math",
-                "worlds": [
-                    {
-                        "world_key":   "math_100",
-                        "world_name":  "Math 100",
-                        "index":       1,
-                        "locked":      false,
-                        "lock_reason": null,
-                        "levels": [
-                            {"level_number": 1, "locked": false, "lock_reason": null, "passed": false}
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-    """
     _, err = _validate_exam_param(exam)
     if err:
         return err
@@ -173,15 +212,12 @@ def world_map(exam: str):
     user       = _get_current_user()
     trial_days = current_app.config["TRIAL_DAYS"]
 
-    # ── Start trial on first world-map request ──
     get_or_create_trial(user, exam, trial_days)
     db.session.commit()
 
-    # ── Preload progress in two queries (avoid N+1) ──
     world_progress_map = _preload_world_progress(user.id, exam)
     level_progress_map = _preload_level_progress(user.id, exam)
 
-    # ── Build track-grouped output ──
     tracks_info   = get_track_info(exam)
     tracks_output = []
 
@@ -190,13 +226,10 @@ def world_map(exam: str):
 
         for world_key in track["worlds"]:
             track_world_index = get_track_world_index(exam, world_key)
-
-            # ── Access check (track-aware) ──
             world_result      = resolve_world_access(user, exam, world_key)
             world_locked      = not world_result["allowed"]
             world_lock_reason = world_result["lock_reason"]
 
-            # ── Build level states ──
             levels = []
             for level_number in range(1, LEVELS_PER_WORLD + 1):
                 lp     = level_progress_map.get((world_key, level_number))
@@ -252,15 +285,6 @@ def world_map(exam: str):
 )
 @require_auth
 def get_questions(exam: str, world_key: str, level_number: str):
-    """
-    Returns questions for a specific level.
-
-    - Validates entitlement + progression before returning questions.
-    - Starts trial on first call (same as world-map).
-    - Returns questions sorted by index ASC (deterministic, no shuffle).
-    - correct_answer is NEVER included in this response.
-    - Cumulative: Level N returns questions 1..N*questions_per_level.
-    """
     _, err = _validate_exam_param(exam)
     if err:
         return err
@@ -276,13 +300,10 @@ def get_questions(exam: str, world_key: str, level_number: str):
     user       = _get_current_user()
     trial_days = current_app.config["TRIAL_DAYS"]
 
-    # ── Start trial on first questions request ──
     get_or_create_trial(user, exam, trial_days)
     db.session.commit()
 
-    # ── Access check (track-aware) ──
     access = resolve_level_access(user, exam, world_key, level_number)
-
     if not access["allowed"]:
         return forbidden(
             access["lock_reason"],
@@ -290,7 +311,6 @@ def get_questions(exam: str, world_key: str, level_number: str):
             {"lock_reason": access["lock_reason"]}
         )
 
-    # ── Fetch questions (cumulative range, index ASC) ──
     start_index, end_index = get_level_question_range(world_key, level_number)
 
     questions = (
@@ -319,8 +339,6 @@ def get_questions(exam: str, world_key: str, level_number: str):
         "world_key":    world_key,
         "level_number": level_number,
         "total":        len(questions),
-        # hint included — frontend shows it after a wrong answer.
-        # correct_answer NOT included — never sent before submission.
         "questions":    [q.to_dict(include_answer=True, include_hint=True) for q in questions],
     }), 200
 
@@ -338,14 +356,13 @@ def submit_level(exam: str, world_key: str, level_number: str):
 
     Body:
     {
-        "answers": {
-            "<question_id>": "a" | "b" | "c" | "d",
-            ...
-        },
-        "duration_seconds": 42   // optional int >= 0
-                                 // M1: stored on the first passing attempt only.
-                                 // Used as tiebreaker in leaderboard ranking.
+        "answers":          { "<question_id>": "a"|"b"|"c"|"d", ... },
+        "duration_seconds": 42   // optional — M1 leaderboard tiebreaker
     }
+
+    Response includes:
+    - Standard grading fields
+    - M2: predicted_score object (see _compute_predicted_score)
     """
     _, err = _validate_exam_param(exam)
     if err:
@@ -359,11 +376,8 @@ def submit_level(exam: str, world_key: str, level_number: str):
     if err:
         return err
 
-    user = _get_current_user()
-
-    # ── Access check (track-aware) ──
+    user   = _get_current_user()
     access = resolve_level_access(user, exam, world_key, level_number)
-
     if not access["allowed"]:
         return forbidden(
             access["lock_reason"],
@@ -371,7 +385,6 @@ def submit_level(exam: str, world_key: str, level_number: str):
             {"lock_reason": access["lock_reason"]}
         )
 
-    # ── Parse body ──
     data             = request.get_json(silent=True) or {}
     answers          = data.get("answers")
     duration_seconds = _parse_duration_seconds(data.get("duration_seconds"))
@@ -390,9 +403,7 @@ def submit_level(exam: str, world_key: str, level_number: str):
                 f"Answer for question {qid!r} must be one of a/b/c/d, got {ans!r}."
             )
 
-    # ── Fetch questions for this level ──
     start_index, end_index = get_level_question_range(world_key, level_number)
-
     questions = (
         Question.query
         .filter(
@@ -410,12 +421,10 @@ def submit_level(exam: str, world_key: str, level_number: str):
     if not questions:
         return error_response(
             "no_questions",
-            "No questions found for this level. "
-            "Ensure the question bank has been imported.",
+            "No questions found for this level. Ensure the question bank has been imported.",
             422,
         )
 
-    # ── Grade ──
     pass_threshold_pct = current_app.config["PASS_THRESHOLD_PCT"]
     correct_count      = 0
     results            = []
@@ -433,54 +442,40 @@ def submit_level(exam: str, world_key: str, level_number: str):
             "correct_answer": q.correct_answer,
             "is_correct":     is_correct,
         }
-        # Include hint only for wrong answers.
         if not is_correct and q.hint:
             result_entry["hint"] = q.hint
-
         results.append(result_entry)
 
     total_questions = len(questions)
     score_pct       = (correct_count / total_questions * 100) if total_questions else 0
     passed          = score_pct >= pass_threshold_pct
 
-    # ── Upsert LevelProgress ──
     now = datetime.now(timezone.utc)
     lp  = LevelProgress.query.filter_by(
-        user_id=user.id,
-        exam=exam,
-        world_key=world_key,
-        level_number=level_number,
+        user_id=user.id, exam=exam, world_key=world_key, level_number=level_number,
     ).first()
 
     if lp:
-        lp.attempts          += 1
-        lp.score              = correct_count
-        lp.total_questions    = total_questions
-        lp.last_attempted_at  = now
+        lp.attempts         += 1
+        lp.score             = correct_count
+        lp.total_questions   = total_questions
+        lp.last_attempted_at = now
         if passed:
             lp.passed = True
-            # M1: Store duration on first pass only — never overwrite once set.
             if lp.duration_seconds is None:
                 lp.duration_seconds = duration_seconds
     else:
         lp = LevelProgress(
-            user_id=user.id,
-            exam=exam,
-            world_key=world_key,
-            level_number=level_number,
-            passed=passed,
-            score=correct_count,
-            total_questions=total_questions,
-            attempts=1,
-            last_attempted_at=now,
-            # M1: Only record duration when this first attempt is also a pass.
+            user_id=user.id, exam=exam, world_key=world_key,
+            level_number=level_number, passed=passed,
+            score=correct_count, total_questions=total_questions,
+            attempts=1, last_attempted_at=now,
             duration_seconds=(duration_seconds if passed else None),
         )
         db.session.add(lp)
 
     db.session.flush()
 
-    # ── Check if all 10 levels in this world are now passed ──
     world_completed = False
     if passed:
         all_level_progress = (
@@ -492,9 +487,7 @@ def submit_level(exam: str, world_key: str, level_number: str):
 
         if len(passed_levels) == LEVELS_PER_WORLD:
             wp = WorldProgress.query.filter_by(
-                user_id=user.id,
-                exam=exam,
-                world_key=world_key,
+                user_id=user.id, exam=exam, world_key=world_key,
             ).first()
             if wp:
                 if not wp.fully_completed:
@@ -503,16 +496,19 @@ def submit_level(exam: str, world_key: str, level_number: str):
                     world_completed    = True
             else:
                 wp = WorldProgress(
-                    user_id=user.id,
-                    exam=exam,
-                    world_key=world_key,
-                    fully_completed=True,
-                    completed_at=now,
+                    user_id=user.id, exam=exam, world_key=world_key,
+                    fully_completed=True, completed_at=now,
                 )
                 db.session.add(wp)
                 world_completed = True
 
     db.session.commit()
+
+    # ── M2: Predicted score (computed after commit so this attempt is included) ──
+    all_passed = LevelProgress.query.filter_by(
+        user_id=user.id, exam=exam, passed=True,
+    ).all()
+    predicted = _compute_predicted_score(all_passed)
 
     return jsonify({
         "exam":               exam,
@@ -524,8 +520,10 @@ def submit_level(exam: str, world_key: str, level_number: str):
         "passed":             passed,
         "pass_threshold_pct": pass_threshold_pct,
         "world_completed":    world_completed,
-        # Per-question breakdown. hint included on wrong answers when present.
         "results":            results,
+        # M2: predicted score — used by Level.jsx results screen directly.
+        # Shape: { score, sections, based_on_levels, confidence }
+        "predicted_score":    predicted,
     }), 200
 
 
@@ -534,17 +532,11 @@ def submit_level(exam: str, world_key: str, level_number: str):
 @exams_bp.route("/<exam>/progress", methods=["GET"])
 @require_auth
 def get_progress(exam: str):
-    """
-    Returns a summary of the user's progress across all worlds for an exam.
-    Still returns a flat list (used by Dashboard) — tracks grouping is done
-    in the world-map endpoint.
-    """
     _, err = _validate_exam_param(exam)
     if err:
         return err
 
     user = _get_current_user()
-
     world_progress_map = _preload_world_progress(user.id, exam)
     level_progress_map = _preload_level_progress(user.id, exam)
 
@@ -554,8 +546,7 @@ def get_progress(exam: str):
         wp          = world_progress_map.get(world_key)
 
         levels_passed = sum(
-            1
-            for level_number in range(1, LEVELS_PER_WORLD + 1)
+            1 for level_number in range(1, LEVELS_PER_WORLD + 1)
             if level_progress_map.get((world_key, level_number)) and
                level_progress_map[(world_key, level_number)].passed
         )
@@ -579,34 +570,6 @@ def get_progress(exam: str):
 @exams_bp.route("/<exam>/leaderboard", methods=["GET"])
 @require_auth
 def get_leaderboard(exam: str):
-    """
-    Returns the top-N students for an exam ranked by levels passed (desc),
-    tiebroken by average duration_seconds per passed level (asc, nulls last).
-
-    Students with no passed levels are excluded entirely.
-    Current user's rank is always returned even if outside top N.
-
-    Response:
-    {
-        "exam": "qudurat",
-        "top": [
-            {
-                "rank": 1,
-                "username": "student_x",
-                "levels_passed": 47,
-                "avg_seconds_per_level": 32.4,   // null if no duration data
-                "is_current_user": false
-            }
-        ],
-        "current_user": {                         // null if user has no passed levels
-            "rank": 23,
-            "username": "you",
-            "levels_passed": 12,
-            "avg_seconds_per_level": 41.2,
-            "is_current_user": true
-        }
-    }
-    """
     _, err = _validate_exam_param(exam)
     if err:
         return err
@@ -616,9 +579,6 @@ def get_leaderboard(exam: str):
     levels_passed_expr = func.count(LevelProgress.id)
     avg_seconds_expr   = func.avg(LevelProgress.duration_seconds)
 
-    # Single query: group by user, order by levels DESC then avg duration ASC.
-    # func.coalesce(avg, 999999) pushes null-duration users to the bottom of
-    # the tiebreaker without excluding them from the leaderboard entirely.
     all_ranked = (
         db.session.query(
             LevelProgress.user_id,
@@ -641,7 +601,6 @@ def get_leaderboard(exam: str):
         .all()
     )
 
-    # Build a clean ranked list (Python-side — fine at MVP scale).
     ranked = [
         {
             "rank":          i + 1,
@@ -664,7 +623,7 @@ def get_leaderboard(exam: str):
             "avg_seconds_per_level": (
                 round(entry["avg_seconds"], 1) if entry["avg_seconds"] is not None else None
             ),
-            "is_current_user":       entry["user_id"] == user.id,
+            "is_current_user": entry["user_id"] == user.id,
         }
 
     return jsonify({
@@ -672,3 +631,36 @@ def get_leaderboard(exam: str):
         "top":          [_serialise(r) for r in top_n],
         "current_user": _serialise(current_entry) if current_entry else None,
     }), 200
+
+
+# ── GET /api/exams/<exam>/predicted-score  (M2) ───────────────────────────────
+
+@exams_bp.route("/<exam>/predicted-score", methods=["GET"])
+@require_auth
+def get_predicted_score(exam: str):
+    """
+    Returns the predicted exam score for the current user.
+
+    Uses the same _compute_predicted_score() helper as submit_level,
+    so the algorithm is guaranteed to be consistent between the two.
+
+    Response:
+    {
+        "exam":            "qudurat",
+        "score":           74,         // null if no levels passed yet
+        "sections":        { "math": 82, "verbal": 65 },
+        "based_on_levels": 25,
+        "confidence":      "medium"    // "none"|"low"|"medium"|"high"
+    }
+    """
+    _, err = _validate_exam_param(exam)
+    if err:
+        return err
+
+    user = _get_current_user()
+    passed_records = LevelProgress.query.filter_by(
+        user_id=user.id, exam=exam, passed=True,
+    ).all()
+    result = _compute_predicted_score(passed_records)
+
+    return jsonify({"exam": exam, **result}), 200

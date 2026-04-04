@@ -194,6 +194,14 @@ function fmtTime(s) {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
+const EXAM_SHORT = { qudurat: 'Qudurat', tahsili: 'Tahsili' };
+
+const CONF_COLOR = {
+  high:   '#15803d',
+  medium: '#0891b2',
+  low:    '#b45309',
+};
+
 function timerColor(pct) {
   if (pct > 0.5) return '#3b82f6';
   if (pct > 0.2) return '#d97706';
@@ -437,6 +445,7 @@ function ResultsScreen({
   exam, worldKey, levelNumber,
   passed, score, total, scorePercent,
   passThreshold, worldCompleted, timeTakenSeconds, onRetry,
+  predictedScore,
 }) {
   const nextLevel  = levelNumber < 10 ? levelNumber + 1 : null;
   const scoreColor = passed ? '#4ade80' : '#f87171';
@@ -481,6 +490,39 @@ function ResultsScreen({
               <div className="lp-stat-label">Missed</div>
             </div>
           </div>
+
+          {predictedScore?.score != null && (
+            <div style={{
+              marginTop: 4, padding: '14px 18px', borderRadius: 10, textAlign: 'center',
+              background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
+            }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 6 }}>
+                🎯 Predicted {EXAM_SHORT[exam] || exam} Score
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1,
+                color: CONF_COLOR[predictedScore.confidence] || 'var(--text-primary)' }}>
+                {predictedScore.score}%
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 5 }}>
+                {predictedScore.confidence} confidence
+                {' · '}{predictedScore.based_on_levels} level{predictedScore.based_on_levels !== 1 ? 's' : ''} passed
+              </div>
+              {Object.keys(predictedScore.sections || {}).length > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10,
+                  paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  {Object.entries(predictedScore.sections).map(([sec, s]) => (
+                    <div key={sec} style={{ textAlign: 'center' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem',
+                        color: CONF_COLOR[predictedScore.confidence] || 'var(--text-primary)' }}>{s}%</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)',
+                        textTransform: 'capitalize', marginTop: 2 }}>{sec}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="lp-ranking-card">
             <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 6 }}>🏅 Student Ranking</div>
@@ -533,6 +575,8 @@ export default function LevelPage() {
   // submittedTotal: actual question count for this level from the submit response.
   // Fixes score display bug where questions.length was the cumulative count.
   const [submittedTotal,  setSubmittedTotal]  = useState(0);
+  // M2: predicted score from the submit response (no extra round-trip needed)
+  const [predictedScore,  setPredictedScore]  = useState(null);
   const [scorePercent,    setScorePercent]    = useState(0);
   const [passThreshold,   setPassThreshold]   = useState(100);
   const [worldCompleted,  setWorldCompleted]  = useState(false);
@@ -558,6 +602,7 @@ export default function LevelPage() {
     setPassed(false);
     setScore(0);
     setSubmittedTotal(0);
+    setPredictedScore(null);
     setScorePercent(0);
     setWorldCompleted(false);
     setSubmitting(false);
@@ -666,6 +711,7 @@ export default function LevelPage() {
       // Score display fix: use data.total (questions in this level) not questions.length
       // (questions.length was the cumulative count before the question range fix)
       setSubmittedTotal(data.total ?? questionsRef.current.length);
+      setPredictedScore(data.predicted_score ?? null);
       setScorePercent(data.score_pct ?? (data.total > 0 ? (data.score / data.total) * 100 : 0));
       setPassThreshold(data.pass_threshold_pct ?? 100);
       setWorldCompleted(data.world_completed ?? false);
@@ -745,6 +791,7 @@ export default function LevelPage() {
         scorePercent={scorePercent} passThreshold={passThreshold}
         worldCompleted={worldCompleted} timeTakenSeconds={timeTakenSeconds}
         onRetry={handleRetry}
+        predictedScore={predictedScore}
       />
     );
   }
