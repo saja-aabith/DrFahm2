@@ -100,6 +100,10 @@ export const exams = {
   // M1: leaderboard for an exam (top 20 + current user rank)
   leaderboard: (exam) => request(`/api/exams/${exam}/leaderboard`),
 
+  // M3: weak topics for the current user.
+  // Returns: { weak_topics, based_on_levels }
+  weakTopics: (exam) => request(`/api/exams/${exam}/weak-topics`),
+
   // M2: predicted exam score for the current user.
   // Returns: { score, sections, based_on_levels, confidence }
   // Note: also injected into the submit_level response body — use that on the

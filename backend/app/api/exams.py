@@ -1,29 +1,17 @@
 """
 Exam APIs — world map, questions, submission, progress, leaderboard.
 
-Key invariants enforced here:
-- Trial started on first world-map or questions request (get_or_create_trial).
+Key invariants:
+- Trial started on first world-map or questions request.
 - Frontend renders exactly what backend returns — no lock logic on client.
 - Questions returned in index ASC order, no shuffling.
 - Correct answers NEVER returned in questions endpoint.
 - Pass threshold from config (PASS_THRESHOLD_PCT, default 100%).
 - WorldProgress updated automatically when all 10 levels pass.
 
-TRACK-AWARE:
-  world_map returns tracks grouped structure.
-  Progression is within-track only.
-
-M1 ADDITIONS:
-  - duration_seconds stored on LevelProgress (first passing attempt only).
-  - GET /<exam>/leaderboard — top 20 + current user rank.
-    Primary sort:  levels_passed DESC.
-    Tiebreaker:    avg duration_seconds ASC, nulls last (fastest wins).
-
-M2 ADDITIONS:
-  - GET /<exam>/predicted-score — weighted-depth prediction.
-  - predicted_score injected into submit_level response (no extra round-trip).
-  - Algorithm isolated in _compute_predicted_score(); constants in
-    _PREDICTION_CONFIG — change calibration without touching logic.
+M1: duration_seconds + leaderboard (levels_passed DESC, avg_duration ASC).
+M2: predicted_score in submit response + GET /predicted-score endpoint.
+M3: GET /weak-topics — topic-level struggle analysis from retry counts.
 """
 
 from datetime import datetime, timezone
@@ -60,56 +48,44 @@ from ..utils.access import (
     resolve_level_access,
     build_level_states,
 )
+from ..utils.topic_config import TOPIC_KEY_TO_LABEL, get_section_from_world_key
 
 exams_bp = Blueprint("exams", __name__, url_prefix="/api/exams")
 
-# Maximum rows returned in the public leaderboard.
 _LEADERBOARD_TOP_N = 20
 
 # ── M2: Predicted score configuration ─────────────────────────────────────────
-# Change values here to re-calibrate the prediction without touching logic.
+# Change values here to re-calibrate without touching logic.
 _PREDICTION_CONFIG = {
-    # Score a student would receive with zero preparation (floor).
-    "base_score": 30,
-    # base_score + scale_range = 100 (ceiling at full completion).
-    "scale_range": 70,
-    # Theoretical max weight achievable in a single section.
-    # 10 levels × (1.0 + 1.5 + 2.0 + 2.5 + 3.0) = 100.0
+    "base_score":             30,
+    "scale_range":            70,
     "max_weight_per_section": 100.0,
-    # Minimum levels passed to reach each confidence tier.
-    "confidence_thresholds": {"medium": 10, "high": 30},
+    "confidence_thresholds":  {"medium": 10, "high": 30},
+}
+
+# ── M3: Weak topics configuration ─────────────────────────────────────────────
+# Change values here to re-calibrate without touching logic.
+_WEAK_TOPICS_CONFIG = {
+    "min_struggled_levels":    1,    # topic must have >= this many struggled levels to appear
+    "high_priority_threshold": 0.5,  # struggle_rate >= this → "high", else "review"
+    "max_topics":              5,    # cap results
 }
 
 
+# ── M2: Predicted score helper ────────────────────────────────────────────────
+
 def _compute_predicted_score(passed_records: list) -> dict:
     """
-    Predict exam score from a list of passed LevelProgress records.
-
-    Formula (weighted-depth):
-      weight per level  = world_band / 100   (World1=1.0 … World5=3.0)
-      section ratio     = sum(weights) / max_weight_per_section   (0–1)
-      section score     = base_score + ratio × scale_range
-      overall score     = average of section scores
-
-    Returns:
-        {
-            "score":           int | None,
-            "sections":        { section_key: int },
-            "based_on_levels": int,
-            "confidence":      "none" | "low" | "medium" | "high",
-        }
-
-    To swap the algorithm: replace only this function and keep the
-    _PREDICTION_CONFIG dict in sync with any new constants needed.
+    Predict exam score from passed LevelProgress records.
+    Formula: weighted-depth per section, averaged across sections.
+    See _PREDICTION_CONFIG for calibration constants.
     """
     cfg = _PREDICTION_CONFIG
 
     if not passed_records:
         return {
-            "score": None,
-            "sections": {},
-            "based_on_levels": 0,
-            "confidence": "none",
+            "score": None, "sections": {},
+            "based_on_levels": 0, "confidence": "none",
         }
 
     by_section: dict[str, float] = {}
@@ -135,17 +111,127 @@ def _compute_predicted_score(passed_records: list) -> dict:
     else:                                              confidence = "low"
 
     return {
-        "score":           predicted,
-        "sections":        sections_out,
-        "based_on_levels": n,
-        "confidence":      confidence,
+        "score": predicted, "sections": sections_out,
+        "based_on_levels": n, "confidence": confidence,
     }
+
+
+# ── M3: Weak topics helper ────────────────────────────────────────────────────
+
+def _compute_weak_topics(user_id: int, exam: str) -> dict:
+    """
+    Identify topics where the student struggled (needed retries to pass).
+
+    Algorithm:
+      1. Load all passed LevelProgress for user+exam.
+      2. For each distinct world_key, load question topics in one query.
+      3. For each passed level, determine which topics appear in its
+         question range. Record whether the level was struggled (attempts > 1).
+      4. Aggregate by topic: struggle_rate = struggled_levels / total_levels.
+      5. Filter to topics with >= min_struggled_levels, sort by rate desc, cap.
+
+    Returns:
+      {
+        "weak_topics": [
+          {
+            "topic":            "algebra",
+            "label":            "Algebra",
+            "section":          "math",
+            "struggled_levels": 3,
+            "total_levels":     5,
+            "struggle_rate":    0.6,
+            "priority":         "high"   // "high" | "review"
+          }
+        ],
+        "based_on_levels": 25
+      }
+    """
+    cfg = _WEAK_TOPICS_CONFIG
+
+    passed_records = LevelProgress.query.filter_by(
+        user_id=user_id, exam=exam, passed=True,
+    ).all()
+
+    if not passed_records:
+        return {"weak_topics": [], "based_on_levels": 0}
+
+    # Preload question topics per world_key (one query per distinct world).
+    world_keys_seen = {lp.world_key for lp in passed_records}
+    questions_by_world: dict[str, list] = {}
+    for wk in world_keys_seen:
+        rows = (
+            db.session.query(Question.index, Question.topic)
+            .filter(
+                Question.exam      == exam,
+                Question.world_key == wk,
+                Question.is_active == True,
+                Question.deleted_at.is_(None),
+                Question.topic.isnot(None),
+                Question.topic     != "",
+            )
+            .all()
+        )
+        questions_by_world[wk] = rows  # list of (index, topic)
+
+    # Accumulate per-topic stats across all passed levels.
+    topic_stats: dict[str, dict] = {}
+
+    for lp in passed_records:
+        start, end  = get_level_question_range(lp.world_key, lp.level_number)
+        level_qs    = questions_by_world.get(lp.world_key, [])
+        struggled   = lp.attempts > 1
+
+        # Unique topics that appear in this level's question range.
+        level_topics = {
+            topic
+            for (idx, topic) in level_qs
+            if start <= idx <= end and topic
+        }
+
+        for topic in level_topics:
+            if topic not in topic_stats:
+                topic_stats[topic] = {"total": 0, "struggled": 0}
+            topic_stats[topic]["total"]    += 1
+            if struggled:
+                topic_stats[topic]["struggled"] += 1
+
+    # Build result list — only topics with actual struggles.
+    results = []
+    for topic, stats in topic_stats.items():
+        if stats["struggled"] < cfg["min_struggled_levels"]:
+            continue
+        struggle_rate = stats["struggled"] / stats["total"]
+        priority      = "high" if struggle_rate >= cfg["high_priority_threshold"] else "review"
+        section       = next(
+            (wk.split("_")[0] for wk in world_keys_seen if topic in {
+                t for (_, t) in questions_by_world.get(wk, [])
+            }),
+            None,
+        )
+        results.append({
+            "topic":            topic,
+            "label":            TOPIC_KEY_TO_LABEL.get(topic, topic.replace("_", " ").title()),
+            "section":          section,
+            "struggled_levels": stats["struggled"],
+            "total_levels":     stats["total"],
+            "struggle_rate":    round(struggle_rate, 3),
+            "priority":         priority,
+        })
+
+    # Sort: high priority first, then by struggle_rate desc, then struggled_levels desc.
+    results.sort(key=lambda x: (
+        0 if x["priority"] == "high" else 1,
+        -x["struggle_rate"],
+        -x["struggled_levels"],
+    ))
+    results = results[:cfg["max_topics"]]
+
+    return {"weak_topics": results, "based_on_levels": len(passed_records)}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _validate_exam_param(exam: str):
-    """Returns (exam, error_response | None)."""
     try:
         validate_exam(exam)
         return exam, None
@@ -352,17 +438,8 @@ def get_questions(exam: str, world_key: str, level_number: str):
 @require_auth
 def submit_level(exam: str, world_key: str, level_number: str):
     """
-    Submits answers for a level attempt.
-
-    Body:
-    {
-        "answers":          { "<question_id>": "a"|"b"|"c"|"d", ... },
-        "duration_seconds": 42   // optional — M1 leaderboard tiebreaker
-    }
-
-    Response includes:
-    - Standard grading fields
-    - M2: predicted_score object (see _compute_predicted_score)
+    Body: { "answers": { "<qid>": "a"|"b"|"c"|"d" }, "duration_seconds": int }
+    Response includes: grading + predicted_score (M2) + weak_topics (M3).
     """
     _, err = _validate_exam_param(exam)
     if err:
@@ -504,11 +581,12 @@ def submit_level(exam: str, world_key: str, level_number: str):
 
     db.session.commit()
 
-    # ── M2: Predicted score (computed after commit so this attempt is included) ──
-    all_passed = LevelProgress.query.filter_by(
-        user_id=user.id, exam=exam, passed=True,
-    ).all()
-    predicted = _compute_predicted_score(all_passed)
+    # M2: predicted score (after commit so this attempt is included)
+    all_passed    = LevelProgress.query.filter_by(user_id=user.id, exam=exam, passed=True).all()
+    predicted     = _compute_predicted_score(all_passed)
+
+    # M3: weak topics (after commit so this attempt is included)
+    weak          = _compute_weak_topics(user.id, exam)
 
     return jsonify({
         "exam":               exam,
@@ -521,9 +599,8 @@ def submit_level(exam: str, world_key: str, level_number: str):
         "pass_threshold_pct": pass_threshold_pct,
         "world_completed":    world_completed,
         "results":            results,
-        # M2: predicted score — used by Level.jsx results screen directly.
-        # Shape: { score, sections, based_on_levels, confidence }
-        "predicted_score":    predicted,
+        "predicted_score":    predicted,   # M2
+        "weak_topics":        weak,        # M3
     }), 200
 
 
@@ -536,7 +613,7 @@ def get_progress(exam: str):
     if err:
         return err
 
-    user = _get_current_user()
+    user               = _get_current_user()
     world_progress_map = _preload_world_progress(user.id, exam)
     level_progress_map = _preload_level_progress(user.id, exam)
 
@@ -574,8 +651,7 @@ def get_leaderboard(exam: str):
     if err:
         return err
 
-    user = _get_current_user()
-
+    user               = _get_current_user()
     levels_passed_expr = func.count(LevelProgress.id)
     avg_seconds_expr   = func.avg(LevelProgress.duration_seconds)
 
@@ -640,27 +716,54 @@ def get_leaderboard(exam: str):
 def get_predicted_score(exam: str):
     """
     Returns the predicted exam score for the current user.
+    Same algorithm as _compute_predicted_score() in submit_level.
+    """
+    _, err = _validate_exam_param(exam)
+    if err:
+        return err
 
-    Uses the same _compute_predicted_score() helper as submit_level,
-    so the algorithm is guaranteed to be consistent between the two.
+    user           = _get_current_user()
+    passed_records = LevelProgress.query.filter_by(
+        user_id=user.id, exam=exam, passed=True,
+    ).all()
+    result = _compute_predicted_score(passed_records)
+    return jsonify({"exam": exam, **result}), 200
+
+
+# ── GET /api/exams/<exam>/weak-topics  (M3) ───────────────────────────────────
+
+@exams_bp.route("/<exam>/weak-topics", methods=["GET"])
+@require_auth
+def get_weak_topics(exam: str):
+    """
+    Returns the student's weak topics for this exam based on retry counts.
+
+    "Weak" = passed the level but needed more than one attempt.
+    Topics are sourced from the questions that appeared in each passed level.
+
+    To re-calibrate: edit _WEAK_TOPICS_CONFIG at the top of this file.
 
     Response:
     {
-        "exam":            "qudurat",
-        "score":           74,         // null if no levels passed yet
-        "sections":        { "math": 82, "verbal": 65 },
-        "based_on_levels": 25,
-        "confidence":      "medium"    // "none"|"low"|"medium"|"high"
+        "exam": "qudurat",
+        "weak_topics": [
+            {
+                "topic":            "algebra",
+                "label":            "Algebra",
+                "section":          "math",
+                "struggled_levels": 3,
+                "total_levels":     5,
+                "struggle_rate":    0.6,
+                "priority":         "high"
+            }
+        ],
+        "based_on_levels": 25
     }
     """
     _, err = _validate_exam_param(exam)
     if err:
         return err
 
-    user = _get_current_user()
-    passed_records = LevelProgress.query.filter_by(
-        user_id=user.id, exam=exam, passed=True,
-    ).all()
-    result = _compute_predicted_score(passed_records)
-
+    user   = _get_current_user()
+    result = _compute_weak_topics(user.id, exam)
     return jsonify({"exam": exam, **result}), 200

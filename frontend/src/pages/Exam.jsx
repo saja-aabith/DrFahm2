@@ -125,6 +125,43 @@ function PredictedScoreBanner({ exam, data }) {
   );
 }
 
+// ── M3: Weak Topics Card ──────────────────────────────────────────────────────
+
+const PRIORITY_STYLE = {
+  high:   { color: '#dc2626', bg: 'rgba(220,38,38,0.08)',  border: 'rgba(220,38,38,0.2)',  label: 'High priority' },
+  review: { color: '#b45309', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.2)',  label: 'Review' },
+};
+
+function WeakTopicsCard({ data }) {
+  if (!data?.weak_topics?.length) return null;
+  const topics = data.weak_topics;
+  return (
+    <div style={{ padding: '14px 18px', borderRadius: 10, marginBottom: 20, background: 'var(--bg-card, rgba(255,255,255,0.04))', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: '1.1rem' }}>⚠</span>
+        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>Topics to Review</span>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 4 }}>based on {data.based_on_levels} passed level{data.based_on_levels !== 1 ? 's' : ''}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {topics.map((t) => {
+          const ps     = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE.review;
+          const barPct = Math.round(t.struggle_rate * 100);
+          return (
+            <div key={t.topic} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 100px 100px', gap: 10, alignItems: 'center' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.label}>{t.label}</span>
+              <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${barPct}%`, background: ps.color, borderRadius: 4, transition: 'width 0.4s ease', opacity: 0.8 }} />
+              </div>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>{t.struggled_levels}/{t.total_levels} levels</span>
+              <span style={{ display: 'inline-flex', justifyContent: 'center', padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600, background: ps.bg, color: ps.color, border: `1px solid ${ps.border}`, whiteSpace: 'nowrap' }}>{ps.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 
 function LeaderboardView({ exam }) {
@@ -339,6 +376,8 @@ export default function ExamPage() {
   const [view,            setView]            = useState('map');
   // M2: predicted score for the current user
   const [predictedScore,  setPredictedScore]  = useState(null);
+  // M3: weak topics for the current user
+  const [weakTopics,      setWeakTopics]      = useState(null);
 
   useEffect(() => {
     if (!['qudurat', 'tahsili'].includes(exam)) {
@@ -350,10 +389,12 @@ export default function ExamPage() {
       examsApi.worldMap(exam),
       billing.getEntitlements().catch(() => null),
       examsApi.predictedScore(exam).catch(() => null),   // M2
-    ]).then(([mapData, billingData, predData]) => {
+      examsApi.weakTopics(exam).catch(() => null),        // M3
+    ]).then(([mapData, billingData, predData, weakData]) => {
       setWorldMap(mapData);
       setEntitlements(billingData);
       setPredictedScore(predData);
+      setWeakTopics(weakData);
       if (mapData?.tracks?.length > 0) {
         setActiveTrack(mapData.tracks[0].track_key);
       }
@@ -465,6 +506,9 @@ export default function ExamPage() {
 
             {/* M2: Predicted score banner — shown once the student has passed at least one level */}
             <PredictedScoreBanner exam={exam} data={predictedScore} />
+
+            {/* M3: Weak topics — shown once the student has struggle data */}
+            <WeakTopicsCard data={weakTopics} />
 
             <div className="world-map-grid">
               {currentTrack?.worlds?.map((world, idx) => (
