@@ -94,25 +94,38 @@ export const billing = {
 // ── Exams ───────────────────────────────────────────────────────────────────
 
 export const exams = {
-  worldMap:   (exam)                            => request(`/api/exams/${exam}/world-map`),
-  progress:   (exam)                            => request(`/api/exams/${exam}/progress`),
+  worldMap:   (exam) => request(`/api/exams/${exam}/world-map`),
+  progress:   (exam) => request(`/api/exams/${exam}/progress`),
 
-  // Canonical names (used by LevelPage.jsx — Chunk H)
-  getQuestions: (exam, worldKey, levelNumber)        =>
+  // M1: leaderboard for an exam (top 20 + current user rank)
+  leaderboard: (exam) => request(`/api/exams/${exam}/leaderboard`),
+
+  // Canonical names (used by Level.jsx)
+  getQuestions: (exam, worldKey, levelNumber) =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/questions`),
-  submitLevel:  (exam, worldKey, levelNumber, answers) =>
+
+  // M1: durationSeconds (optional int) — elapsed seconds for this attempt.
+  // Backend stores it on the first passing attempt only (leaderboard tiebreaker).
+  submitLevel: (exam, worldKey, levelNumber, answers, durationSeconds) =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({
+        answers,
+        ...(durationSeconds != null ? { duration_seconds: durationSeconds } : {}),
+      }),
     }),
 
   // Legacy aliases — kept so any existing callers don't break
-  questions: (exam, worldKey, levelNumber)           =>
+  questions: (exam, worldKey, levelNumber) =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/questions`),
-  submit:    (exam, worldKey, levelNumber, answers)  =>
+
+  submit: (exam, worldKey, levelNumber, answers, durationSeconds) =>
     request(`/api/exams/${exam}/worlds/${worldKey}/levels/${levelNumber}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({
+        answers,
+        ...(durationSeconds != null ? { duration_seconds: durationSeconds } : {}),
+      }),
     }),
 };
 

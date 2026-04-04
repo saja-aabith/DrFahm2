@@ -75,7 +75,6 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
     .lp-hint-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #b45309; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
     .lp-hint-body  { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.65; }
 
-    /* ── CHUNK I: "Next →" button shown after a wrong answer ── */
     .lp-next-btn {
       margin-top: 14px; width: 100%; padding: 12px 0;
       border-radius: 10px; border: 1.5px solid rgba(139,92,246,0.4);
@@ -98,7 +97,6 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
 
     .lp-question-image { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; display: block; }
 
-    /* ── Correct burst overlay ── */
     .lp-burst-overlay {
       position: fixed; inset: 0; z-index: 999;
       display: flex; align-items: center; justify-content: center;
@@ -151,7 +149,6 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
       0%   { opacity: 0; transform: translateY(8px) scale(0.8); }
       100% { opacity: 1; transform: translateY(0)   scale(1);   }
     }
-    /* Confetti dots */
     .lp-confetti-dot {
       position: absolute;
       width: 10px; height: 10px; border-radius: 50%;
@@ -161,7 +158,6 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
       0%   { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
       100% { opacity: 0; transform: var(--confetti-end) scale(0.4) rotate(180deg); }
     }
-    /* Fade out the whole overlay */
     .lp-burst-overlay.fading {
       animation: burst-fade 0.25s ease-in forwards;
     }
@@ -219,7 +215,6 @@ function playCorrectSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Three-note ascending chime: C5 → E5 → G5
     const notes = [523.25, 659.25, 783.99];
     notes.forEach((freq, i) => {
       const osc  = ctx.createOscillator();
@@ -241,13 +236,12 @@ function playCorrectSound() {
       osc.stop(end);
     });
 
-    // Soft shimmer layer on top note
-    const shimmer = ctx.createOscillator();
+    const shimmer  = ctx.createOscillator();
     const shimGain = ctx.createGain();
     shimmer.connect(shimGain);
     shimGain.connect(ctx.destination);
     shimmer.type = 'triangle';
-    shimmer.frequency.setValueAtTime(1567.98, ctx.currentTime + 0.24); // G6
+    shimmer.frequency.setValueAtTime(1567.98, ctx.currentTime + 0.24);
     shimGain.gain.setValueAtTime(0, ctx.currentTime + 0.24);
     shimGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.26);
     shimGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
@@ -272,8 +266,6 @@ function CorrectBurst({ onDone }) {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Start fade-out at 650ms, call onDone at 900ms
-    // onDone also triggers the advance to next question (see LevelPage)
     const fadeTimer = setTimeout(() => setFading(true), 650);
     const doneTimer = setTimeout(onDone, 900);
     return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
@@ -281,11 +273,9 @@ function CorrectBurst({ onDone }) {
 
   return (
     <div className={`lp-burst-overlay${fading ? ' fading' : ''}`}>
-      {/* Expanding rings */}
       <div className="lp-burst-ring"   style={{ position: 'absolute', left: '50%', top: '50%' }} />
       <div className="lp-burst-ring lp-burst-ring-2" style={{ position: 'absolute', left: '50%', top: '50%' }} />
 
-      {/* Confetti dots */}
       {CONFETTI_POSITIONS.map((pos, i) => (
         <div
           key={i}
@@ -300,7 +290,6 @@ function CorrectBurst({ onDone }) {
         />
       ))}
 
-      {/* Centre badge */}
       <div className="lp-burst-badge">
         <div className="lp-burst-checkmark">✓</div>
         <div className="lp-burst-label">Correct!</div>
@@ -327,19 +316,17 @@ function ExamScreen({
   questions, answers, feedback, currentIdx, timeLeft, totalTime,
   onSelectAnswer, onNavigate, onSubmit,
 }) {
-  const q            = questions[currentIdx];
-  const totalQ       = questions.length;
+  const q             = questions[currentIdx];
+  const totalQ        = questions.length;
   const answeredCount = Object.keys(answers).length;
-  const unanswered   = totalQ - answeredCount;
-  const timerPct     = totalTime > 0 ? timeLeft / totalTime : 0;
-  const color        = timerColor(timerPct);
-  const isLocked     = !!answers[q.id];
-  const selected     = answers[q.id] || null;
-  const qFeedback    = feedback[q.id] || null;
-  const allAnswered  = answeredCount === totalQ;
+  const unanswered    = totalQ - answeredCount;
+  const timerPct      = totalTime > 0 ? timeLeft / totalTime : 0;
+  const color         = timerColor(timerPct);
+  const isLocked      = !!answers[q.id];
+  const selected      = answers[q.id] || null;
+  const qFeedback     = feedback[q.id] || null;
+  const allAnswered   = answeredCount === totalQ;
 
-  // CHUNK I: "Next →" appears when wrong and there is a next question.
-  // Navigate to the next unanswered question first; fall back to currentIdx + 1.
   const nextUnansweredIdx = questions.findIndex((qq, i) => i > currentIdx && !answers[qq.id]);
   const nextTarget        = nextUnansweredIdx !== -1 ? nextUnansweredIdx : currentIdx + 1;
   const showWrongNext     = isLocked && qFeedback === 'wrong' && currentIdx < totalQ - 1;
@@ -399,9 +386,6 @@ function ExamScreen({
             );
           })}
 
-          {/* ── CHUNK I: Wrong-answer block ───────────────────────────────── */}
-          {/* Hint (if exists) + "Next →" button (if not last question).      */}
-          {/* No auto-advance on wrong — user controls when to proceed.        */}
           {isLocked && qFeedback === 'wrong' && (
             <>
               {q.hint && (
@@ -411,16 +395,12 @@ function ExamScreen({
                 </div>
               )}
               {showWrongNext && (
-                <button
-                  className="lp-next-btn"
-                  onClick={() => onNavigate(nextTarget)}
-                >
+                <button className="lp-next-btn" onClick={() => onNavigate(nextTarget)}>
                   Next →
                 </button>
               )}
             </>
           )}
-          {/* ─────────────────────────────────────────────────────────────── */}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -528,22 +508,20 @@ export default function LevelPage() {
   const navigate    = useNavigate();
   const levelNumber = parseInt(levelParam, 10);
 
-  const [questions,  setQuestions]  = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [loadError,  setLoadError]  = useState('');
-  const [answers,    setAnswers]    = useState({});
-  const [feedback,   setFeedback]   = useState({});
-  const [showBurst,  setShowBurst]  = useState(false);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
+  const [questions,   setQuestions]   = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [loadError,   setLoadError]   = useState('');
+  const [answers,     setAnswers]     = useState({});
+  const [feedback,    setFeedback]    = useState({});
+  const [showBurst,   setShowBurst]   = useState(false);
+  const [currentIdx,  setCurrentIdx]  = useState(0);
+  const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [timeLeft,   setTimeLeft]   = useState(0);
-  const [totalTime,  setTotalTime]  = useState(0);
+  const [timeLeft,    setTimeLeft]    = useState(0);
+  const [totalTime,   setTotalTime]   = useState(0);
   const timerRef      = useRef(null);
   const autoSubmitRef = useRef(false);
   const startTimeRef  = useRef(null);
-  // advanceTimerRef removed — correct advances via CorrectBurst.onDone,
-  // wrong never auto-advances (user presses "Next →").
   const [timeTakenSeconds, setTimeTakenSeconds] = useState(0);
   const [results,        setResults]        = useState(null);
   const [passed,         setPassed]         = useState(false);
@@ -610,35 +588,25 @@ export default function LevelPage() {
   // eslint-disable-next-line
   }, [answers]);
 
-  // Keep a ref to latest answers so advance closures can read current state
-  const answersRef  = useRef(answers);
+  const answersRef   = useRef(answers);
   const questionsRef = useRef(questions);
-  useEffect(() => { answersRef.current  = answers;   }, [answers]);
+  useEffect(() => { answersRef.current   = answers;   }, [answers]);
   useEffect(() => { questionsRef.current = questions; }, [questions]);
 
   const handleSelectAnswer = useCallback((questionId, key) => {
-    // Guard: already answered
     if (answersRef.current[questionId]) return;
 
-    const q = questionsRef.current.find((qq) => qq.id === questionId);
+    const q         = questionsRef.current.find((qq) => qq.id === questionId);
     const isCorrect = q && q.correct_answer === key;
 
-    // Lock answer + set feedback in one synchronous batch → single render
     setAnswers((prev) => ({ ...prev, [questionId]: key }));
     setFeedback((fb)  => ({ ...fb,  [questionId]: isCorrect ? 'correct' : 'wrong' }));
 
     if (isCorrect) {
-      // ── CORRECT ──────────────────────────────────────────────────────────
-      // Play sound and show burst.
-      // Advance to next question happens inside CorrectBurst.onDone (900ms)
-      // so the student sees the full burst before the view changes.
       playCorrectSound();
       setShowBurst(true);
     }
-    // ── WRONG ────────────────────────────────────────────────────────────
-    // No auto-advance. Hint panel + "Next →" button appear in ExamScreen.
-    // Student reads the hint at their own pace, then taps "Next →".
-  }, []);  // no deps needed — all state read via refs
+  }, []);
 
   const handleNavigate = useCallback((idx) => {
     if (idx < 0 || idx >= questionsRef.current.length) return;
@@ -648,6 +616,7 @@ export default function LevelPage() {
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
     clearInterval(timerRef.current);
+    // M1: capture elapsed seconds — sent to backend as duration_seconds for leaderboard tiebreaker
     const elapsed = startTimeRef.current ? Math.floor((Date.now() - startTimeRef.current) / 1000) : 0;
     setTimeTakenSeconds(elapsed);
     setSubmitting(true);
@@ -655,7 +624,8 @@ export default function LevelPage() {
     const payload = {};
     Object.entries(answers).forEach(([qId, ans]) => { payload[qId] = ans; });
     try {
-      const data = await examsApi.submitLevel(exam, worldKey, levelNumber, payload);
+      // M1: pass elapsed so backend can store duration_seconds on first passing attempt
+      const data = await examsApi.submitLevel(exam, worldKey, levelNumber, payload, elapsed);
       setResults(true);
       setPassed(data.passed);
       setScore(data.score);
@@ -756,13 +726,10 @@ export default function LevelPage() {
         </div>
       )}
 
-      {/* ── CHUNK I: CorrectBurst.onDone now drives the advance ── */}
       {showBurst && (
         <CorrectBurst
           onDone={() => {
             setShowBurst(false);
-            // Advance to the next unanswered question after the burst completes.
-            // Using the functional updater gives us the live currentIdx value.
             setCurrentIdx((ci) => {
               const qs   = questionsRef.current;
               const ans  = answersRef.current;
