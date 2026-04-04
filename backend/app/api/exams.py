@@ -1,5 +1,5 @@
 """
-Exam APIs — world map, questions, submission, progress.
+Exam APIs — world map, questions, submission, progress, leaderboard.
 
 Key invariants enforced here:
 - Trial started on first world-map or questions request (get_or_create_trial).
@@ -12,15 +12,23 @@ Key invariants enforced here:
 TRACK-AWARE:
   world_map returns tracks grouped structure.
   Progression is within-track only.
+
+M1 ADDITIONS:
+  - duration_seconds stored on LevelProgress (first passing attempt only).
+  - GET /<exam>/leaderboard — top 20 + current user rank.
+    Primary sort:  levels_passed DESC.
+    Tiebreaker:    avg duration_seconds ASC, nulls last (fastest wins).
 """
 
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app
+from sqlalchemy import func, desc, asc
 
 from ..extensions import db
 from ..models.question import Question
 from ..models.progress import LevelProgress, WorldProgress
+from ..models.user import User
 from ..api.auth import require_auth, _get_current_user
 from ..api.errors import bad_request, forbidden, error_response
 from ..utils.world_config import (
@@ -47,6 +55,9 @@ from ..utils.access import (
 )
 
 exams_bp = Blueprint("exams", __name__, url_prefix="/api/exams")
+
+# Maximum rows returned in the public leaderboard.
+_LEADERBOARD_TOP_N = 20
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,16 +104,30 @@ def _validate_level_number(level_number_str: str):
     return level_number, None
 
 
-def _preload_world_progress(user_id: int, exam: str) -> dict[str, WorldProgress]:
+def _preload_world_progress(user_id: int, exam: str) -> dict:
     """Returns {world_key: WorldProgress} for all worlds the user has touched."""
     rows = WorldProgress.query.filter_by(user_id=user_id, exam=exam).all()
     return {r.world_key: r for r in rows}
 
 
-def _preload_level_progress(user_id: int, exam: str) -> dict[tuple, LevelProgress]:
+def _preload_level_progress(user_id: int, exam: str) -> dict:
     """Returns {(world_key, level_number): LevelProgress}."""
     rows = LevelProgress.query.filter_by(user_id=user_id, exam=exam).all()
     return {(r.world_key, r.level_number): r for r in rows}
+
+
+def _parse_duration_seconds(raw) -> int | None:
+    """
+    Safely parse duration_seconds from the submit body.
+    Returns a non-negative int or None. Silently discards invalid values.
+    """
+    if raw is None:
+        return None
+    try:
+        val = int(raw)
+        return val if val >= 0 else None
+    except (ValueError, TypeError):
+        return None
 
 
 # ── GET /api/exams/<exam>/world-map ───────────────────────────────────────────
@@ -127,21 +152,16 @@ def world_map(exam: str):
                 "track_name": "Math",
                 "worlds": [
                     {
-                        "world_key":  "math_100",
-                        "world_name": "Math 100",
-                        "index":      1,
-                        "locked":     false,
+                        "world_key":   "math_100",
+                        "world_name":  "Math 100",
+                        "index":       1,
+                        "locked":      false,
                         "lock_reason": null,
                         "levels": [
                             {"level_number": 1, "locked": false, "lock_reason": null, "passed": false}
                         ]
                     }
                 ]
-            },
-            {
-                "track_key": "verbal",
-                "track_name": "Verbal",
-                "worlds": [...]
             }
         ]
     }
@@ -162,7 +182,7 @@ def world_map(exam: str):
     level_progress_map = _preload_level_progress(user.id, exam)
 
     # ── Build track-grouped output ──
-    tracks_info = get_track_info(exam)
+    tracks_info   = get_track_info(exam)
     tracks_output = []
 
     for track in tracks_info:
@@ -172,14 +192,14 @@ def world_map(exam: str):
             track_world_index = get_track_world_index(exam, world_key)
 
             # ── Access check (track-aware) ──
-            world_result    = resolve_world_access(user, exam, world_key)
-            world_locked    = not world_result["allowed"]
+            world_result      = resolve_world_access(user, exam, world_key)
+            world_locked      = not world_result["allowed"]
             world_lock_reason = world_result["lock_reason"]
 
             # ── Build level states ──
             levels = []
             for level_number in range(1, LEVELS_PER_WORLD + 1):
-                lp = level_progress_map.get((world_key, level_number))
+                lp     = level_progress_map.get((world_key, level_number))
                 passed = bool(lp and lp.passed)
 
                 if world_locked:
@@ -206,13 +226,13 @@ def world_map(exam: str):
                 })
 
             worlds_in_track.append({
-                "world_key":    world_key,
-                "world_name":   world_name(world_key),
+                "world_key":     world_key,
+                "world_name":    world_name(world_key),
                 "world_name_ar": world_name_ar(world_key),
-                "index":        track_world_index,
-                "locked":      world_locked,
-                "lock_reason": world_lock_reason,
-                "levels":      levels,
+                "index":         track_world_index,
+                "locked":        world_locked,
+                "lock_reason":   world_lock_reason,
+                "levels":        levels,
             })
 
         tracks_output.append({
@@ -260,7 +280,7 @@ def get_questions(exam: str, world_key: str, level_number: str):
     get_or_create_trial(user, exam, trial_days)
     db.session.commit()
 
-    # ── Access check (track-aware — no world_index param needed) ──
+    # ── Access check (track-aware) ──
     access = resolve_level_access(user, exam, world_key, level_number)
 
     if not access["allowed"]:
@@ -276,11 +296,11 @@ def get_questions(exam: str, world_key: str, level_number: str):
     questions = (
         Question.query
         .filter(
-            Question.exam      == exam,
-            Question.world_key == world_key,
-            Question.index     >= start_index,
-            Question.index     <= end_index,
-            Question.is_active == True,
+            Question.exam       == exam,
+            Question.world_key  == world_key,
+            Question.index      >= start_index,
+            Question.index      <= end_index,
+            Question.is_active  == True,
             Question.deleted_at == None,
         )
         .order_by(Question.index.asc())
@@ -321,7 +341,10 @@ def submit_level(exam: str, world_key: str, level_number: str):
         "answers": {
             "<question_id>": "a" | "b" | "c" | "d",
             ...
-        }
+        },
+        "duration_seconds": 42   // optional int >= 0
+                                 // M1: stored on the first passing attempt only.
+                                 // Used as tiebreaker in leaderboard ranking.
     }
     """
     _, err = _validate_exam_param(exam)
@@ -348,9 +371,10 @@ def submit_level(exam: str, world_key: str, level_number: str):
             {"lock_reason": access["lock_reason"]}
         )
 
-    # ── Parse answers ──
-    data    = request.get_json(silent=True) or {}
-    answers = data.get("answers")
+    # ── Parse body ──
+    data             = request.get_json(silent=True) or {}
+    answers          = data.get("answers")
+    duration_seconds = _parse_duration_seconds(data.get("duration_seconds"))
 
     if not isinstance(answers, dict):
         return bad_request(
@@ -372,11 +396,11 @@ def submit_level(exam: str, world_key: str, level_number: str):
     questions = (
         Question.query
         .filter(
-            Question.exam      == exam,
-            Question.world_key == world_key,
-            Question.index     >= start_index,
-            Question.index     <= end_index,
-            Question.is_active == True,
+            Question.exam       == exam,
+            Question.world_key  == world_key,
+            Question.index      >= start_index,
+            Question.index      <= end_index,
+            Question.is_active  == True,
             Question.deleted_at == None,
         )
         .order_by(Question.index.asc())
@@ -393,8 +417,8 @@ def submit_level(exam: str, world_key: str, level_number: str):
 
     # ── Grade ──
     pass_threshold_pct = current_app.config["PASS_THRESHOLD_PCT"]
-    correct_count = 0
-    results       = []
+    correct_count      = 0
+    results            = []
 
     for q in questions:
         submitted  = answers.get(str(q.id))
@@ -409,8 +433,7 @@ def submit_level(exam: str, world_key: str, level_number: str):
             "correct_answer": q.correct_answer,
             "is_correct":     is_correct,
         }
-        # Include hint only for wrong answers — correct answers don't need it.
-        # Frontend displays the hint in the hint panel after the student picks wrong.
+        # Include hint only for wrong answers.
         if not is_correct and q.hint:
             result_entry["hint"] = q.hint
 
@@ -430,12 +453,15 @@ def submit_level(exam: str, world_key: str, level_number: str):
     ).first()
 
     if lp:
-        lp.attempts        += 1
-        lp.score            = correct_count
-        lp.total_questions  = total_questions
-        lp.last_attempted_at = now
+        lp.attempts          += 1
+        lp.score              = correct_count
+        lp.total_questions    = total_questions
+        lp.last_attempted_at  = now
         if passed:
             lp.passed = True
+            # M1: Store duration on first pass only — never overwrite once set.
+            if lp.duration_seconds is None:
+                lp.duration_seconds = duration_seconds
     else:
         lp = LevelProgress(
             user_id=user.id,
@@ -447,6 +473,8 @@ def submit_level(exam: str, world_key: str, level_number: str):
             total_questions=total_questions,
             attempts=1,
             last_attempted_at=now,
+            # M1: Only record duration when this first attempt is also a pass.
+            duration_seconds=(duration_seconds if passed else None),
         )
         db.session.add(lp)
 
@@ -496,8 +524,7 @@ def submit_level(exam: str, world_key: str, level_number: str):
         "passed":             passed,
         "pass_threshold_pct": pass_threshold_pct,
         "world_completed":    world_completed,
-        # Per-question breakdown. For wrong answers, `hint` is included when present.
-        # Frontend uses this to drive the review screen / hint panel.
+        # Per-question breakdown. hint included on wrong answers when present.
         "results":            results,
     }), 200
 
@@ -545,3 +572,102 @@ def get_progress(exam: str):
         })
 
     return jsonify({"exam": exam, "worlds": worlds_output}), 200
+
+
+# ── GET /api/exams/<exam>/leaderboard ─────────────────────────────────────────
+
+@exams_bp.route("/<exam>/leaderboard", methods=["GET"])
+@require_auth
+def get_leaderboard(exam: str):
+    """
+    Returns the top-N students for an exam ranked by levels passed (desc),
+    tiebroken by average duration_seconds per passed level (asc, nulls last).
+
+    Students with no passed levels are excluded entirely.
+    Current user's rank is always returned even if outside top N.
+
+    Response:
+    {
+        "exam": "qudurat",
+        "top": [
+            {
+                "rank": 1,
+                "username": "student_x",
+                "levels_passed": 47,
+                "avg_seconds_per_level": 32.4,   // null if no duration data
+                "is_current_user": false
+            }
+        ],
+        "current_user": {                         // null if user has no passed levels
+            "rank": 23,
+            "username": "you",
+            "levels_passed": 12,
+            "avg_seconds_per_level": 41.2,
+            "is_current_user": true
+        }
+    }
+    """
+    _, err = _validate_exam_param(exam)
+    if err:
+        return err
+
+    user = _get_current_user()
+
+    levels_passed_expr = func.count(LevelProgress.id)
+    avg_seconds_expr   = func.avg(LevelProgress.duration_seconds)
+
+    # Single query: group by user, order by levels DESC then avg duration ASC.
+    # func.coalesce(avg, 999999) pushes null-duration users to the bottom of
+    # the tiebreaker without excluding them from the leaderboard entirely.
+    all_ranked = (
+        db.session.query(
+            LevelProgress.user_id,
+            User.username,
+            levels_passed_expr.label("levels_passed"),
+            avg_seconds_expr.label("avg_seconds"),
+        )
+        .join(User, User.id == LevelProgress.user_id)
+        .filter(
+            LevelProgress.exam   == exam,
+            LevelProgress.passed == True,
+            User.is_active       == True,
+        )
+        .group_by(LevelProgress.user_id, User.username)
+        .order_by(
+            desc(levels_passed_expr),
+            asc(func.coalesce(avg_seconds_expr, 999999)),
+        )
+        .all()
+    )
+
+    # Build a clean ranked list (Python-side — fine at MVP scale).
+    ranked = [
+        {
+            "rank":          i + 1,
+            "user_id":       row.user_id,
+            "username":      row.username,
+            "levels_passed": int(row.levels_passed),
+            "avg_seconds":   float(row.avg_seconds) if row.avg_seconds is not None else None,
+        }
+        for i, row in enumerate(all_ranked)
+    ]
+
+    top_n         = ranked[:_LEADERBOARD_TOP_N]
+    current_entry = next((r for r in ranked if r["user_id"] == user.id), None)
+
+    def _serialise(entry: dict) -> dict:
+        return {
+            "rank":                  entry["rank"],
+            "username":              entry["username"],
+            "levels_passed":         entry["levels_passed"],
+            "avg_seconds_per_level": (
+                round(entry["avg_seconds"], 1) if entry["avg_seconds"] is not None else None
+            ),
+            "is_current_user":       entry["user_id"] == user.id,
+        }
+
+    return jsonify({
+        "exam":         exam,
+        "top":          [_serialise(r) for r in top_n],
+        "current_user": _serialise(current_entry) if current_entry else None,
+    }), 200

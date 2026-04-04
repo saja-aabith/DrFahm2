@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+
 from ..extensions import db
 
 
@@ -7,6 +8,9 @@ class LevelProgress(db.Model):
     Tracks a student's result per (exam, world_key, level_number).
     A level is "passed" when the student achieves the required score (enforced at API layer).
     UNIQUE on (user_id, exam, world_key, level_number).
+
+    M1: duration_seconds — elapsed wall-clock seconds for the FIRST passing attempt.
+    Set once on first pass; never overwritten. Used as leaderboard tiebreaker.
     """
     __tablename__ = "level_progress"
 
@@ -23,6 +27,10 @@ class LevelProgress(db.Model):
     attempts         = db.Column(db.Integer, nullable=False, default=0)
     last_attempted_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
+    # M1: stored only on the first passing attempt — never updated after that.
+    # NULL for rows created before M1 was deployed, or attempts that didn't pass.
+    duration_seconds = db.Column(db.Integer, nullable=True)
+
     __table_args__ = (
         db.UniqueConstraint("user_id", "exam", "world_key", "level_number",
                             name="uq_level_progress_user_exam_world_level"),
@@ -33,11 +41,12 @@ class LevelProgress(db.Model):
 
     def to_dict(self):
         return {
-            "level_number":     self.level_number,
-            "passed":           self.passed,
-            "score":            self.score,
-            "total_questions":  self.total_questions,
-            "attempts":         self.attempts,
+            "level_number":      self.level_number,
+            "passed":            self.passed,
+            "score":             self.score,
+            "total_questions":   self.total_questions,
+            "attempts":          self.attempts,
+            "duration_seconds":  self.duration_seconds,
             "last_attempted_at": self.last_attempted_at.isoformat() if self.last_attempted_at else None,
         }
 
