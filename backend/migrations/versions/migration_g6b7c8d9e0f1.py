@@ -13,15 +13,18 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision      = 'g6b7c8d9e0f1'
-down_revision = 'f5a6b7c8d9e0'
+down_revision = 'd3e4f5a6b7c8'
 branch_labels = None
 depends_on    = None
 
 
 def upgrade():
-    op.add_column(
-        'level_progress',
-        sa.Column('duration_seconds', sa.Integer(), nullable=True),
+    # ADD COLUMN IF NOT EXISTS — idempotent.
+    # Column was applied manually on 2026-04-04 before this migration ran.
+    # DB was stamped to this revision directly via:
+    #   UPDATE alembic_version SET version_num = 'g6b7c8d9e0f1'
+    op.execute(
+        "ALTER TABLE level_progress ADD COLUMN IF NOT EXISTS duration_seconds INTEGER"
     )
 
 
