@@ -28,7 +28,7 @@ from sqlalchemy import func, desc, asc
 from ..extensions import db
 from ..models.question import Question
 from ..models.progress import LevelProgress, WorldProgress
-from ..models.user import User
+from ..models.user import User, UserRole
 from ..api.auth import require_auth, _get_current_user
 from ..api.errors import bad_request, forbidden, error_response
 from ..utils.world_config import (
@@ -631,6 +631,7 @@ def get_leaderboard(exam: str):
             LevelProgress.exam   == exam,
             LevelProgress.passed == True,
             User.is_active       == True,
+            User.role            == UserRole.STUDENT,
         )
         .group_by(LevelProgress.user_id, User.username)
         .order_by(

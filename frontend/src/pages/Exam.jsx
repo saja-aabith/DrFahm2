@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  Map, Trophy, Lock, ChevronUp, ChevronDown,
+  CheckCircle, Clock, Layers,
+} from 'lucide-react';
 import { exams as examsApi, billing } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -26,9 +30,12 @@ const LOCK_MESSAGES = {
   seat_no_coverage:  'Your school has not unlocked this world',
 };
 
-const RANK_MEDALS = ['🥇', '🥈', '🥉'];
-
-// ── Leaderboard helpers ───────────────────────────────────────────────────────
+// Rank 1/2/3 get gold/silver/bronze styling; rest get plain #N text
+const RANK_STYLES = [
+  { bg: 'rgba(250,204,21,0.15)',  border: 'rgba(250,204,21,0.4)',  color: '#facc15' },
+  { bg: 'rgba(203,213,225,0.15)', border: 'rgba(203,213,225,0.4)', color: '#cbd5e1' },
+  { bg: 'rgba(251,146,60,0.15)',  border: 'rgba(251,146,60,0.4)',  color: '#fb923c' },
+];
 
 function fmtAvg(seconds) {
   if (seconds == null) return '—';
@@ -37,9 +44,30 @@ function fmtAvg(seconds) {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-// ── Leaderboard view ─────────────────────────────────────────────────────────
+function RankBadge({ rank }) {
+  const style = RANK_STYLES[rank - 1];
+  if (style) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 28, height: 28, borderRadius: 8,
+        background: style.bg, border: `1.5px solid ${style.border}`,
+        color: style.color, fontWeight: 800, fontSize: '0.82rem',
+      }}>
+        {rank}
+      </span>
+    );
+  }
+  return (
+    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+      #{rank}
+    </span>
+  );
+}
 
-function LeaderboardView({ exam, currentUsername }) {
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+
+function LeaderboardView({ exam }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
@@ -65,12 +93,12 @@ function LeaderboardView({ exam, currentUsername }) {
     return <div className="alert alert-error" style={{ marginTop: 24 }}>{error}</div>;
   }
 
-  const top         = data?.top || [];
-  const currentUser = data?.current_user || null;
-  const isEmpty     = top.length === 0;
-
-  // Is current user already visible in top list?
+  const top          = data?.top || [];
+  const currentUser  = data?.current_user || null;
+  const isEmpty      = top.length === 0;
   const currentInTop = top.some((r) => r.is_current_user);
+
+  const colGrid = '52px 1fr 90px 110px';
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -81,7 +109,7 @@ function LeaderboardView({ exam, currentUsername }) {
           background: 'var(--bg-card, rgba(255,255,255,0.03))',
           border: '1px solid var(--border)', borderRadius: 14,
         }}>
-          <div style={{ fontSize: '2.4rem', marginBottom: 12 }}>🏆</div>
+          <Trophy size={36} strokeWidth={1.5} style={{ color: 'var(--text-muted)', marginBottom: 12 }} />
           <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>
             No rankings yet
           </div>
@@ -91,94 +119,62 @@ function LeaderboardView({ exam, currentUsername }) {
         </div>
       ) : (
         <>
-          {/* ── Top N table ── */}
           <div style={{
             background: 'var(--bg-card, rgba(255,255,255,0.03))',
-            border: '1px solid var(--border)', borderRadius: 14,
-            overflow: 'hidden',
+            border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden',
           }}>
             {/* Header */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: '48px 1fr 100px 110px',
-              padding: '10px 20px',
-              borderBottom: '1px solid var(--border)',
-              fontSize: '0.73rem', fontWeight: 700,
-              textTransform: 'uppercase', letterSpacing: '0.5px',
-              color: 'var(--text-muted)',
+              display: 'grid', gridTemplateColumns: colGrid,
+              padding: '10px 20px', borderBottom: '1px solid var(--border)',
+              fontSize: '0.72rem', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)',
+              alignItems: 'center',
             }}>
               <span>Rank</span>
               <span>Username</span>
-              <span style={{ textAlign: 'right' }}>Levels</span>
-              <span style={{ textAlign: 'right' }}>Avg Time</span>
+              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                <Layers size={11} /> Levels
+              </span>
+              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                <Clock size={11} /> Avg Time
+              </span>
             </div>
 
-            {/* Rows */}
             {top.map((row) => {
-              const isMe    = row.is_current_user;
-              const medal   = RANK_MEDALS[row.rank - 1];
+              const isMe = row.is_current_user;
               return (
                 <div
                   key={row.rank}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: '48px 1fr 100px 110px',
-                    padding: '13px 20px',
-                    borderBottom: '1px solid var(--border)',
-                    background: isMe
-                      ? 'rgba(139,92,246,0.08)'
-                      : 'transparent',
-                    transition: 'background 0.15s',
+                    display: 'grid', gridTemplateColumns: colGrid,
+                    padding: '13px 20px', borderBottom: '1px solid var(--border)',
+                    background: isMe ? 'rgba(139,92,246,0.08)' : 'transparent',
+                    alignItems: 'center',
                   }}
                 >
-                  {/* Rank */}
-                  <span style={{
-                    fontWeight: 800,
-                    fontSize: medal ? '1.1rem' : '0.9rem',
-                    color: isMe ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
-                    lineHeight: 1,
-                    alignSelf: 'center',
-                  }}>
-                    {medal || `#${row.rank}`}
-                  </span>
+                  <RankBadge rank={row.rank} />
 
-                  {/* Username */}
                   <span style={{
-                    fontWeight: isMe ? 700 : 500,
+                    fontWeight: isMe ? 700 : 500, fontSize: '0.93rem',
                     color: isMe ? 'var(--violet-light, #a78bfa)' : 'var(--text-primary)',
-                    fontSize: '0.93rem',
-                    alignSelf: 'center',
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}>
                     {row.username}
                     {isMe && (
                       <span style={{
-                        fontSize: '0.68rem', fontWeight: 700,
-                        padding: '1px 6px', borderRadius: 10,
-                        background: 'rgba(139,92,246,0.2)',
-                        border: '1px solid rgba(139,92,246,0.4)',
-                        color: 'var(--violet-light, #a78bfa)',
-                        letterSpacing: '0.3px',
+                        fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10,
+                        background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)',
+                        color: 'var(--violet-light, #a78bfa)', letterSpacing: '0.3px',
                       }}>you</span>
                     )}
                   </span>
 
-                  {/* Levels passed */}
-                  <span style={{
-                    textAlign: 'right', fontWeight: 700,
-                    color: 'var(--text-primary)', fontSize: '0.93rem',
-                    alignSelf: 'center',
-                  }}>
+                  <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>
                     {row.levels_passed}
                   </span>
 
-                  {/* Avg time */}
-                  <span style={{
-                    textAlign: 'right',
-                    color: 'var(--text-muted)', fontSize: '0.88rem',
-                    fontVariantNumeric: 'tabular-nums',
-                    alignSelf: 'center',
-                  }}>
+                  <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
                     {fmtAvg(row.avg_seconds_per_level)}
                   </span>
                 </div>
@@ -186,17 +182,12 @@ function LeaderboardView({ exam, currentUsername }) {
             })}
           </div>
 
-          {/* ── Current user rank footer (shown only when outside top N) ── */}
+          {/* Current user outside top N */}
           {!currentInTop && currentUser && (
             <div style={{
-              marginTop: 12,
-              padding: '14px 20px',
-              borderRadius: 12,
-              background: 'rgba(139,92,246,0.07)',
-              border: '1px solid rgba(139,92,246,0.25)',
-              display: 'grid',
-              gridTemplateColumns: '48px 1fr 100px 110px',
-              alignItems: 'center',
+              marginTop: 12, padding: '14px 20px', borderRadius: 12,
+              background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.25)',
+              display: 'grid', gridTemplateColumns: colGrid, alignItems: 'center',
             }}>
               <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--violet-light, #a78bfa)' }}>
                 #{currentUser.rank}
@@ -218,7 +209,6 @@ function LeaderboardView({ exam, currentUsername }) {
             </div>
           )}
 
-          {/* ── No rank yet nudge ── */}
           {!currentUser && (
             <div style={{
               marginTop: 12, padding: '12px 16px', borderRadius: 10,
@@ -229,7 +219,6 @@ function LeaderboardView({ exam, currentUsername }) {
             </div>
           )}
 
-          {/* ── Column legend ── */}
           <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right', paddingRight: 4 }}>
             Avg Time = average seconds per passed level · — means no timing data yet
           </div>
@@ -241,7 +230,7 @@ function LeaderboardView({ exam, currentUsername }) {
 
 // ── Level Node ───────────────────────────────────────────────────────────────
 
-function LevelNode({ level, examKey, worldKey, worldLocked }) {
+function LevelNode({ level, examKey, worldKey }) {
   const navigate = useNavigate();
   const { level_number, locked, lock_reason, passed } = level;
 
@@ -264,7 +253,11 @@ function LevelNode({ level, examKey, worldKey, worldLocked }) {
     >
       <span className="level-node-num">{level_number}</span>
       <span className="level-node-icon">
-        {passed ? '✓' : locked ? '🔒' : '→'}
+        {passed
+          ? <CheckCircle size={13} strokeWidth={2.5} />
+          : locked
+          ? <Lock size={11} strokeWidth={2.5} />
+          : <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>→</span>}
       </span>
     </div>
   );
@@ -304,12 +297,14 @@ function WorldCard({ world, examKey, defaultOpen }) {
         </div>
         <div className="world-status-right">
           {allPassed && !locked && (
-            <span className="world-completion-text">✓ Complete</span>
+            <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <CheckCircle size={13} strokeWidth={2.5} /> Complete
+            </span>
           )}
-          {locked && <span className="lock-icon">🔒</span>}
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-            {open ? '▲' : '▼'}
-          </span>
+          {locked && <Lock size={14} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
+          {open
+            ? <ChevronUp  size={15} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
+            : <ChevronDown size={15} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
         </div>
       </div>
 
@@ -321,7 +316,6 @@ function WorldCard({ world, examKey, defaultOpen }) {
               level={level}
               examKey={examKey}
               worldKey={world_key}
-              worldLocked={locked}
             />
           ))}
         </div>
@@ -349,7 +343,7 @@ function TrackTabs({ tracks, activeTrack, onSelect }) {
   );
 }
 
-// ── Track Progress Summary ───────────────────────────────────────────────────
+// ── Track Progress Bar ────────────────────────────────────────────────────────
 
 function TrackProgressBar({ track }) {
   const totalWorlds     = track.worlds.length;
@@ -375,7 +369,29 @@ function TrackProgressBar({ track }) {
   );
 }
 
-// ── Main Exam Page ───────────────────────────────────────────────────────────
+// ── View toggle ───────────────────────────────────────────────────────────────
+
+function ViewToggleBtn({ active, onClick, icon: Icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: '7px 16px', borderRadius: 8,
+        fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer',
+        transition: 'all 0.15s',
+        background: active ? 'rgba(139,92,246,0.15)' : 'transparent',
+        border: active ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)',
+        color: active ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
+      }}
+    >
+      <Icon size={14} strokeWidth={2} />
+      {label}
+    </button>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function ExamPage() {
   const { exam }  = useParams();
@@ -389,10 +405,7 @@ export default function ExamPage() {
   const [error,        setError]        = useState('');
   const [entitlements, setEntitlements] = useState(null);
   const [activeTrack,  setActiveTrack]  = useState(null);
-
-  // M1: view toggle — 'map' | 'leaderboard'
-  const [view,          setView]          = useState('map');
-  const [lbEverLoaded,  setLbEverLoaded]  = useState(false);
+  const [view,         setView]         = useState('map');
 
   useEffect(() => {
     if (!['qudurat', 'tahsili'].includes(exam)) {
@@ -413,12 +426,6 @@ export default function ExamPage() {
       setError(err?.error?.message || 'Failed to load world map.');
     }).finally(() => setLoading(false));
   }, [exam, navigate]);
-
-  // Mark leaderboard as ever-loaded on first switch so it doesn't re-fetch
-  const handleViewChange = (v) => {
-    setView(v);
-    if (v === 'leaderboard') setLbEverLoaded(true);
-  };
 
   if (loading) {
     return (
@@ -467,7 +474,6 @@ export default function ExamPage() {
       <Navbar />
       <div className="page">
 
-        {/* Breadcrumb */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <Link to="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
             ← Dashboard
@@ -485,7 +491,6 @@ export default function ExamPage() {
           </p>
         </div>
 
-        {/* Paywall nudge — trial active */}
         {!isAdmin && !hasPaidPlan && trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
@@ -499,7 +504,6 @@ export default function ExamPage() {
           </div>
         )}
 
-        {/* Paywall nudge — trial expired */}
         {!isAdmin && !hasPaidPlan && !trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
@@ -512,35 +516,11 @@ export default function ExamPage() {
           </div>
         )}
 
-        {/* ── M1: View toggle — Map / Leaderboard ── */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          <button
-            onClick={() => handleViewChange('map')}
-            style={{
-              padding: '7px 18px', borderRadius: 8, fontWeight: 600, fontSize: '0.875rem',
-              cursor: 'pointer', transition: 'all 0.15s',
-              background: view === 'map' ? 'rgba(139,92,246,0.15)' : 'transparent',
-              border: view === 'map' ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)',
-              color: view === 'map' ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
-            }}
-          >
-            🗺 Map
-          </button>
-          <button
-            onClick={() => handleViewChange('leaderboard')}
-            style={{
-              padding: '7px 18px', borderRadius: 8, fontWeight: 600, fontSize: '0.875rem',
-              cursor: 'pointer', transition: 'all 0.15s',
-              background: view === 'leaderboard' ? 'rgba(139,92,246,0.15)' : 'transparent',
-              border: view === 'leaderboard' ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)',
-              color: view === 'leaderboard' ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
-            }}
-          >
-            🏆 Leaderboard
-          </button>
+          <ViewToggleBtn active={view === 'map'}         onClick={() => setView('map')}         icon={Map}    label="Map" />
+          <ViewToggleBtn active={view === 'leaderboard'} onClick={() => setView('leaderboard')} icon={Trophy} label="Leaderboard" />
         </div>
 
-        {/* ── MAP VIEW ── */}
         {view === 'map' && (
           <>
             {tracks.length > 1 && (
@@ -560,9 +540,8 @@ export default function ExamPage() {
           </>
         )}
 
-        {/* ── LEADERBOARD VIEW ── */}
         {view === 'leaderboard' && (
-          <LeaderboardView exam={exam} currentUsername={user?.username} />
+          <LeaderboardView exam={exam} />
         )}
 
       </div>
