@@ -30,7 +30,6 @@ const LOCK_MESSAGES = {
   seat_no_coverage:  'Your school has not unlocked this world',
 };
 
-// Rank 1/2/3 get gold/silver/bronze styling; rest get plain #N text
 const RANK_STYLES = [
   { bg: 'rgba(250,204,21,0.15)',  border: 'rgba(250,204,21,0.4)',  color: '#facc15' },
   { bg: 'rgba(203,213,225,0.15)', border: 'rgba(203,213,225,0.4)', color: '#cbd5e1' },
@@ -50,16 +49,16 @@ function RankBadge({ rank }) {
     return (
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 28, height: 28, borderRadius: 8,
+        width: 34, height: 34, borderRadius: 8,
         background: style.bg, border: `1.5px solid ${style.border}`,
-        color: style.color, fontWeight: 800, fontSize: '0.82rem',
+        color: style.color, fontWeight: 800, fontSize: '0.88rem',
       }}>
         {rank}
       </span>
     );
   }
   return (
-    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
       #{rank}
     </span>
   );
@@ -109,7 +108,8 @@ function LeaderboardView({ exam }) {
           background: 'var(--bg-card, rgba(255,255,255,0.03))',
           border: '1px solid var(--border)', borderRadius: 14,
         }}>
-          <Trophy size={36} strokeWidth={1.5} style={{ color: 'var(--text-muted)', marginBottom: 12 }} />
+          {/* Empty state — bigger trophy */}
+          <Trophy size={52} strokeWidth={1.4} style={{ color: 'var(--text-muted)', marginBottom: 14 }} />
           <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>
             No rankings yet
           </div>
@@ -133,11 +133,11 @@ function LeaderboardView({ exam }) {
             }}>
               <span>Rank</span>
               <span>Username</span>
-              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                <Layers size={11} /> Levels
+              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                <Layers size={14} strokeWidth={2} /> Levels
               </span>
-              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                <Clock size={11} /> Avg Time
+              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                <Clock size={14} strokeWidth={2} /> Avg Time
               </span>
             </div>
 
@@ -254,10 +254,10 @@ function LevelNode({ level, examKey, worldKey }) {
       <span className="level-node-num">{level_number}</span>
       <span className="level-node-icon">
         {passed
-          ? <CheckCircle size={13} strokeWidth={2.5} />
+          ? <CheckCircle size={16} strokeWidth={2.5} />
           : locked
-          ? <Lock size={11} strokeWidth={2.5} />
-          : <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>→</span>}
+          ? <Lock size={14} strokeWidth={2.5} />
+          : <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>→</span>}
       </span>
     </div>
   );
@@ -297,14 +297,14 @@ function WorldCard({ world, examKey, defaultOpen }) {
         </div>
         <div className="world-status-right">
           {allPassed && !locked && (
-            <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CheckCircle size={13} strokeWidth={2.5} /> Complete
+            <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <CheckCircle size={17} strokeWidth={2.5} /> Complete
             </span>
           )}
-          {locked && <Lock size={14} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
+          {locked && <Lock size={18} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
           {open
-            ? <ChevronUp  size={15} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
-            : <ChevronDown size={15} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
+            ? <ChevronUp  size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
+            : <ChevronDown size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
         </div>
       </div>
 
@@ -376,16 +376,16 @@ function ViewToggleBtn({ active, onClick, icon: Icon, label }) {
     <button
       onClick={onClick}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '7px 16px', borderRadius: 8,
-        fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '8px 18px', borderRadius: 8,
+        fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',
         transition: 'all 0.15s',
         background: active ? 'rgba(139,92,246,0.15)' : 'transparent',
         border: active ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)',
         color: active ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
       }}
     >
-      <Icon size={14} strokeWidth={2} />
+      <Icon size={20} strokeWidth={2} />
       {label}
     </button>
   );
@@ -516,7 +516,7 @@ export default function ExamPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           <ViewToggleBtn active={view === 'map'}         onClick={() => setView('map')}         icon={Map}    label="Map" />
           <ViewToggleBtn active={view === 'leaderboard'} onClick={() => setView('leaderboard')} icon={Trophy} label="Leaderboard" />
         </div>
