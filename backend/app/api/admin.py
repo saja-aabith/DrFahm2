@@ -2029,22 +2029,40 @@ def delete_user(user_id: int):
 @roles_required(*_ADMIN_ROLE)
 def delete_org(org_id: int):
     """
-    Hard-delete a school (Org) and all its associated data.
+    Hard-delete a school (Org) AND all its student/leader accounts.
 
-    Cascades via DB FK (ondelete=CASCADE):
-    OrgMembership, Entitlement (org-type), and generated student accounts
-    are NOT automatically deleted — students must be deleted separately.
-    This endpoint deletes only the Org record itself plus its memberships/entitlements.
+    Deletion order:
+    1. Delete all User accounts with org_id = org_id (students + leader).
+       Each user deletion cascades to LevelProgress, WorldProgress,
+       ExamTrial, Entitlement rows via DB FK (ondelete=CASCADE).
+    2. Delete the Org record itself (cascades memberships/entitlements).
+
+    Query param:
+      ?delete_students=false   — skip student deletion (keep accounts, just remove school)
     """
     org = db.session.get(Org, org_id)
     if not org:
         return error_response("not_found", "School not found.", 404)
+
+    delete_students = request.args.get("delete_students", "true").lower() != "false"
+    deleted_students = 0
+
+    if delete_students:
+        # Delete all users (students + leader) belonging to this org
+        members = User.query.filter_by(org_id=org.id).all()
+        for member in members:
+            db.session.delete(member)
+            deleted_students += 1
+        db.session.flush()  # flush user deletions before org deletion
+
     name = org.name
     db.session.delete(org)
     db.session.commit()
+
     return jsonify({
-        "message":      f"School '{name}' permanently deleted.",
-        "deleted_name": name,
+        "message":         f"School '{name}' deleted with {deleted_students} student accounts.",
+        "deleted_name":    name,
+        "deleted_students": deleted_students,
     }), 200
 
 
