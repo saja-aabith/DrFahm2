@@ -1123,3 +1123,70 @@ body {
   .whatsapp-float-btn { padding: 13px; border-radius: 50%; }
   .whatsapp-float-label { display: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CHUNK P1 — PRICING PAGE: GOLD DOMINANCE + DISPLAY-NAME RENAME
+   plan_id values ('basic','premium') unchanged in API / DB / Stripe.
+   Only presentation-layer classes below.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Gold card — elevated over Silver */
+.pricing-card.gold {
+  border-color: rgba(198,168,91,0.45);
+  border-width: 1.5px;
+  background: rgba(198,168,91,0.025);
+  box-shadow: 0 4px 20px rgba(198,168,91,0.1), 0 1px 4px rgba(28,39,51,0.05);
+}
+.pricing-card.gold:hover {
+  box-shadow: 0 6px 28px rgba(198,168,91,0.18), 0 2px 8px rgba(28,39,51,0.06);
+}
+
+/* Gold card price — slightly larger for visual dominance */
+.pricing-card.gold .pricing-price-amount {
+  font-size: 2.4rem;
+}
+
+/* Gold badge — replaces green "Most Popular" */
+.pricing-gold-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--brand-gold);
+  color: #3A2800;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Gold plan name */
+.pricing-plan-name.gold-name {
+  color: var(--brand-gold);
+}
+
+/* Gold CTA button */
+.btn-gold {
+  background: var(--brand-gold);
+  color: #3A2800;
+  border: 1px solid transparent;
+}
+.btn-gold:hover:not(:disabled) {
+  background: #b89640;
+  color: #3A2800;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(198,168,91,0.3);
+}
+
+/* Silver doubt nudge — shown below Silver CTA to push toward Gold */
+.pricing-silver-doubt {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.4;
+  font-style: italic;
+}
