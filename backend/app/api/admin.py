@@ -72,7 +72,7 @@ from ..models.user import User, UserRole
 from ..models.org import Org
 from ..models.entitlement import Entitlement, PlanId, PlanType
 from ..models.question import Question, Difficulty, ReviewStatus
-from ..models.progress import LevelProgress                                   # K2
+from ..models.progress import LevelProgress, WorldProgress                                   # K2
 from ..api.auth import roles_required, _get_current_user
 from ..api.errors import bad_request, forbidden, conflict, error_response
 from ..utils.world_config import (
@@ -2048,12 +2048,25 @@ def delete_org(org_id: int):
     deleted_students = 0
 
     if delete_students:
-        # Delete all users (students + leader) belonging to this org
+        # Explicit deletion in FK-safe order (no reliance on DB cascade)
         members = User.query.filter_by(org_id=org.id).all()
-        for member in members:
-            db.session.delete(member)
-            deleted_students += 1
-        db.session.flush()  # flush user deletions before org deletion
+        member_ids = [m.id for m in members]
+
+        if member_ids:
+            # 1. Delete progress records
+            LevelProgress.query.filter(LevelProgress.user_id.in_(member_ids)).delete(synchronize_session=False)
+            WorldProgress.query.filter(WorldProgress.user_id.in_(member_ids)).delete(synchronize_session=False)
+            # 2. Delete individual entitlements
+            Entitlement.query.filter(Entitlement.user_id.in_(member_ids)).delete(synchronize_session=False)
+            # 3. Delete the users themselves
+            User.query.filter(User.id.in_(member_ids)).delete(synchronize_session=False)
+            deleted_students = len(member_ids)
+
+        db.session.flush()
+
+    # Delete org-level entitlements
+    Entitlement.query.filter_by(org_id=org.id).delete(synchronize_session=False)
+    db.session.flush()
 
     name = org.name
     db.session.delete(org)
