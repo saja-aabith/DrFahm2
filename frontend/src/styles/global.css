@@ -1633,3 +1633,25 @@ body {
   padding-top: 8px;
   border-top: 1px solid rgba(28,39,51,0.06);
 }
+
+/* ── Retained from original — minor utility classes ─────────────────────── */
+.home-section-stats { padding: 0; }
+.home-world-connector { display: none; }
+.lock-icon   { font-size: 0.85rem; opacity: 0.5; }
+.lock-tooltip { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; text-align: center; }
+.pricing-faq { }
+
+/* ── Upgrade trigger level nodes ─────────────────────────────────────────── */
+/* Levels locked due to plan limit — clicking routes to /pricing              */
+.level-node.upgrade-trigger {
+  background: rgba(11,93,75,0.06);
+  border-color: rgba(11,93,75,0.28);
+  color: var(--brand-green, #0B5D4B);
+  cursor: pointer;
+  opacity: 1;         /* override the .locked opacity: 0.55 */
+}
+.level-node.upgrade-trigger:hover {
+  background: rgba(11,93,75,0.13);
+  border-color: rgba(11,93,75,0.5);
+  transform: scale(1.05);
+}

@@ -255,22 +255,43 @@ function LeaderboardView({ exam }) {
 
 // ── Level Node ───────────────────────────────────────────────────────────────
 
+// Lock reasons that route to pricing instead of blocking silently
+const PRICING_LOCK_REASONS = new Set([
+  'beyond_trial_cap', 'trial_expired', 'no_entitlement', 'seat_no_coverage',
+]);
+
 function LevelNode({ level, examKey, worldKey }) {
   const navigate = useNavigate();
   const { level_number, locked, lock_reason, passed } = level;
-  const status = passed ? 'passed' : locked ? 'locked' : 'unlocked';
-  const handleClick = () => { if (locked) return; navigate(`/exam/${examKey}/world/${worldKey}/level/${level_number}`); };
+  const status        = passed ? 'passed' : locked ? 'locked' : 'unlocked';
+  const isPricingLock = locked && PRICING_LOCK_REASONS.has(lock_reason);
+
+  const handleClick = () => {
+    if (!locked) {
+      navigate(`/exam/${examKey}/world/${worldKey}/level/${level_number}`);
+    } else if (isPricingLock) {
+      navigate(`/pricing?exam=${examKey}`);
+    }
+    // progression locks (level_locked) silently block — no action
+  };
   return (
-    <div className={`level-node ${status}`} onClick={handleClick}
-      title={locked ? LOCK_MESSAGES[lock_reason] || lock_reason : `Level ${level_number}`}
-      role="button" tabIndex={locked ? -1 : 0}
-      onKeyDown={(e) => e.key === 'Enter' && !locked && handleClick()}
-      aria-label={`Level ${level_number} \u2014 ${status}${locked ? ': ' + (LOCK_MESSAGES[lock_reason] || lock_reason) : ''}`}>
+    <div className={`level-node ${status}${isPricingLock ? ' upgrade-trigger' : ''}`}
+      onClick={handleClick}
+      title={isPricingLock ? 'Unlock with full access →' : locked ? (LOCK_MESSAGES[lock_reason] || lock_reason) : `Level ${level_number}`}
+      role="button"
+      tabIndex={locked && !isPricingLock ? -1 : 0}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+      style={{ cursor: isPricingLock ? 'pointer' : undefined }}
+    >
       <span className="level-node-num">{level_number}</span>
       <span className="level-node-icon">
-        {passed ? <CheckCircle size={16} strokeWidth={2.5} />
-          : locked ? <Lock size={14} strokeWidth={2.5} />
-          : <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>&rarr;</span>}
+        {passed
+          ? <CheckCircle size={16} strokeWidth={2.5} />
+          : isPricingLock
+          ? <span style={{ fontSize: '0.72rem', fontWeight: 800 }}>↑</span>
+          : locked
+          ? <Lock size={14} strokeWidth={2.5} />
+          : <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>→</span>}
       </span>
     </div>
   );
@@ -279,13 +300,24 @@ function LevelNode({ level, examKey, worldKey }) {
 // ── World Card ───────────────────────────────────────────────────────────────
 
 function WorldCard({ world, examKey, defaultOpen }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(defaultOpen);
   const { world_key, world_name, world_name_ar, index, locked, lock_reason, levels } = world;
-  const passedCount = levels.filter((l) => l.passed).length;
-  const allPassed   = passedCount === 10;
+  const passedCount    = levels.filter((l) => l.passed).length;
+  const allPassed      = passedCount === 10;
+  const isPricingLock  = locked && PRICING_LOCK_REASONS.has(lock_reason);
+
+  const handleHeaderClick = () => {
+    if (isPricingLock) {
+      navigate(`/pricing?exam=${examKey}`);
+    } else {
+      setOpen((o) => !o);
+    }
+  };
+
   return (
     <div className={`world-card ${locked ? 'locked' : 'unlocked'}`}>
-      <div className="world-card-header" onClick={() => setOpen(!open)}>
+      <div className="world-card-header" onClick={handleHeaderClick}>
         <div className="world-header-left">
           <div className={`world-index-badge ${locked ? 'locked' : 'unlocked'}`}>W{index}</div>
           <div>
@@ -297,10 +329,29 @@ function WorldCard({ world, examKey, defaultOpen }) {
           </div>
         </div>
         <div className="world-status-right">
-          {allPassed && !locked && <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={17} strokeWidth={2.5} /> Complete</span>}
-          {locked && <Lock size={18} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
-          {open ? <ChevronUp size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
-                : <ChevronDown size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />}
+          {allPassed && !locked && (
+            <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <CheckCircle size={17} strokeWidth={2.5} /> Complete
+            </span>
+          )}
+          {locked && isPricingLock && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '4px 12px', borderRadius: 20,
+              background: 'rgba(11,93,75,0.08)', border: '1px solid rgba(11,93,75,0.3)',
+              color: 'var(--brand-green, #0B5D4B)', fontSize: '0.78rem', fontWeight: 700,
+              cursor: 'pointer',
+            }}>
+              Unlock →
+            </span>
+          )}
+          {locked && !isPricingLock && (
+            <Lock size={18} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
+          )}
+          {!isPricingLock && (open
+            ? <ChevronUp  size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
+            : <ChevronDown size={20} strokeWidth={2} style={{ color: 'var(--text-muted)' }} />
+          )}
         </div>
       </div>
       {open && (
