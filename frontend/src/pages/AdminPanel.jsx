@@ -330,7 +330,7 @@ function AIReviewCard({ question, onUpdated }) {
   return (
     <div className={cardClass}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: '0.87rem', color: 'var(--text-secondary)' }}><span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'inherit'}}><span style={{fontSize:'0.7rem',fontWeight:800,letterSpacing:'0.4px',color:'var(--brand-green)'}}>AI</span> Review</span>
+        <span style={{ fontWeight: 700, fontSize: '0.87rem', color: 'var(--text-secondary)', display:'inline-flex', alignItems:'center', gap:5 }}><span style={{fontSize:'0.7rem',fontWeight:800,letterSpacing:'0.4px',color:'var(--brand-green)'}}>AI</span> Review</span>
         {status === 'ai_reviewed' && <Pill color="violet">Pending approval</Pill>}
         {status === 'rejected' && <Pill color="red">Rejected — edit manually or re-run</Pill>}
         {status === 'approved' && <Pill color="green">Approved</Pill>}
