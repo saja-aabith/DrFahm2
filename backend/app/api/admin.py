@@ -2023,6 +2023,31 @@ def delete_user(user_id: int):
     }), 200
 
 
+# ── DELETE /api/admin/orgs/<org_id> ──────────────────────────────────────────
+
+@admin_bp.route("/orgs/<int:org_id>", methods=["DELETE"])
+@roles_required(*_ADMIN_ROLE)
+def delete_org(org_id: int):
+    """
+    Hard-delete a school (Org) and all its associated data.
+
+    Cascades via DB FK (ondelete=CASCADE):
+    OrgMembership, Entitlement (org-type), and generated student accounts
+    are NOT automatically deleted — students must be deleted separately.
+    This endpoint deletes only the Org record itself plus its memberships/entitlements.
+    """
+    org = db.session.get(Org, org_id)
+    if not org:
+        return error_response("not_found", "School not found.", 404)
+    name = org.name
+    db.session.delete(org)
+    db.session.commit()
+    return jsonify({
+        "message":      f"School '{name}' permanently deleted.",
+        "deleted_name": name,
+    }), 200
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # STATS  (K4: extended with by_review_status + by_section_detail)
 # ═════════════════════════════════════════════════════════════════════════════

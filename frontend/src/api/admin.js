@@ -133,7 +133,8 @@ export const resetPassword  = (id, data)    => adminRequest(`/api/admin/users/${
 
 // DELETE a user account (students and school_leaders only — not admins).
 // Cascades: LevelProgress, WorldProgress, ExamTrial, Entitlement.
-export const deleteUser = (id) => adminRequest(`/api/admin/users/${id}`, { method: 'DELETE' });
+export const deleteUser = (id)   => adminRequest(`/api/admin/users/${id}`,  { method: 'DELETE' });
+export const deleteOrg  = (id)   => adminRequest(`/api/admin/orgs/${id}`,   { method: 'DELETE' });
 
 // ── AI Review  (Chunk J + K1) ────────────────────────────────────────────────
 export const aiReview = (questionIds, overwrite = false) =>

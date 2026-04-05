@@ -936,8 +936,8 @@ function OrgsTab() {
       {flash&&<div className={`alert alert-${flash.type==='error'?'error':'success'}`} style={{marginBottom:16}}>{flash.msg}</div>}
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}><button className="btn btn-green btn-sm" onClick={() => setCreating(true)}>+ New School</button></div>
       {orgs.length===0?<p style={{color:'var(--text-muted)'}}>No schools yet.</p>:(
-        <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Students</th><th>Created</th><th>Actions</th></tr></thead>
-          <tbody>{orgs.map(o=><tr key={o.id}><td>{o.id}</td><td>{o.name}</td><td><code>{o.slug}</code></td><td>{o.estimated_student_count||'—'}</td><td style={{fontSize:'0.85rem',color:'var(--text-muted)'}}>{new Date(o.created_at).toLocaleDateString()}</td><td><button className="admin-action-btn" onClick={() => setSelected(o)}>View</button></td></tr>)}</tbody>
+        <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>ID</th><th>Name</th><th>Username (Slug)</th><th>Students</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody>{orgs.map(o=><tr key={o.id}><td>{o.id}</td><td>{o.name}</td><td><code>{o.slug}</code></td><td>{o.estimated_student_count||'—'}</td><td style={{fontSize:'0.85rem',color:'var(--text-muted)'}}>{new Date(o.created_at).toLocaleDateString()}</td><td style={{display:'flex',gap:6,alignItems:'center'}}><button className="admin-action-btn" onClick={() => setSelected(o)}>View</button><button className="admin-action-btn danger" title="Delete school" onClick={e=>{e.stopPropagation();if(window.confirm(`Delete school "${o.name}" and all its data? This cannot be undone.`)){adminApi.deleteOrg(o.id).then(()=>{fetchOrgs();showFlash(`School '${o.name}' deleted.`);}).catch(err=>showFlash(err?.error?.message||'Delete failed.','error'));}}}><Trash2 size={13} strokeWidth={2.2}/></button></td></tr>)}</tbody>
         </table></div>
       )}
       {creating&&<CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); fetchOrgs(); showFlash('School created.'); }}/>}
@@ -976,6 +976,9 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
   // Student delete state
   const [deleteStudentConfirm, setDeleteStudentConfirm] = useState(null);
   const [deletingStudentId,    setDeletingStudentId]    = useState(null);
+  // Bulk student select/delete
+  const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
+  const [bulkDeleting,       setBulkDeleting]        = useState(false);
   // Payment link
   const [plExam, setPlExam] = useState('qudurat'); const [plCount, setPlCount] = useState(''); const [plGenerating, setPlGenerating] = useState(false); const [plResult, setPlResult] = useState(null); const [plCopied, setPlCopied] = useState(false); const [plDownloading, setPlDownloading] = useState(false);
   // Leader
@@ -1085,28 +1088,72 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
         </div>}
         {genResult&&<div style={{padding:'12px 14px',borderRadius:8,marginBottom:12,background:'rgba(22,163,74,0.07)',border:'1px solid rgba(22,163,74,0.2)',fontSize:'0.85rem'}}><div style={{fontWeight:700,color:'#15803d',marginBottom:4}}>✓ {genResult.created} accounts created</div><div style={{color:'var(--text-secondary)',marginBottom:8,fontSize:'0.82rem'}}>⚠ Download now — passwords are not stored.</div><button className="btn btn-green btn-sm" onClick={handleDownloadCredentials}>⬇ Download Credentials CSV (with passwords)</button></div>}
 
-        {/* Student list with per-student delete */}
-        {detail.students?.length>0?(
-          <div style={{maxHeight:220,overflow:'auto',borderRadius:8,background:'rgba(255,255,255,0.02)',border:'1px solid var(--border)',padding:'8px 12px'}}>
-            {detail.students.map(s=>{
-              const isConfirming = deleteStudentConfirm?.id === s.id;
-              return (
-                <div key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'0.83rem',padding:'4px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-                  <span style={{color:'var(--text-secondary)'}}>{s.username}{!s.is_active&&<span style={{marginLeft:8,fontSize:'0.72rem',color:'#dc2626'}}>inactive</span>}</span>
-                  {isConfirming?(
-                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                      <span style={{fontSize:'0.76rem',color:'#dc2626',fontWeight:600}}>Delete?</span>
-                      <button className="btn btn-sm" style={{padding:'1px 8px',fontSize:'0.76rem',fontWeight:700,background:'rgba(220,38,38,0.15)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.3)'}} onClick={() => handleDeleteStudent(s.id,s.username)} disabled={deletingStudentId===s.id}>{deletingStudentId===s.id?'…':'Yes'}</button>
-                      <button className="btn btn-sm btn-ghost" style={{padding:'1px 8px',fontSize:'0.76rem'}} onClick={() => setDeleteStudentConfirm(null)}>No</button>
-                    </div>
-                  ):(
-                    <button style={{background:'none',border:'none',cursor:'pointer',color:'rgba(220,38,38,0.4)',padding:'2px 4px',display:'flex',alignItems:'center',transition:'color 0.15s'}} title="Delete student" onMouseEnter={e=>e.currentTarget.style.color='#dc2626'} onMouseLeave={e=>e.currentTarget.style.color='rgba(220,38,38,0.4)'} onClick={() => setDeleteStudentConfirm(s)}><Trash2 size={12} strokeWidth={2.2}/></button>
-                  )}
+        {/* Student list with bulk select + delete */}
+        {detail.students?.length>0?(()=>{
+          const allSelected = selectedStudentIds.size===detail.students.length && detail.students.length>0;
+          return (
+            <div>
+              {/* Bulk action bar */}
+              {selectedStudentIds.size>0&&(
+                <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',marginBottom:8,borderRadius:8,background:'rgba(185,28,28,0.06)',border:'1px solid rgba(185,28,28,0.2)'}}>
+                  <span style={{fontSize:'0.85rem',fontWeight:600,color:'#B91C1C'}}>{selectedStudentIds.size} selected</span>
+                  <button
+                    className="btn btn-sm"
+                    style={{marginLeft:'auto',background:'rgba(185,28,28,0.12)',color:'#B91C1C',border:'1px solid rgba(185,28,28,0.3)',fontWeight:700}}
+                    disabled={bulkDeleting}
+                    onClick={async()=>{
+                      if(!window.confirm(`Delete ${selectedStudentIds.size} student account${selectedStudentIds.size>1?'s':''}? This cannot be undone.`)) return;
+                      setBulkDeleting(true);
+                      const ids=[...selectedStudentIds];
+                      let failed=0;
+                      for(const id of ids){try{await adminApi.deleteUser(id);}catch{failed++;}}
+                      setBulkDeleting(false);
+                      setSelectedStudentIds(new Set());
+                      reload();
+                      showFlash(failed?`Deleted ${ids.length-failed}, ${failed} failed.`:`Deleted ${ids.length} student${ids.length>1?'s':''}.`, failed?'error':'success');
+                    }}
+                  >{bulkDeleting?'Deleting…':`🗑 Delete ${selectedStudentIds.size} selected`}</button>
+                  <button className="btn btn-sm btn-ghost" onClick={()=>setSelectedStudentIds(new Set())}>Clear</button>
                 </div>
-              );
-            })}
-          </div>
-        ):<p style={{color:'var(--text-muted)',fontSize:'0.88rem'}}>No students yet.</p>}
+              )}
+              {/* List */}
+              <div style={{maxHeight:260,overflow:'auto',borderRadius:8,border:'1px solid var(--border)'}}>
+                {/* Header row */}
+                <div style={{display:'flex',alignItems:'center',gap:10,padding:'6px 12px',borderBottom:'1px solid var(--border)',background:'var(--bg-card-2)',position:'sticky',top:0}}>
+                  <input type="checkbox" style={{cursor:'pointer',width:15,height:15,accentColor:'var(--brand-green)'}}
+                    checked={allSelected} onChange={e=>{ if(e.target.checked) setSelectedStudentIds(new Set(detail.students.map(s=>s.id))); else setSelectedStudentIds(new Set()); }}/>
+                  <span style={{fontSize:'0.75rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.4px',flex:1}}>
+                    {allSelected?'All selected':'Select all'} ({detail.students.length} students)
+                  </span>
+                  <span style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>select to bulk delete</span>
+                </div>
+                {/* Student rows */}
+                {detail.students.map(s=>{
+                  const isChecked=selectedStudentIds.has(s.id);
+                  return (
+                    <div key={s.id}
+                      style={{display:'flex',alignItems:'center',gap:10,fontSize:'0.83rem',padding:'6px 12px',borderBottom:'1px solid rgba(0,0,0,0.04)',cursor:'pointer',background:isChecked?'rgba(185,28,28,0.04)':'transparent',transition:'background 0.1s'}}
+                      onClick={()=>{const ns=new Set(selectedStudentIds);if(ns.has(s.id))ns.delete(s.id);else ns.add(s.id);setSelectedStudentIds(ns);}}
+                    >
+                      <input type="checkbox" style={{cursor:'pointer',width:15,height:15,flexShrink:0,accentColor:'var(--brand-green)'}}
+                        checked={isChecked} onChange={()=>{}} onClick={e=>e.stopPropagation()}/>
+                      <span style={{flex:1,color:'var(--text-secondary)'}}>{s.username}</span>
+                      {!s.is_active&&<span style={{fontSize:'0.72rem',color:'#B91C1C',fontWeight:600}}>inactive</span>}
+                      {/* Per-student delete still available */}
+                      <button
+                        style={{background:'none',border:'none',cursor:'pointer',color:'rgba(185,28,28,0.35)',padding:'2px 4px',display:'flex',alignItems:'center',flexShrink:0,transition:'color 0.15s'}}
+                        title="Delete this student"
+                        onMouseEnter={e=>{e.stopPropagation();e.currentTarget.style.color='#B91C1C';}}
+                        onMouseLeave={e=>{e.currentTarget.style.color='rgba(185,28,28,0.35)';}}
+                        onClick={e=>{e.stopPropagation();if(window.confirm(`Delete student "${s.username}"?`))handleDeleteStudent(s.id,s.username);}}
+                      ><Trash2 size={12} strokeWidth={2.2}/></button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })():<p style={{color:'var(--text-muted)',fontSize:'0.88rem'}}>No students yet.</p>}
       </div>
 
       <div style={{display:'flex',gap:10}}><button className="btn btn-ghost" onClick={onClose}>Close</button></div>
