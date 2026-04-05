@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, BarChart3, FileText, Globe, Upload, Building2, Users, BookOpen, CheckCircle2, Package, Key, KeyRound, PowerOff, Power, Search, CreditCard, GraduationCap, ClipboardList, Zap, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import MathText from '../components/MathText';
@@ -100,7 +100,7 @@ function ReviewProgressPanel({ examFilter, refreshKey, onShowPending }) {
     <div className="review-progress-panel">
       {aiPending > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', marginBottom: 8, borderRadius: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)' }}>
-          <span style={{ fontSize: '0.88rem' }}>🤖</span>
+          <span style={{ display:'flex',alignItems:'center' }}><span style={{fontSize:'0.75rem',fontWeight:700,color:'var(--brand-green)',letterSpacing:'0.3px'}}>AI</span></span>
           <span style={{ fontSize: '0.85rem', color: '#7c3aed', fontWeight: 600 }}>{aiPending} question{aiPending !== 1 ? 's' : ''} stuck in AI Pending</span>
           <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', flex: 1 }}>— network dropped during AI review run</span>
           {onShowPending && <button className="btn btn-sm" style={{ background: 'rgba(124,58,237,0.12)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.3)', padding: '3px 10px', fontSize: '0.8rem', fontWeight: 600, flexShrink: 0 }} onClick={onShowPending}>Show &amp; fix →</button>}
@@ -119,7 +119,7 @@ function ReviewProgressPanel({ examFilter, refreshKey, onShowPending }) {
             const sk = p.section || p.world_key || '—';
             return (
               <div key={`${p.exam}-${sk}`} className="review-world-row">
-                <span className="review-world-label" style={{ textTransform: 'capitalize' }}>{p.exam} / {sk}{pending > 0 && <span style={{ marginLeft: 6, fontSize: '0.72rem', color: '#7c3aed', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>🤖 {pending} pending</span>}</span>
+                <span className="review-world-label" style={{ textTransform: 'capitalize' }}>{p.exam} / {sk}{pending > 0 && <span style={{ marginLeft: 6, fontSize: '0.72rem', color: '#7c3aed', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}><span style={{fontSize:'0.72rem',fontWeight:700,letterSpacing:'0.3px'}}>AI</span> {pending} pending</span>}</span>
                 <div className="review-world-bar-bg"><div className="review-world-bar-fill" style={{ width: `${wpct}%` }} /></div>
                 <span className="review-world-count">{p.reviewed}/{p.total}</span>
               </div>
@@ -330,7 +330,7 @@ function AIReviewCard({ question, onUpdated }) {
   return (
     <div className={cardClass}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: '0.87rem', color: 'var(--text-secondary)' }}>🤖 AI Review</span>
+        <span style={{ fontWeight: 700, fontSize: '0.87rem', color: 'var(--text-secondary)' }}><span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'inherit'}}><span style={{fontSize:'0.7rem',fontWeight:800,letterSpacing:'0.4px',color:'var(--brand-green)'}}>AI</span> Review</span>
         {status === 'ai_reviewed' && <Pill color="violet">Pending approval</Pill>}
         {status === 'rejected' && <Pill color="red">Rejected — edit manually or re-run</Pill>}
         {status === 'approved' && <Pill color="green">Approved</Pill>}
@@ -347,10 +347,10 @@ function AIReviewCard({ question, onUpdated }) {
         </div>
         {confidence != null && <div><div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Confidence</div><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontWeight: 800, fontSize: '1.05rem', color: confColor }}>{Math.round(confidence * 100)}%</span><Pill color={confPill}>{confidence >= 0.85 ? 'High' : confidence >= 0.65 ? 'Medium' : 'Low'}</Pill></div></div>}
       </div>
-      {question.llm_review_note && <div className="ai-review-note"><div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-muted)', marginBottom: 4 }}>🔒 Admin Note</div><div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{question.llm_review_note}</div></div>}
+      {question.llm_review_note && <div className="ai-review-note"><div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--text-muted)', marginBottom: 4 }}><span style={{fontSize:'0.8rem',marginRight:4}}>🔒</span> Admin Note</div><div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{question.llm_review_note}</div></div>}
       {question.llm_proposed_hint && (
         <div className="ai-review-hint">
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#b45309', marginBottom: 4 }}>💡 Proposed Hint</div>
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#b45309', marginBottom: 4 }}><span style={{fontSize:'0.8rem',marginRight:4}}>◎</span> Proposed Hint</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}><MathText text={question.llm_proposed_hint} /></div>
           {status !== 'approved' && <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}><input type="checkbox" checked={acceptHint} onChange={e => setAcceptHint(e.target.checked)} />Accept this hint on approval</label>}
         </div>
@@ -365,7 +365,7 @@ function AIReviewCard({ question, onUpdated }) {
       {['ai_reviewed','rejected'].includes(status) && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="ai-review-btn approve" onClick={handleApprove} disabled={approving || rejecting}>{approving ? '…' : '✓ Approve'}</button>
-          <button className={`ai-review-btn edit ${editMode ? 'active' : ''}`} onClick={() => { setEditMode(!editMode); if (editMode) setOverrideAnswer(''); }}>✏ {editMode ? 'Cancel Edit' : 'Edit & Approve'}</button>
+          <button className={`ai-review-btn edit ${editMode ? 'active' : ''}`} onClick={() => { setEditMode(!editMode); if (editMode) setOverrideAnswer(''); }}><span style={{marginRight:4,fontSize:'0.85rem'}}>✎</span>{editMode ? 'Cancel Edit' : 'Edit & Approve'}</button>
           <button className="ai-review-btn reject" onClick={handleReject} disabled={approving || rejecting}>{rejecting ? '…' : '✗ Reject'}</button>
         </div>
       )}
@@ -430,7 +430,7 @@ function AIReviewModal({ questionIds, onDone, onClose }) {
   };
   const pct = total > 0 ? Math.round((Math.min(progress,total)/total)*100) : 0;
   return (
-    <Modal title="🤖 AI Question Review" onClose={running ? undefined : onClose} width="560px">
+    <Modal title="AI Question Review" onClose={running ? undefined : onClose} width="560px">
       {!running && !done && (
         <div>
           <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Run AI review on <strong>{total}</strong> selected question{total!==1?'s':''}. The AI (GPT-4o-mini) will predict the correct answer, generate a student hint, and write an internal review note.</p>
@@ -517,7 +517,7 @@ function QuestionsTab() {
         <select className="form-input" style={{ width:'auto',minWidth:140 }} value={filters.difficulty} onChange={e=>handleFilterChange('difficulty',e.target.value)}><option value="">All difficulty</option><option value="easy">Easy</option><option value="hard">Hard</option></select>
         <select className="form-input" style={{ width:'auto',minWidth:160 }} value={filters.topic} onChange={e=>handleFilterChange('topic',e.target.value)}><option value="">All topics</option><option value="_untagged">⚠ Untagged</option>{topicOptions.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}</select>
         <select className="form-input" style={{ width:'auto',minWidth:140 }} value={filters.reviewed} onChange={e=>handleFilterChange('reviewed',e.target.value)}><option value="">All review</option><option value="true">✓ Reviewed</option><option value="false">⚠ Unreviewed</option></select>
-        <select className="form-input" style={{ width:'auto',minWidth:160 }} value={filters.review_status} onChange={e=>handleFilterChange('review_status',e.target.value)}><option value="">All AI status</option><option value="unreviewed">Unreviewed</option><option value="ai_pending">AI Pending…</option><option value="ai_reviewed">🤖 Pending approval</option><option value="approved">✓ Approved</option><option value="rejected">✗ Rejected</option></select>
+        <select className="form-input" style={{ width:'auto',minWidth:160 }} value={filters.review_status} onChange={e=>handleFilterChange('review_status',e.target.value)}><option value="">All AI status</option><option value="unreviewed">Unreviewed</option><option value="ai_pending">AI Pending…</option><option value="ai_reviewed">AI Review — Pending approval</option><option value="approved">✓ Approved</option><option value="rejected">✗ Rejected</option></select>
         <span style={{ color:'var(--text-muted)',fontSize:'0.95rem',marginLeft:'auto' }}>{total} question{total!==1?'s':''}</span>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{ marginLeft:8 }}>+ Add Question</button>
       </div>
@@ -527,7 +527,7 @@ function QuestionsTab() {
           <button className="btn btn-sm btn-green" onClick={() => handleBulkActivate(true)} disabled={bulkLoading||total===0}>{bulkLoading?'…':'Activate all'}</button>
           <button className="btn btn-sm btn-ghost" style={{ borderColor:'rgba(220,38,38,0.3)',color:'#dc2626' }} onClick={() => handleBulkActivate(false)} disabled={bulkLoading||total===0}>{bulkLoading?'…':'Deactivate all'}</button>
           <button className="btn btn-sm" style={{ background:'rgba(34,211,238,0.15)',color:'#0891b2',border:'1px solid rgba(34,211,238,0.3)' }} onClick={() => setBulkTopicOpen(!bulkTopicOpen)} disabled={total===0}>Bulk topic</button>
-          <button className="btn btn-sm" style={{ background:'rgba(220,38,38,0.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.2)' }} onClick={() => setDuplicatesOpen(true)}>🔍 Check Duplicates</button>
+          <button className="btn btn-sm" style={{ background:'rgba(220,38,38,0.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.2)' }} onClick={() => setDuplicatesOpen(true)}><Search size={13} strokeWidth={2.2} style={{marginRight:5}}/> Check Duplicates</button>
         </div>
       </div>
       {bulkTopicOpen && <div className="bulk-topic-panel"><div className="bulk-topic-label">Set topic for all {total} matching questions:</div><div className="bulk-topic-grid">{topicOptions.map(t=><button key={t.key} className="bulk-topic-btn" onClick={() => handleBulkTopic(t.key)} disabled={bulkLoading}>{t.label}</button>)}<button className="bulk-topic-btn clear" onClick={() => handleBulkTopic('')} disabled={bulkLoading}>✕ Clear all topics</button></div></div>}
@@ -536,7 +536,7 @@ function QuestionsTab() {
           <span style={{ fontWeight:700,color:'var(--violet-light)',fontSize:'0.92rem' }}>{selectedIds.size} selected</span>
           {selectedIds.size < total && <button className="btn btn-ghost btn-sm" style={{ fontSize:'0.82rem',padding:'3px 10px' }} onClick={handleSelectAllMatching} disabled={selectAllLoading}>{selectAllLoading?'…':`Select all ${total} matching`}</button>}
           <div style={{ marginLeft:'auto',display:'flex',gap:8 }}>
-            <button className="btn btn-sm" style={{ background:'rgba(124,58,237,0.15)',color:'#a78bfa',border:'1px solid rgba(124,58,237,0.3)',fontWeight:700 }} onClick={() => setAiReviewOpen(true)}>🤖 AI Review</button>
+            <button className="btn btn-sm" style={{ background:'rgba(124,58,237,0.15)',color:'#a78bfa',border:'1px solid rgba(124,58,237,0.3)',fontWeight:700 }} onClick={() => setAiReviewOpen(true)}><span style={{fontSize:'0.72rem',fontWeight:800,letterSpacing:'0.3px',marginRight:4}}>AI</span>Review</button>
             <button className="btn btn-sm" style={{ background:'rgba(34,211,238,0.15)',color:'#0891b2',border:'1px solid rgba(34,211,238,0.3)' }} onClick={() => setBulkAssignOpen(true)}>Assign…</button>
             <button className="btn btn-sm" style={{ background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.25)' }} onClick={() => setBulkDeleteOpen(true)}>Delete…</button>
             <button className="btn btn-ghost btn-sm" onClick={clearSelection}>✕ Clear</button>
@@ -562,8 +562,8 @@ function QuestionsTab() {
                   <td className="admin-question-cell clickable-cell" onClick={() => toggleExpanded(q.id)}>
                     <span className="expand-icon">{expanded.has(q.id)?'▼':'▶'}</span>
                     {q.question_text.slice(0,70)}{q.question_text.length>70?'…':''}
-                    {q.image_url&&<span className="has-image-badge">🖼️</span>}
-                    {q.review_status==='ai_reviewed'&&<span style={{ marginLeft:6,fontSize:'0.7rem',color:'#a78bfa' }}>🤖</span>}
+                    {q.image_url&&<span className="has-image-badge"><span style={{fontSize:'0.7rem'}}>IMG</span></span>}
+                    {q.review_status==='ai_reviewed'&&<span style={{ marginLeft:6,fontSize:'0.7rem',color:'var(--brand-green)' }}><span style={{fontSize:'0.65rem',fontWeight:800,letterSpacing:'0.3px'}}>AI</span></span>}
                     {q.review_status==='approved'&&<span style={{ marginLeft:6,fontSize:'0.7rem',color:'#4ade80' }}>✓AI</span>}
                     {q.review_status==='rejected'&&<span style={{ marginLeft:6,fontSize:'0.7rem',color:'#f87171' }}>✗AI</span>}
                   </td>
@@ -572,9 +572,9 @@ function QuestionsTab() {
                   <td><InlineDifficultyPicker question={q} onSaved={handleInlineSaved} /></td>
                   <td>{q.is_active?<Pill color="green">Active</Pill>:<Pill color="gray">Inactive</Pill>}</td>
                   <td><div style={{ display:'flex',gap:6 }}>
-                    <button className="admin-action-btn" onClick={() => setEditing(q)} title="Edit">✏️</button>
-                    <button className="admin-action-btn" onClick={() => handleToggle(q)} title={q.is_active?'Deactivate':'Activate'}>{q.is_active?'🔴':'🟢'}</button>
-                    <button className="admin-action-btn danger" onClick={() => handleDelete(q)} title="Delete">🗑️</button>
+                    <button className="admin-action-btn" onClick={() => setEditing(q)} title="Edit"><span style={{fontSize:'0.85rem'}}>✎</span></button>
+                    <button className="admin-action-btn" onClick={() => handleToggle(q)} title={q.is_active?'Deactivate':'Activate'}>{q.is_active?<PowerOff size={14} strokeWidth={2.2} style={{color:'#B91C1C'}}/>:<Power size={14} strokeWidth={2.2} style={{color:'var(--brand-green)'}}/>}</button>
+                    <button className="admin-action-btn danger" onClick={() => handleDelete(q)} title="Delete"><Trash2 size={13} strokeWidth={2}/></button>
                   </div></td>
                 </tr>
                 {expanded.has(q.id)&&<ExpandedQuestionRow question={q} colSpan={TABLE_COLS} taxonomy={taxonomy} onQuestionUpdated={handleInlineSaved} />}
@@ -623,7 +623,7 @@ function BulkAssignModal({ count, section, taxonomy, worldOptions, loading, onAs
 function BulkDeleteModal({ count, loading, onConfirm, onClose }) {
   return (
     <Modal title="Confirm Bulk Delete" onClose={onClose} width="420px">
-      <div style={{ textAlign:'center',padding:'8px 0 16px' }}><div style={{ fontSize:'2rem',marginBottom:12 }}>🗑️</div><p style={{ margin:'0 0 8px',fontSize:'1rem',fontWeight:600,color:'var(--text-primary)' }}>Soft-delete {count} question{count!==1?'s':''}?</p><p style={{ margin:0,fontSize:'0.88rem',color:'var(--text-muted)',lineHeight:1.55 }}>These questions will be marked as deleted and will not be visible to students.</p></div>
+      <div style={{ textAlign:'center',padding:'8px 0 16px' }}><div style={{ marginBottom:12,color:'var(--text-muted)' }}><Trash2 size={32} strokeWidth={1.4}/></div><p style={{ margin:'0 0 8px',fontSize:'1rem',fontWeight:600,color:'var(--text-primary)' }}>Soft-delete {count} question{count!==1?'s':''}?</p><p style={{ margin:0,fontSize:'0.88rem',color:'var(--text-muted)',lineHeight:1.55 }}>These questions will be marked as deleted and will not be visible to students.</p></div>
       <div style={{ display:'flex',gap:10,justifyContent:'center',marginTop:8 }}>
         <button className="btn" style={{ background:'rgba(220,38,38,0.15)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.3)',fontWeight:600 }} onClick={onConfirm} disabled={loading}>{loading?'Deleting…':`Delete ${count} Question${count!==1?'s':''}`}</button>
         <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
@@ -720,13 +720,13 @@ function StatsTab() {
     <div style={{ display:'flex',flexDirection:'column',gap:20 }}>
       <div style={{ display:'flex',justifyContent:'flex-end' }}><button className="btn btn-ghost btn-sm" onClick={load}>↻ Refresh</button></div>
       <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(155px,1fr))',gap:12 }}>
-        {[{label:'Total Questions',val:total,icon:'📚',color:'var(--text-primary)'},{label:'Active Questions',val:q.active||0,icon:'✅',color:'#15803d'},{label:'Unassigned',val:q.unassigned||0,icon:'📦',color:(q.unassigned||0)>0?'#b45309':'#64748b'},{label:'Students',val:stats.users?.students||0,icon:'👤',color:'#2563eb'},{label:'Schools',val:stats.orgs?.total||0,icon:'🏫',color:'#0891b2'},{label:'Active Entitlements',val:stats.entitlements?.active||0,icon:'🔑',color:'#7c3aed'}].map(s=>(
+        {[{label:'Total Questions',val:total,icon:<BookOpen size={28} strokeWidth={1.6}/>,color:'var(--text-primary)'},{label:'Active Questions',val:q.active||0,icon:<CheckCircle2 size={28} strokeWidth={1.6}/>,color:'#15803d'},{label:'Unassigned',val:q.unassigned||0,icon:<Package size={28} strokeWidth={1.6}/>,color:(q.unassigned||0)>0?'#b45309':'#64748b'},{label:'Students',val:stats.users?.students||0,icon:<Users size={28} strokeWidth={1.6}/>,color:'var(--brand-green, #0B5D4B)'},{label:'Schools',val:stats.orgs?.total||0,icon:<Building2 size={28} strokeWidth={1.6}/>,color:'var(--brand-navy, #1C2733)'},{label:'Active Entitlements',val:stats.entitlements?.active||0,icon:<Key size={28} strokeWidth={1.6}/>,color:'var(--brand-gold, #C6A85B)'}].map(s=>(
           <div key={s.label} style={{...cs,textAlign:'center',padding:'18px 12px'}}><div style={{fontSize:'1.5rem',marginBottom:4}}>{s.icon}</div><div style={{fontSize:'1.8rem',fontWeight:800,color:s.color,lineHeight:1.1}}>{s.val.toLocaleString()}</div><div style={{fontSize:'0.78rem',color:'var(--text-muted)',marginTop:4}}>{s.label}</div></div>
         ))}
       </div>
       <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:16 }}>
         <div style={cs}>
-          <div style={{ fontWeight:700,fontSize:'0.92rem',color:'var(--text-primary)',marginBottom:14 }}>🔍 Review Status <span style={{ marginLeft:8,fontSize:'0.78rem',fontWeight:400,color:'var(--text-muted)' }}>{rt.toLocaleString()} questions</span></div>
+          <div style={{ fontWeight:700,fontSize:'0.92rem',color:'var(--text-primary)',marginBottom:14 }}><span style={{display:'flex',alignItems:'center',gap:7}}><Search size={15} strokeWidth={2} style={{flexShrink:0,display:'inline'}}/> Review Status</span> <span style={{ marginLeft:8,fontSize:'0.78rem',fontWeight:400,color:'var(--text-muted)' }}>{rt.toLocaleString()} questions</span></div>
           <div style={{ display:'flex',height:10,borderRadius:5,overflow:'hidden',marginBottom:16,background:'rgba(255,255,255,0.04)' }}>{REVIEW_STATUS_CONFIG.map(sc=>{const pct=rt>0?((rd[sc.key]||0)/rt*100):0;return pct>0?<div key={sc.key} title={`${sc.label}: ${(rd[sc.key]||0).toLocaleString()}`} style={{width:`${pct}%`,background:sc.color,minWidth:2,transition:'width 0.5s ease'}}/>:null;})}</div>
           {REVIEW_STATUS_CONFIG.map(sc=>{const cnt=rd[sc.key]||0;const pct=rt>0?Math.round(cnt/rt*100):0;return(
             <div key={sc.key} style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}>
@@ -740,7 +740,7 @@ function StatsTab() {
           {rt>0&&<div style={{marginTop:12,padding:'8px 12px',borderRadius:7,background:'rgba(22,163,74,0.07)',border:'1px solid rgba(22,163,74,0.2)',display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>Approved</span><span style={{fontWeight:800,fontSize:'1.1rem',color:'#15803d'}}>{Math.round((rd.approved||0)/rt*100)}%</span></div>}
         </div>
         <div style={cs}>
-          <div style={{ fontWeight:700,fontSize:'0.92rem',color:'var(--text-primary)',marginBottom:14 }}>📐 Section Health</div>
+          <div style={{ fontWeight:700,fontSize:'0.92rem',color:'var(--text-primary)',marginBottom:14 }}><span style={{display:'flex',alignItems:'center',gap:7}}><BarChart3 size={15} strokeWidth={2} style={{flexShrink:0}}/> Section Health</span></div>
           {sk.length===0&&<p style={{color:'var(--text-muted)',fontSize:'0.85rem'}}>No section data yet.</p>}
           {sk.map((sec,idx)=>{const d=bs[sec];const il=idx===sk.length-1;const ap=d.total>0?Math.round(d.active/d.total*100):0;const rp=d.total>0?Math.round(d.reviewed/d.total*100):0;const asp=d.total>0?Math.round((d.total-d.unassigned)/d.total*100):0;return(
             <div key={sec} style={{marginBottom:il?0:14,paddingBottom:il?0:13,borderBottom:il?'none':'1px solid rgba(255,255,255,0.05)'}}>
@@ -758,7 +758,7 @@ function StatsTab() {
           {sk.length>0&&<div style={{display:'flex',gap:14,marginTop:14,paddingTop:10,borderTop:'1px solid rgba(255,255,255,0.05)',fontSize:'0.74rem',color:'var(--text-muted)'}}>{[['#16a34a','Active'],['#2563eb','Reviewed'],['#0891b2','Assigned']].map(([c,l])=><span key={l} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:2,background:c,display:'inline-block'}}/>{l}</span>)}</div>}
         </div>
       </div>
-      {q.per_exam&&Object.keys(q.per_exam).length>0&&<div style={cs}><div style={{fontWeight:700,fontSize:'0.92rem',color:'var(--text-primary)',marginBottom:14}}>🎯 Questions by Exam</div><div style={{display:'flex',gap:32}}>{Object.entries(q.per_exam).map(([exam,cnt])=>{const pct=total>0?Math.round(cnt/total*100):0;return(<div key={exam} style={{flex:1}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}><span style={{fontSize:'0.85rem',fontWeight:600,textTransform:'capitalize',color:'var(--text-secondary)'}}>{exam}</span><span style={{fontSize:'0.85rem',fontWeight:700,color:'var(--text-primary)'}}>{cnt.toLocaleString()}</span></div><div style={{height:8,background:'rgba(255,255,255,0.05)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${pct}%`,background:exam==='qudurat'?'#7c3aed':'#0891b2',borderRadius:4,transition:'width 0.4s ease'}}/></div><div style={{fontSize:'0.74rem',color:'var(--text-muted)',marginTop:3}}>{pct}% of total</div></div>);})}</div></div>}
+      {q.per_exam&&Object.keys(q.per_exam).length>0&&<div style={cs}><div style={{fontWeight:700,fontSize:'0.92rem',color:'var(--text-primary)',marginBottom:14}}><span style={{display:"flex",alignItems:"center",gap:7}}><BarChart3 size={15} strokeWidth={2} style={{flexShrink:0}}/> Questions by Exam</span></div><div style={{display:'flex',gap:32}}>{Object.entries(q.per_exam).map(([exam,cnt])=>{const pct=total>0?Math.round(cnt/total*100):0;return(<div key={exam} style={{flex:1}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}><span style={{fontSize:'0.85rem',fontWeight:600,textTransform:'capitalize',color:'var(--text-secondary)'}}>{exam}</span><span style={{fontSize:'0.85rem',fontWeight:700,color:'var(--text-primary)'}}>{cnt.toLocaleString()}</span></div><div style={{height:8,background:'rgba(255,255,255,0.05)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${pct}%`,background:exam==='qudurat'?'#7c3aed':'#0891b2',borderRadius:4,transition:'width 0.4s ease'}}/></div><div style={{fontSize:'0.74rem',color:'var(--text-muted)',marginTop:3}}>{pct}% of total</div></div>);})}</div></div>}
     </div>
   );
 }
@@ -810,7 +810,7 @@ function ClearWorldModal({ target, onDone, onClose }) {
   return (
     <Modal title={`Clear World — ${target.display_name}`} onClose={loading?undefined:onClose} width="460px">
       <div style={{ textAlign:'center',padding:'8px 0 8px' }}>
-        <div style={{ fontSize:'2rem',marginBottom:10 }}>🗂️</div>
+        <div style={{ marginBottom:10,color:'var(--text-muted)' }}><Building2 size={32} strokeWidth={1.4}/></div>
         <p style={{ margin:'0 0 6px',fontSize:'1rem',fontWeight:600,color:'var(--text-primary)' }}>Return {target.assigned} question{target.assigned!==1?'s':''} to the bank?</p>
         <p style={{ margin:'0 0 16px',fontSize:'0.87rem',color:'var(--text-muted)',lineHeight:1.6 }}>Questions will be unassigned and deactivated. They are <strong>not deleted</strong> — you can reassign them at any time.</p>
       </div>
@@ -864,9 +864,9 @@ function WorldsTab() {
                   <div>{w.active>0?<Pill color="green">{w.active}</Pill>:<span style={{color:'var(--text-muted)',fontSize:'0.82rem'}}>—</span>}</div>
                   <div style={{fontSize:'0.8rem'}}>{tc>0?<span style={{color:'#0891b2',fontWeight:600}}>{tc} topics</span>:<span style={{color:'var(--text-muted)'}}>—</span>}</div>
                   <div style={{fontSize:'0.75rem',lineHeight:1.8}}>{tt>0?<span>{db.easy>0&&<span style={{color:'#15803d',marginRight:4}}>E:{db.easy}</span>}{db.medium>0&&<span style={{color:'#2563eb',marginRight:4}}>M:{db.medium}</span>}{db.hard>0&&<span style={{color:'#b45309',marginRight:4}}>H:{db.hard}</span>}{un>0&&<span style={{color:'var(--text-muted)'}}>U:{un}</span>}</span>:<span style={{color:'var(--text-muted)'}}>—</span>}</div>
-                  <div>{w.has_student_progress?<Pill color="amber" title={`${w.student_count} student(s)`}>👤 {w.student_count}</Pill>:<span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>—</span>}</div>
+                  <div>{w.has_student_progress?<Pill color="amber" title={`${w.student_count} student(s)`}>{w.student_count}</Pill>:<span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>—</span>}</div>
                   <div style={{display:'flex',gap:6}}>
-                    <button className="btn btn-sm" style={{background:'rgba(124,58,237,0.12)',color:'#a78bfa',border:'1px solid rgba(124,58,237,0.25)',padding:'4px 10px',fontSize:'0.8rem',fontWeight:600}} disabled={w.empty_slots===0&&w.capacity>0} title={w.empty_slots===0?'World is at capacity':`Fill up to ${w.empty_slots} slots`} onClick={() => setSmartFillTarget(w)}>⚡ Fill</button>
+                    <button className="btn btn-sm" style={{background:'rgba(124,58,237,0.12)',color:'#a78bfa',border:'1px solid rgba(124,58,237,0.25)',padding:'4px 10px',fontSize:'0.8rem',fontWeight:600}} disabled={w.empty_slots===0&&w.capacity>0} title={w.empty_slots===0?'World is at capacity':`Fill up to ${w.empty_slots} slots`} onClick={() => setSmartFillTarget(w)}><Zap size={12} strokeWidth={2.5} style={{marginRight:4}}/> Fill</button>
                     <button className="btn btn-sm btn-ghost" style={{borderColor:'rgba(220,38,38,0.25)',color:'#dc2626',padding:'4px 10px',fontSize:'0.8rem'}} disabled={w.assigned===0} onClick={() => setClearTarget(w)}>✕ Clear</button>
                   </div>
                 </div>
@@ -897,7 +897,7 @@ function DuplicatesModal({ initialSection, initialExam, onClose }) {
   };
   const liveGroups = groups.filter(g=>g.questions.filter(q=>!q._deleted).length>=2);
   return (
-    <Modal title="🔍 Duplicate Detection" onClose={onClose} width="780px">
+    <Modal title="Duplicate Detection" onClose={onClose} width="780px">
       {flash&&<div className={`alert alert-${flash.type==='error'?'error':'success'}`} style={{marginBottom:12}}>{flash.msg}</div>}
       <div style={{ display:'flex',gap:10,alignItems:'flex-end',marginBottom:16,flexWrap:'wrap' }}>
         <div className="form-group" style={{margin:0}}><label className="form-label" style={{marginBottom:4}}>Section</label><select className="form-input" style={{minWidth:140}} value={section} onChange={e=>setSection(e.target.value)}>{SECTIONS.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}</select></div>
@@ -913,7 +913,7 @@ function DuplicatesModal({ initialSection, initialExam, onClose }) {
             {group.questions.map(q=>(
               <div key={q.id} className={`dup-question-row${q._deleted?' deleted':''}`}>
                 <div><div style={{display:'flex',gap:6,marginBottom:5,flexWrap:'wrap'}}><Pill color="violet">{q.exam}</Pill>{q.world_key?<Pill color="cyan">{worldDisplayName(q.world_key)}</Pill>:<Pill color="gray">unassigned</Pill>}<Pill color={q.correct_answer?'green':'amber'}>Ans: {(q.correct_answer||'?').toUpperCase()}</Pill>{q.is_active?<Pill color="green">Active</Pill>:<Pill color="gray">Inactive</Pill>}{q.review_status==='approved'&&<Pill color="green">✓ Approved</Pill>}{q.last_reviewed_at&&<Pill color="blue">Reviewed</Pill>}<span style={{fontSize:'0.75rem',color:'var(--text-muted)',alignSelf:'center'}}>#{q.id}</span></div><div style={{fontSize:'0.85rem',color:'var(--text-secondary)',lineHeight:1.5}}>{q.question_text.slice(0,140)}{q.question_text.length>140?'…':''}</div></div>
-                <div style={{flexShrink:0,paddingTop:2}}>{q._deleted?<span style={{fontSize:'0.8rem',color:'#dc2626'}}>Deleted</span>:<button className="btn btn-sm" style={{background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.25)',padding:'4px 10px'}} disabled={deleting===q.id} onClick={() => handleDelete(gi,q.id)}>{deleting===q.id?'…':'🗑 Delete'}</button>}</div>
+                <div style={{flexShrink:0,paddingTop:2}}>{q._deleted?<span style={{fontSize:'0.8rem',color:'#dc2626'}}>Deleted</span>:<button className="btn btn-sm" style={{background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.25)',padding:'4px 10px'}} disabled={deleting===q.id} onClick={() => handleDelete(gi,q.id)}>{deleting===q.id?'…':'Delete'}</button>}</div>
               </div>
             ))}
           </div>
@@ -1012,13 +1012,13 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
 
       {/* Licences */}
       <div style={{marginBottom:24}}>
-        {sh('📋 Active Licences')}
+        {sh('Active Licences')}
         {detail.entitlements?.length>0?(
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
             {detail.entitlements.map(e=>{const days=daysRemaining(e.entitlement_expires_at);const status=entitlementStatusColor(days);return(
               <div key={e.id} style={{padding:'12px 14px',borderRadius:8,background:'rgba(255,255,255,0.03)',border:'1px solid var(--border)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                  <div><div style={{fontWeight:700,fontSize:'0.92rem',marginBottom:4}}>{e.exam==='qudurat'?'Qudurat — قدرات':'Tahsili — تحصيلي'}</div>{e.student_count&&<div style={{fontSize:'0.8rem',color:'var(--text-muted)',marginBottom:4}}>👤 {e.student_count} students</div>}<div style={{fontSize:'0.78rem',color:'var(--text-muted)'}}>Expires {new Date(e.entitlement_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>
+                  <div><div style={{fontWeight:700,fontSize:'0.92rem',marginBottom:4}}>{e.exam==='qudurat'?'Qudurat — قدرات':'Tahsili — تحصيلي'}</div>{e.student_count&&<div style={{fontSize:'0.8rem',color:'var(--text-muted)',marginBottom:4}}>{e.student_count} students</div>}<div style={{fontSize:'0.78rem',color:'var(--text-muted)'}}>Expires {new Date(e.entitlement_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>
                   <div style={{textAlign:'right'}}><Pill color={status.pill}>{days<=0?'Expired':'Active'}</Pill><div style={{fontSize:'0.82rem',fontWeight:700,color:status.color,marginTop:4}}>{days<=0?'Renewal needed':`${days} days left`}</div></div>
                 </div>
                 {days>0&&days<=60&&<div style={{marginTop:8,padding:'5px 8px',borderRadius:5,fontSize:'0.78rem',background:'rgba(217,119,6,0.08)',color:'#b45309',border:'1px solid rgba(217,119,6,0.2)'}}>⚠ Renewal due soon</div>}
@@ -1030,7 +1030,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
 
       {/* Payment link */}
       <div style={{padding:'16px 18px',borderRadius:10,marginBottom:24,background:'rgba(124,58,237,0.05)',border:'1px solid rgba(124,58,237,0.2)'}}>
-        {sh('💳 Generate Payment Link')}
+        {sh('Payment Link')}
         {!plResult?(
           <>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
@@ -1039,7 +1039,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
               <div className="form-group" style={{margin:0}}><label className="form-label">Tier (auto)</label><div style={{padding:'8px 12px',borderRadius:8,border:'1px solid var(--border)',fontSize:'0.88rem',minHeight:38,display:'flex',alignItems:'center',background:'rgba(255,255,255,0.03)',color:plTier?plTier.color:'var(--text-muted)',fontWeight:plTier?700:400}}>{plTier?`${plTier.label} — SAR ${plTier.pricePerStudent}/student`:plCountNum>0?'⚠ Minimum 30 students':'— enter student count'}</div></div>
             </div>
             {plTier&&plCountNum>0&&<div style={{padding:'10px 14px',borderRadius:8,marginBottom:12,background:'rgba(255,255,255,0.03)',border:'1px solid var(--border)',display:'flex',gap:24,alignItems:'center',fontSize:'0.88rem'}}><span style={{color:'var(--text-muted)'}}>{plCountNum} students × SAR {plTier.pricePerStudent}</span><span style={{fontWeight:800,fontSize:'1.1rem',color:plTier.color}}>= SAR {plTotal.toLocaleString()}</span><span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>365 days · all worlds</span></div>}
-            <button className="btn btn-violet" onClick={handleGenerateLink} disabled={plGenerating||!plTier||plCountNum<1} style={{fontWeight:700}}>{plGenerating?'…':'⚡ Generate Payment Link'}</button>
+            <button className="btn btn-violet" onClick={handleGenerateLink} disabled={plGenerating||!plTier||plCountNum<1} style={{fontWeight:700}}>{plGenerating?'…':'Generate Payment Link'}</button>
             {!plTier&&plCountNum>0&&plCountNum<30&&<p style={{margin:'8px 0 0',fontSize:'0.82rem',color:'#b45309'}}>Minimum 30 students required.</p>}
           </>
         ):(
@@ -1048,7 +1048,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
             <div style={{display:'flex',gap:20,marginBottom:14,fontSize:'0.85rem',flexWrap:'wrap'}}><span><span style={{color:'var(--text-muted)'}}>School:</span> <strong>{plResult.org_name}</strong></span><span><span style={{color:'var(--text-muted)'}}>Exam:</span> <strong style={{textTransform:'capitalize'}}>{plResult.exam}</strong></span><span><span style={{color:'var(--text-muted)'}}>Students:</span> <strong>{plResult.student_count}</strong></span><span><span style={{color:'var(--text-muted)'}}>Total:</span> <strong style={{color:'#7c3aed'}}>SAR {plResult.total_sar?.toLocaleString()}</strong></span></div>
             <div style={{padding:'10px 12px',borderRadius:8,marginBottom:12,background:'rgba(0,0,0,0.15)',border:'1px solid var(--border)',fontFamily:'monospace',fontSize:'0.78rem',color:'var(--text-secondary)',wordBreak:'break-all',lineHeight:1.6}}>{plResult.checkout_url}</div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-              <button className="btn btn-violet" onClick={handleCopyLink} style={{fontWeight:700}}>{plCopied?'✓ Copied!':'📋 Copy Link'}</button>
+              <button className="btn btn-violet" onClick={handleCopyLink} style={{fontWeight:700}}>{plCopied?'✓ Copied!':'Copy Link'}</button>
               <button className="btn btn-ghost" onClick={handleDownloadInvoice} disabled={plDownloading}>{plDownloading?'…':'⬇ Download Invoice PDF'}</button>
               <a href={plResult.checkout_url} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{fontSize:'0.85rem'}}>Open link ↗</a>
               <button className="btn btn-ghost btn-sm" onClick={() => { setPlResult(null);setPlCopied(false);setPlCount(''); }} style={{marginLeft:'auto',fontSize:'0.82rem'}}>↩ Generate another</button>
@@ -1060,7 +1060,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
 
       {/* Leader */}
       <div style={{marginBottom:24}}>
-        {sh('👤 School Leader')}
+        {sh('School Leader')}
         {detail.leader?(
           <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:8,background:'rgba(255,255,255,0.03)',border:'1px solid var(--border)',fontSize:'0.88rem'}}><Pill color="blue">Leader</Pill><span style={{fontWeight:600}}>{detail.leader.username}</span><span style={{color:'var(--text-muted)'}}>ID: {detail.leader.id}</span></div>
         ):(
@@ -1076,7 +1076,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
       {/* Students */}
       <div style={{marginBottom:24}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-          {sh(`🎓 Students (${detail.students?.length||0})`)}
+          {sh(`Students (${detail.students?.length||0})`)}
           <div style={{display:'flex',gap:8,marginBottom:8}}>
             {detail.students?.length>0&&<button className="btn btn-ghost btn-sm" onClick={handleExportCsv} disabled={csvDownloading}>{csvDownloading?'…':'⬇ Export CSV'}</button>}
             <button className="btn btn-ghost btn-sm" onClick={() => { setShowGenForm(!showGenForm);setGenResult(null); }}>{showGenForm?'Cancel':'+ Generate Accounts'}</button>
@@ -1112,7 +1112,7 @@ function OrgDetailModal({ org, onClose, onRefresh }) {
                       reload();
                       showFlash(failed?`Deleted ${ids.length-failed}, ${failed} failed.`:`Deleted ${ids.length} student${ids.length>1?'s':''}.`, failed?'error':'success');
                     }}
-                  >{bulkDeleting?'Deleting…':`🗑 Delete ${selectedStudentIds.size} selected`}</button>
+                  >{bulkDeleting?'Deleting…':`Delete ${selectedStudentIds.size} selected`}</button>
                   <button className="btn btn-sm btn-ghost" onClick={()=>setSelectedStudentIds(new Set())}>Clear</button>
                 </div>
               )}
@@ -1233,8 +1233,8 @@ function UsersTab() {
                 <td style={{fontSize:'0.85rem',color:'var(--text-muted)'}}>{new Date(u.created_at).toLocaleDateString()}</td>
                 <td>
                   <div style={{display:'flex',gap:6}}>
-                    <button className="admin-action-btn" onClick={() => handleToggleActive(u)}>{u.is_active?'🔴':'🟢'}</button>
-                    <button className="admin-action-btn" onClick={() => handleResetPassword(u)} title="Reset password">🔑</button>
+                    <button className="admin-action-btn" onClick={() => handleToggleActive(u)}>{u.is_active?<PowerOff size={14} strokeWidth={2.2} style={{color:'#B91C1C'}}/>:<Power size={14} strokeWidth={2.2} style={{color:'var(--brand-green)'}}/>}</button>
+                    <button className="admin-action-btn" onClick={() => handleResetPassword(u)} title="Reset password"><KeyRound size={14} strokeWidth={2.2}/></button>
                     {u.role !== 'drfahm_admin' && (
                       <button className="admin-action-btn danger" onClick={() => setDeleteTarget(u)} title="Delete account" style={{color:'#dc2626'}}>
                         <Trash2 size={13} strokeWidth={2.2}/>
@@ -1302,7 +1302,7 @@ function BulkUploadTab() {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><div><h3 style={{margin:0,fontSize:'1.05rem',color:'var(--text-primary)'}}>Upload Questions CSV</h3><p style={{margin:'4px 0 0',fontSize:'0.85rem',color:'var(--text-muted)'}}>Fill in the template, save as CSV, then upload here.</p></div><button className="btn btn-ghost btn-sm" onClick={handleDownloadTemplate}>⬇ Download Template</button></div>
         <div className={`bulk-dropzone ${dragging?'dragging':''} ${file?'has-file':''}`} onDrop={onDrop} onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={() => setDragging(false)} onClick={() => fileInputRef.current?.click()}>
           <input ref={fileInputRef} type="file" accept=".csv" style={{display:'none'}} onChange={e=>handleFile(e.target.files?.[0])}/>
-          {file?<div className="bulk-dropzone-file"><span className="bulk-dropzone-icon">📄</span><span className="bulk-dropzone-name">{file.name}</span><span className="bulk-dropzone-size">({(file.size/1024).toFixed(1)} KB)</span><button className="btn btn-ghost btn-sm" style={{marginLeft:8}} onClick={e=>{e.stopPropagation();handleReset();}}>✕ Remove</button></div>:<div className="bulk-dropzone-empty"><span className="bulk-dropzone-icon">📁</span><p style={{margin:'8px 0 4px',fontWeight:600,color:'var(--text-primary)'}}>Drag &amp; drop CSV file here</p><p style={{margin:0,fontSize:'0.85rem',color:'var(--text-muted)'}}>or click to browse</p></div>}
+          {file?<div className="bulk-dropzone-file"><span className="bulk-dropzone-icon"><FileText size={24} strokeWidth={1.5}/></span><span className="bulk-dropzone-name">{file.name}</span><span className="bulk-dropzone-size">({(file.size/1024).toFixed(1)} KB)</span><button className="btn btn-ghost btn-sm" style={{marginLeft:8}} onClick={e=>{e.stopPropagation();handleReset();}}>✕ Remove</button></div>:<div className="bulk-dropzone-empty"><span className="bulk-dropzone-icon"><Upload size={28} strokeWidth={1.5}/></span><p style={{margin:'8px 0 4px',fontWeight:600,color:'var(--text-primary)'}}>Drag &amp; drop CSV file here</p><p style={{margin:0,fontSize:'0.85rem',color:'var(--text-muted)'}}>or click to browse</p></div>}
         </div>
         <div className="bulk-format-guide">
           <div style={{fontSize:'0.8rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:8}}>Required Columns (11 total)</div>
@@ -1358,12 +1358,12 @@ function BulkUploadTab() {
 // ── ROOT ──────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id:'stats',     icon:'📊', label:'Stats'      },
-  { id:'questions', icon:'📝', label:'Questions'   },
-  { id:'worlds',    icon:'🌍', label:'Worlds'      },
-  { id:'bulk',      icon:'📤', label:'Bulk Upload' },
-  { id:'orgs',      icon:'🏫', label:'Schools'     },
-  { id:'users',     icon:'👤', label:'Users'       },
+  { id:'stats',     icon:<BarChart3 size={16} strokeWidth={2}/>, label:'Stats'      },
+  { id:'questions', icon:<FileText size={16} strokeWidth={2}/>, label:'Questions'   },
+  { id:'worlds',    icon:<Globe size={16} strokeWidth={2}/>, label:'Worlds'      },
+  { id:'bulk',      icon:<Upload size={16} strokeWidth={2}/>, label:'Bulk Upload' },
+  { id:'orgs',      icon:<Building2 size={16} strokeWidth={2}/>, label:'Schools'     },
+  { id:'users',     icon:<Users size={16} strokeWidth={2}/>, label:'Users'       },
 ];
 
 export default function AdminPanel() {
