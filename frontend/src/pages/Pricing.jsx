@@ -7,21 +7,15 @@ import Navbar from '../components/Navbar';
 // plan_id values ('free', 'basic', 'premium') are unchanged in all API calls,
 // Stripe config, DB rows, and entitlement checks.
 // Only the name/cta/badge strings shown to the user have changed.
-// To revert: change name/cta back; no backend migration needed.
-const PLANS = [
+
+// Static plan shape — fields that don't depend on exam selection
+const PLAN_SHAPE = [
   {
     id: 'free',
     name: 'Free',
     price: 0,
     duration: '7 days',
-    worlds: 'Worlds 1 & 2 per track',
-    worldsNum: 2,
-    features: [
-      'Worlds 1 & 2 in every track',
-      'Full question experience',
-      'Progress tracking',
-      'No credit card required',
-    ],
+    worldsNum: 1,          // World 1 only per track
     cta: 'Start free',
     ghost: true,
     gold: false,
@@ -29,18 +23,11 @@ const PLANS = [
     doubt: null,
   },
   {
-    id: 'basic',                          // plan_id sent to backend — do not change
-    name: 'Silver',                       // display only
+    id: 'basic',           // plan_id sent to backend — do not change
+    name: 'Silver',        // display only
     price: 199,
     duration: '90 days',
-    worlds: 'All 5 worlds per track',
     worldsNum: 5,
-    features: [
-      'All 5 worlds per track (50 levels)',
-      '90 days full access',
-      'Progress tracking',
-      'Level pass certificates',
-    ],
     cta: 'Get Silver',
     ghost: false,
     gold: false,
@@ -48,19 +35,11 @@ const PLANS = [
     doubt: 'Most students need more than 90 days',
   },
   {
-    id: 'premium',                        // plan_id sent to backend — do not change
-    name: 'Gold',                         // display only
+    id: 'premium',         // plan_id sent to backend — do not change
+    name: 'Gold',          // display only
     price: 299,
     duration: '1 year',
-    worlds: 'All 5 worlds per track',
     worldsNum: 5,
-    features: [
-      'All 5 worlds per track (50 levels)',
-      '12 months full access',
-      'Full exam coverage',
-      'Priority support',
-      'Level pass certificates',
-    ],
     cta: 'Get Gold',
     ghost: false,
     gold: true,
@@ -69,15 +48,58 @@ const PLANS = [
   },
 ];
 
+// Exam-specific constants
+// Qudurat: 2 tracks × 5 worlds × 10 levels = 100 total levels
+// Tahsili: 4 tracks × 5 worlds × 10 levels = 200 total levels
+const EXAM_META = {
+  qudurat: { tracks: 2, totalLevels: 100, freeLevels: 20 },
+  tahsili: { tracks: 4, totalLevels: 200, freeLevels: 40 },
+};
+
+// Build exam-aware features for each plan
+function buildPlanFeatures(planId, exam) {
+  const { totalLevels, tracks } = EXAM_META[exam] || EXAM_META.qudurat;
+  const levelsPerTrack = totalLevels / tracks; // always 50
+  const freeLevelsPerTrack = 10;               // 1 world × 10 levels
+
+  switch (planId) {
+    case 'free':
+      return [
+        `World 1 in every track (${freeLevelsPerTrack} levels per track)`,
+        'Full question experience',
+        'Progress tracking',
+        'No credit card required',
+      ];
+    case 'basic':
+      return [
+        `All 5 worlds per track (${totalLevels} levels total)`,
+        '90 days full access',
+        'Progress tracking',
+        'Level pass certificates',
+      ];
+    case 'premium':
+      return [
+        `All 5 worlds per track (${totalLevels} levels total)`,
+        '12 months full access',
+        'Full exam coverage',
+        'Level pass certificates',
+      ];
+    default:
+      return [];
+  }
+}
+
 const EXAM_LABELS = {
   qudurat: 'Qudurat — قدرات',
   tahsili: 'Tahsili — تحصيلي',
 };
 
+const WORLDS_PER_TRACK = 5;
+
 const FAQ = [
   {
     q: 'What happens after my free trial ends?',
-    a: 'Your progress is saved, but worlds beyond World 2 remain locked until you upgrade to Silver or Gold.',
+    a: 'Your progress is saved, but worlds beyond World 1 remain locked until you upgrade to Silver or Gold.',
   },
   {
     q: 'Is this a subscription? Will I be charged automatically?',
@@ -97,7 +119,7 @@ const FAQ = [
   },
   {
     q: 'What is the difference between Silver and Gold?',
-    a: 'Both cover the same 5 worlds and 50 levels per track. The only difference is duration: Silver gives you 90 days, Gold gives you a full year. If you have more time to prepare, Gold is better value.',
+    a: 'Both cover the same 5 worlds and all levels per track. The only difference is duration: Silver gives you 90 days, Gold gives you a full year. If you have more time to prepare, Gold is better value.',
   },
   {
     q: 'Can my school get a group deal?',
@@ -132,6 +154,8 @@ export default function Pricing() {
   const [loading, setLoading] = useState(null);
   const [error,   setError]   = useState('');
 
+  const { totalLevels, freeLevels } = EXAM_META[selectedExam];
+
   const handleCheckout = async (planId) => {
     if (planId === 'free') {
       if (user) navigate(`/exam/${selectedExam}`);
@@ -160,8 +184,6 @@ export default function Pricing() {
       setLoading(null);
     }
   };
-
-  const worldsPerTrack = 5;
 
   return (
     <>
@@ -201,85 +223,84 @@ export default function Pricing() {
 
         {/* ── Plan cards ─────────────────────────────────────────────────── */}
         <div className="pricing-grid">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              className={[
-                'pricing-card',
-                plan.ghost ? 'ghost'    : '',
-                plan.gold  ? 'gold'     : '',
-              ].filter(Boolean).join(' ')}
-            >
-              {/* Badge — Best Value on Gold only */}
-              {plan.badge && (
-                <div className="pricing-gold-badge">{plan.badge}</div>
-              )}
+          {PLAN_SHAPE.map((plan) => {
+            const features = buildPlanFeatures(plan.id, selectedExam);
+            const worldsLabel = plan.id === 'free'
+              ? `World 1 per track · ${selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}`
+              : `All 5 worlds per track · ${selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}`;
 
-              {/* Header */}
-              <div className="pricing-card-header">
-                <div className={`pricing-plan-name ${plan.gold ? 'gold-name' : ''}`}>
-                  {plan.name}
-                </div>
-                <div className="pricing-plan-price">
-                  {plan.price === 0
-                    ? <span className="pricing-price-free">Free</span>
-                    : (
-                      <>
-                        <span className="pricing-price-currency">SAR </span>
-                        <span className="pricing-price-amount">{plan.price}</span>
-                      </>
-                    )
-                  }
-                  <span className="pricing-price-period"> / {plan.duration}</span>
-                </div>
-                <div className="pricing-plan-worlds">
-                  {plan.worlds} · {selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}
-                </div>
-              </div>
-
-              {/* Feature list */}
-              <ul className="pricing-feature-list">
-                {plan.features.map((f) => (
-                  <li key={f} className="pricing-feature-item">
-                    <span className="pricing-check">✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              {/* World progress bar */}
-              <div className="pricing-world-bar">
-                {Array.from({ length: worldsPerTrack }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`pricing-world-pip ${i < plan.worldsNum ? 'filled' : ''}`}
-                  />
-                ))}
-              </div>
-              <div className="pricing-world-bar-label">
-                {plan.worldsNum} of {worldsPerTrack} worlds per track
-              </div>
-
-              {/* CTA */}
-              <button
+            return (
+              <div
+                key={plan.id}
                 className={[
-                  'btn btn-full btn-lg',
-                  plan.gold  ? 'btn-gold'   : '',
-                  plan.ghost ? 'btn-ghost'  : '',
-                  !plan.gold && !plan.ghost ? 'btn-green' : '',
+                  'pricing-card',
+                  plan.ghost ? 'ghost' : '',
+                  plan.gold  ? 'gold'  : '',
                 ].filter(Boolean).join(' ')}
-                onClick={() => handleCheckout(plan.id)}
-                disabled={loading === plan.id}
               >
-                {loading === plan.id ? 'Redirecting…' : plan.cta}
-              </button>
+                {plan.badge && (
+                  <div className="pricing-gold-badge">{plan.badge}</div>
+                )}
 
-              {/* Silver doubt nudge */}
-              {plan.doubt && (
-                <p className="pricing-silver-doubt">{plan.doubt}</p>
-              )}
-            </div>
-          ))}
+                <div className="pricing-card-header">
+                  <div className={`pricing-plan-name ${plan.gold ? 'gold-name' : ''}`}>
+                    {plan.name}
+                  </div>
+                  <div className="pricing-plan-price">
+                    {plan.price === 0
+                      ? <span className="pricing-price-free">Free</span>
+                      : (
+                        <>
+                          <span className="pricing-price-currency">SAR </span>
+                          <span className="pricing-price-amount">{plan.price}</span>
+                        </>
+                      )
+                    }
+                    <span className="pricing-price-period"> / {plan.duration}</span>
+                  </div>
+                  <div className="pricing-plan-worlds">{worldsLabel}</div>
+                </div>
+
+                <ul className="pricing-feature-list">
+                  {features.map((f) => (
+                    <li key={f} className="pricing-feature-item">
+                      <span className="pricing-check">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="pricing-world-bar">
+                  {Array.from({ length: WORLDS_PER_TRACK }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`pricing-world-pip ${i < plan.worldsNum ? 'filled' : ''}`}
+                    />
+                  ))}
+                </div>
+                <div className="pricing-world-bar-label">
+                  {plan.worldsNum} of {WORLDS_PER_TRACK} worlds per track
+                </div>
+
+                <button
+                  className={[
+                    'btn btn-full btn-lg',
+                    plan.gold  ? 'btn-gold'  : '',
+                    plan.ghost ? 'btn-ghost' : '',
+                    !plan.gold && !plan.ghost ? 'btn-green' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => handleCheckout(plan.id)}
+                  disabled={loading === plan.id}
+                >
+                  {loading === plan.id ? 'Redirecting…' : plan.cta}
+                </button>
+
+                {plan.doubt && (
+                  <p className="pricing-silver-doubt">{plan.doubt}</p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* ── Trust strip ────────────────────────────────────────────────── */}
@@ -294,7 +315,7 @@ export default function Pricing() {
           ))}
         </div>
 
-        {/* ── Compare plans table ─────────────────────────────────────────── */}
+        {/* ── Compare plans table — level counts update with exam toggle ─── */}
         <div className="pricing-compare">
           <h2 className="pricing-compare-title">Compare plans</h2>
           <div className="pricing-table-wrap">
@@ -309,13 +330,12 @@ export default function Pricing() {
               </thead>
               <tbody>
                 {[
-                  ['Worlds per track',  '2',      '5',        '5'],
-                  ['Levels per track',  '20',     '50',       '50'],
-                  ['Duration',          '7 days', '90 days',  '1 year'],
-                  ['Progress tracking', '✓',      '✓',        '✓'],
-                  ['Full coverage',     '—',      '✓',        '✓'],
-                  ['Priority support',  '—',      '—',        '✓'],
-                  ['Price',             'Free',   'SAR 199',  'SAR 299'],
+                  ['Worlds per track', '1',                       '5',                       '5'],
+                  ['Total levels',     String(freeLevels),         String(totalLevels),        String(totalLevels)],
+                  ['Duration',         '7 days',                  '90 days',                 '1 year'],
+                  ['Progress tracking','✓',                       '✓',                       '✓'],
+                  ['Full coverage',    '—',                       '✓',                       '✓'],
+                  ['Price',            'Free',                    'SAR 199',                 'SAR 299'],
                 ].map(([feature, free, silver, gold]) => (
                   <tr key={feature}>
                     <td className="pricing-table-feature">{feature}</td>
@@ -327,6 +347,11 @@ export default function Pricing() {
               </tbody>
             </table>
           </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 10 }}>
+            {selectedExam === 'qudurat'
+              ? 'Qudurat: 2 tracks (Math + Verbal) × 5 worlds × 10 levels = 100 total levels.'
+              : 'Tahsili: 4 tracks × 5 worlds × 10 levels = 200 total levels.'}
+          </p>
         </div>
 
         {/* ── Schools callout ─────────────────────────────────────────────── */}
@@ -336,7 +361,7 @@ export default function Pricing() {
             <div>
               <div className="pricing-schools-title">Preparing students at scale?</div>
               <div className="pricing-schools-sub">
-                School licensing with bulk accounts, teacher dashboards, and custom pricing.
+                School licensing with bulk accounts and custom pricing.
               </div>
             </div>
           </div>
