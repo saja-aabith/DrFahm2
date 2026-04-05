@@ -2015,6 +2015,14 @@ def delete_user(user_id: int):
         return forbidden("delete_admin",
                          "Admin accounts cannot be deleted. Use deactivate instead.")
     username = user.username
+    uid      = user.id
+
+    # Explicit FK-safe deletion (no reliance on DB cascade)
+    LevelProgress.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    WorldProgress.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    Entitlement.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    db.session.flush()
+
     db.session.delete(user)
     db.session.commit()
     return jsonify({
