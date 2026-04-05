@@ -2017,10 +2017,17 @@ def delete_user(user_id: int):
     username = user.username
     uid      = user.id
 
-    # Explicit FK-safe deletion (no reliance on DB cascade)
-    LevelProgress.query.filter_by(user_id=uid).delete(synchronize_session=False)
-    WorldProgress.query.filter_by(user_id=uid).delete(synchronize_session=False)
-    Entitlement.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    # Explicit FK-safe deletion — clear all child tables before deleting user
+    # Uses raw SQL via text() to also catch any tables not imported here
+    from sqlalchemy import text as sa_text
+    db.session.execute(sa_text("DELETE FROM level_progress  WHERE user_id = :uid"), {"uid": uid})
+    db.session.execute(sa_text("DELETE FROM world_progress  WHERE user_id = :uid"), {"uid": uid})
+    db.session.execute(sa_text("DELETE FROM entitlements    WHERE user_id = :uid"), {"uid": uid})
+    # Also delete exam trials if that table exists
+    try:
+        db.session.execute(sa_text("DELETE FROM exam_trials WHERE user_id = :uid"), {"uid": uid})
+    except Exception:
+        pass  # table may not exist or have a different name
     db.session.flush()
 
     db.session.delete(user)

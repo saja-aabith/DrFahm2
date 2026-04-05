@@ -1188,6 +1188,9 @@ function UsersTab() {
   // Delete state
   const [deleteTarget,  setDeleteTarget]  = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  // Bulk select
+  const [selectedIds,   setSelectedIds]   = useState(new Set());
+  const [bulkDeleting,  setBulkDeleting]  = useState(false);
 
   const fetchUsers = useCallback(() => {
     setLoading(true);
@@ -1211,22 +1214,61 @@ function UsersTab() {
     finally { setDeleteLoading(false); }
   };
 
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size) return;
+    if (!window.confirm(`Permanently delete ${selectedIds.size} user account${selectedIds.size>1?'s':''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    const ids = [...selectedIds];
+    let failed = 0;
+    for (const id of ids) {
+      try { await adminApi.deleteUser(id); } catch { failed++; }
+    }
+    setBulkDeleting(false);
+    setSelectedIds(new Set());
+    fetchUsers();
+    showFlash(failed ? `Deleted ${ids.length-failed}, ${failed} failed.` : `Deleted ${ids.length} user${ids.length>1?'s':''}.`, failed?'error':'success');
+  };
+
   const totalPages = Math.ceil(total/50);
   return (
     <div>
       {flash&&<div className={`alert alert-${flash.type==='error'?'error':'success'}`} style={{marginBottom:16}}>{flash.msg}</div>}
       <div className="admin-filter-row">
         <input className="form-input" style={{width:'auto',minWidth:200}} placeholder="Search username…" value={searchInput} onChange={e=>handleSearchChange(e.target.value)}/>
-        <select className="form-input" style={{width:'auto'}} value={roleFilter} onChange={e=>{setRoleFilter(e.target.value);setPage(1);}}><option value="">All roles</option><option value="student">Student</option><option value="school_leader">School Leader</option><option value="drfahm_admin">Admin</option></select>
+        <select className="form-input" style={{width:'auto'}} value={roleFilter} onChange={e=>{setRoleFilter(e.target.value);setPage(1);setSelectedIds(new Set());}}><option value="">All roles</option><option value="student">Student</option><option value="school_leader">School Leader</option><option value="drfahm_admin">Admin</option></select>
         <span style={{color:'var(--text-muted)',fontSize:'0.95rem',marginLeft:'auto'}}>{total} user{total!==1?'s':''}</span>
         <button className="btn btn-green btn-sm" onClick={() => setCreating(true)} style={{marginLeft:8}}>+ New Admin</button>
       </div>
+      {selectedIds.size>0&&(
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 14px',marginBottom:12,borderRadius:8,background:'rgba(185,28,28,0.06)',border:'1px solid rgba(185,28,28,0.2)'}}>
+          <span style={{fontSize:'0.85rem',fontWeight:600,color:'#B91C1C'}}>{selectedIds.size} selected</span>
+          <button className="btn btn-sm" style={{marginLeft:'auto',background:'rgba(185,28,28,0.10)',color:'#B91C1C',border:'1px solid rgba(185,28,28,0.3)',fontWeight:700}} disabled={bulkDeleting} onClick={handleBulkDelete}>
+            {bulkDeleting?'Deleting…':<><Trash2 size={13} strokeWidth={2.2} style={{marginRight:5}}/> Delete {selectedIds.size} selected</>}
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={()=>setSelectedIds(new Set())}>Clear</button>
+        </div>
+      )}
       {loading?<div className="admin-loading"><div className="spinner"/></div>:(
         <div className="admin-table-wrap"><table className="admin-table">
-          <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead>
+          <thead><tr>
+              <th style={{width:36}}>
+                <input type="checkbox" style={{cursor:'pointer',accentColor:'var(--brand-green)'}}
+                  checked={users.length>0&&users.filter(u=>u.role!=='drfahm_admin').every(u=>selectedIds.has(u.id))}
+                  onChange={e=>{
+                    const deletable=users.filter(u=>u.role!=='drfahm_admin').map(u=>u.id);
+                    if(e.target.checked) setSelectedIds(s=>{const ns=new Set(s);deletable.forEach(id=>ns.add(id));return ns;});
+                    else setSelectedIds(s=>{const ns=new Set(s);deletable.forEach(id=>ns.delete(id));return ns;});
+                  }}
+                />
+              </th>
+              <th>ID</th><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th>
+            </tr></thead>
           <tbody>
             {users.map(u=>(
-              <tr key={u.id}>
+              <tr key={u.id} style={{background:selectedIds.has(u.id)?'rgba(185,28,28,0.03)':undefined}} onClick={u.role!=='drfahm_admin'?()=>{setSelectedIds(s=>{const ns=new Set(s);if(ns.has(u.id))ns.delete(u.id);else ns.add(u.id);return ns;});}:undefined} >
+                <td onClick={e=>e.stopPropagation()}>
+                  {u.role!=='drfahm_admin'&&<input type="checkbox" style={{cursor:'pointer',accentColor:'var(--brand-green)'}} checked={selectedIds.has(u.id)} onChange={()=>{setSelectedIds(s=>{const ns=new Set(s);if(ns.has(u.id))ns.delete(u.id);else ns.add(u.id);return ns;});}} />}
+                </td>
                 <td>{u.id}</td><td>{u.username}</td>
                 <td><Pill color={u.role==='drfahm_admin'?'violet':u.role==='school_leader'?'blue':'gray'}>{u.role}</Pill></td>
                 <td>{u.is_active?<Pill color="green">Active</Pill>:<Pill color="gray">Inactive</Pill>}</td>
