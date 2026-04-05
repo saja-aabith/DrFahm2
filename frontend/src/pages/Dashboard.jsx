@@ -253,7 +253,7 @@ export default function Dashboard() {
       <Navbar />
       <div className="page">
         <div className="page-header">
-          <h1 className="page-title">Welcome back, {user?.username} \ud83d\udc4b</h1>
+          <h1 className="page-title">Welcome back, {user?.username} 👋</h1>
           <p className="page-subtitle">Pick an exam to continue your preparation.</p>
         </div>
 
