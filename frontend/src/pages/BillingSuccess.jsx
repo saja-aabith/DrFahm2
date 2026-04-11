@@ -87,8 +87,8 @@ export default function BillingSuccess() {
             <div className="alert alert-info" style={{ marginBottom: 24 }}>
               Your payment was received but activation is taking longer than usual.
               Please refresh your dashboard in a minute — your plan will appear automatically.
-              If it doesn't arrive within 5 minutes,{' '}
-              <a href="mailto:support@drfahm.com" style={{ color: 'var(--brand-green)' }}>
+              If it does not arrive within 5 minutes,{' '}
+              <a href="mailto:info@drfahm.com" style={{ color: 'var(--brand-green)' }}>
                 contact us
               </a>.
             </div>

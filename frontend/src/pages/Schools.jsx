@@ -562,28 +562,21 @@ export default function Schools() {
                   We respond within 1 business day.
                 </p>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  Prefer to call? Reach us on{' '}
+                  Prefer to message us?{' '}
                   <a
                     href={`https://wa.me/${WA_NUMBER}?text=${WA_SCHOOLS_MESSAGE}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: '#15803D', fontWeight: 700, textDecoration: 'none' }}
                   >
-                    WhatsApp
-                  </a>
-                  {' '}or call{' '}
-                  <a
-                    href="tel:+447346463512"
-                    style={{ color: '#15803D', fontWeight: 700, textDecoration: 'none' }}
-                  >
-                    +44 734 646 3512
+                    Reach us on WhatsApp
                   </a>
                 </p>
                 <a
-                  href="mailto:support@drfahm.com"
+                  href="mailto:info@drfahm.com"
                   style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
                 >
-                  support@drfahm.com
+                  info@drfahm.com
                 </a>
               </div>
             </form>

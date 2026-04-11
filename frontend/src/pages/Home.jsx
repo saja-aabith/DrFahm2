@@ -708,7 +708,7 @@ export default function Home() {
               >
                 WhatsApp
               </a>
-              <a href="mailto:support@drfahm.com" className="home-footer-link">
+              <a href="mailto:info@drfahm.com" className="home-footer-link">
                 Support
               </a>
             </div>
