@@ -367,6 +367,35 @@ const COMPARISON_RIGHT = [
   'Every session is directed at your result',
 ];
 
+// ── 3D Rotating cube — decorative element for problem section ─────────────────
+function Cube3D() {
+  return (
+    <div className="cube3d-scene">
+      <div className="cube3d-float">
+        <div className="cube3d-halo" />
+        {/* Outer cube */}
+        <div className="cube3d-wrap">
+          <div className="cube3d-face cube3d-front" />
+          <div className="cube3d-face cube3d-back" />
+          <div className="cube3d-face cube3d-left" />
+          <div className="cube3d-face cube3d-right" />
+          <div className="cube3d-face cube3d-top" />
+          <div className="cube3d-face cube3d-bottom" />
+        </div>
+        {/* Inner counter-rotating cube */}
+        <div className="cube3d-inner-wrap">
+          <div className="cube3d-inner-face cube3d-front" />
+          <div className="cube3d-inner-face cube3d-back" />
+          <div className="cube3d-inner-face cube3d-left" />
+          <div className="cube3d-inner-face cube3d-right" />
+          <div className="cube3d-inner-face cube3d-top" />
+          <div className="cube3d-inner-face cube3d-bottom" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Problem bullets ───────────────────────────────────────────────────────────
 const PROBLEM_BULLETS = [
   'Random prep with no clear structure or path',
@@ -493,6 +522,8 @@ export default function Home() {
         <div className="prob-orb prob-orb-1" />
         <div className="prob-orb prob-orb-2" />
         <div className="prob-orb prob-orb-3" />
+        {/* 3D floating cube */}
+        <Cube3D />
 
         <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
 
