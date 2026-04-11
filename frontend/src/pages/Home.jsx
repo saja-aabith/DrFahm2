@@ -488,58 +488,64 @@ export default function Home() {
       </section>
 
       {/* ── 3. PROBLEM + REFRAME ─────────────────────────────────────────── */}
-      <section className="home-section">
-        <div className="home-container">
-          <div className="home-problem-wrap">
-            <div style={{ marginBottom: 28 }}>
-              <div className="home-section-tag">Why most students don't improve</div>
-              <h2 className="home-section-title" style={{ marginTop: 14, textAlign: 'left' }}>
-                The problem isn't effort. It's structure.
-              </h2>
-            </div>
+      <section className="prob-section">
+        {/* Decorative background orbs */}
+        <div className="prob-orb prob-orb-1" />
+        <div className="prob-orb prob-orb-2" />
+        <div className="prob-orb prob-orb-3" />
 
-            {/* ── Scannable bullets ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {PROBLEM_BULLETS.map((item) => (
-                <div key={item} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '13px 18px',
-                  background: 'rgba(185,28,28,0.04)',
-                  border: '1px solid rgba(185,28,28,0.12)',
-                  borderRadius: 10,
-                }}>
-                  <span style={{
-                    color: '#DC2626', fontWeight: 800, fontSize: '1.05rem',
-                    flexShrink: 0, lineHeight: 1,
-                  }}>✗</span>
-                  <span style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    {item}
-                  </span>
-                </div>
-              ))}
-            </div>
+        <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
 
-            {/* ── Arrow summary ── */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '14px 18px', marginBottom: 24,
-              background: 'rgba(21,128,61,0.05)',
-              border: '1px solid rgba(21,128,61,0.15)',
-              borderRadius: 10,
-              fontWeight: 700, color: 'var(--brand-navy)',
-            }}>
-              <span style={{ color: '#15803D', fontSize: '1.2rem', flexShrink: 0 }}>→</span>
-              That's why scores don't improve — even with real effort.
-            </div>
-
-            <div className="home-problem-highlight">
-              You don't need more questions. You need the right focus.
-            </div>
-
-            <p className="home-problem-closing" style={{ marginTop: 16 }}>
-              Working harder isn't the problem. Working without structure is.
+          {/* Header */}
+          <div className="prob-header">
+            <div className="prob-eyebrow">Why most students don't improve</div>
+            <h2 className="prob-headline">
+              The problem isn't effort.<br />It's structure.
+            </h2>
+            <p className="prob-subhead">
+              Most students prepare the same way and wonder why their score stays flat.
             </p>
           </div>
+
+          {/* Three problem cards */}
+          <div className="prob-cards">
+            {[
+              { num: '01', text: 'Random prep with no clear structure or path' },
+              { num: '02', text: 'No visibility into which topics are holding you back' },
+              { num: '03', text: 'More hours studied does not automatically mean a better score' },
+            ].map((item, i) => (
+              <div key={item.num} className="prob-card" style={{ animationDelay: `${i * 120}ms` }}>
+                <div className="prob-card-num">{item.num}</div>
+                <div className="prob-card-x">✕</div>
+                <p className="prob-card-text">{item.text}</p>
+                <div className="prob-card-glow" />
+              </div>
+            ))}
+          </div>
+
+          {/* Transform divider */}
+          <div className="prob-divider">
+            <div className="prob-divider-line" />
+            <div className="prob-divider-badge">The result</div>
+            <div className="prob-divider-line" />
+          </div>
+
+          {/* Solution callout */}
+          <div className="prob-solution">
+            <div className="prob-solution-border" />
+            <div className="prob-solution-inner">
+              <div className="prob-solution-icon">→</div>
+              <div>
+                <p className="prob-solution-main">
+                  Scores don't improve — even with real effort.
+                </p>
+                <p className="prob-solution-sub">
+                  You don't need more questions. You need the right focus.
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
