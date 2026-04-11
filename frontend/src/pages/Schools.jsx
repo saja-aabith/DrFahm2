@@ -5,39 +5,39 @@ import Navbar from '../components/Navbar';
 // ── Replace with your Calendly link when ready ────────────────────────────────
 const CALENDLY_URL = 'YOUR_CALENDLY_LINK';
 const WA_NUMBER    = '447346463512';
-const WA_SCHOOLS_MESSAGE = encodeURIComponent("Hi, I'm interested in DrFahm for schools");
+const WA_SCHOOLS_MESSAGE = encodeURIComponent("Hi, I am interested in DrFahm for schools");
 
 // ── Pricing tiers ─────────────────────────────────────────────────────────────
 const TIERS = [
   {
-    id:              'standard',
-    name:            'Standard',
-    range:           '30–99 STUDENTS',
-    price:           99,
-    duration:        '90 days',
-    minStudents:     30,
-    ghost:           true,
-    gold:            false,
-    badge:           null,
+    id:          'standard',
+    name:        'Standard',
+    range:       '30-99 STUDENTS',
+    price:       99,
+    duration:    '90 days',
+    minStudents: 30,
+    ghost:       true,
+    gold:        false,
+    badge:       null,
   },
   {
-    id:              'volume',
-    name:            'Volume',
-    range:           '100+ STUDENTS',
-    price:           75,
-    duration:        '365 days',
-    minStudents:     100,
-    ghost:           false,
-    gold:            true,
-    badge:           'Best Value',
+    id:          'volume',
+    name:        'Volume',
+    range:       '100+ STUDENTS',
+    price:       75,
+    duration:    '365 days',
+    minStudents: 100,
+    ghost:       false,
+    gold:        true,
+    badge:       'Best Value',
   },
 ];
 
 // ── Problem bullets ───────────────────────────────────────────────────────────
 const PROBLEMS = [
-  'Students study randomly — no structure, no clear path forward',
-  'Teachers have no visibility into who is struggling or why',
-  'Effort doesn't translate to score improvement without focused practice',
+  "Students study randomly — no structure, no clear path forward",
+  "Teachers have no visibility into who is struggling or why",
+  "Effort does not translate to score improvement without focused practice",
 ];
 
 // ── What schools get ──────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ const FEATURES = [
   {
     icon:  '🔒',
     title: 'Managed access control',
-    desc:  "Students only see what you've activated. Lock or unlock worlds per student group from one place.",
+    desc:  "Students only see what you have activated. Lock or unlock worlds per student group from one place.",
   },
   {
     icon:  '📋',
@@ -84,7 +84,7 @@ const OUTCOMES = [
   {
     stat:  'One view',
     label: 'Full class visibility',
-    desc:  'See every student's progress, completion rate, and weak areas in a single dashboard.',
+    desc:  "See every student's progress, completion rate, and weak areas in a single dashboard.",
   },
   {
     stat:  'Per exam',
@@ -98,7 +98,7 @@ const STEPS = [
   {
     num:   '01',
     title: 'Contact us',
-    desc:  "Fill in the form below or reach us on WhatsApp. We'll call you back within one business day.",
+    desc:  "Fill in the form below or reach us on WhatsApp. We will call you back within one business day.",
   },
   {
     num:   '02',
@@ -197,7 +197,7 @@ export default function Schools() {
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 24 }}>
           <a href="#contact" className="btn btn-green btn-lg">
-            Get school pricing →
+            Get school pricing &rarr;
           </a>
           {CALENDLY_URL !== 'YOUR_CALENDLY_LINK' && (
             <a
@@ -220,7 +220,7 @@ export default function Schools() {
             The problem
           </div>
           <h2 className="schools-section-title" style={{ fontSize: '1.5rem', marginBottom: 20 }}>
-            What's holding your students back
+            What is holding your students back
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 640 }}>
             {PROBLEMS.map((item) => (
@@ -231,7 +231,7 @@ export default function Schools() {
                 border: '1px solid rgba(185,28,28,0.12)',
                 borderRadius: 10,
               }}>
-                <span style={{ color: '#DC2626', fontWeight: 800, fontSize: '1.05rem', flexShrink: 0 }}>✗</span>
+                <span style={{ color: '#DC2626', fontWeight: 800, fontSize: '1.05rem', flexShrink: 0 }}>&#x2715;</span>
                 <span style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   {item}
                 </span>
@@ -246,7 +246,7 @@ export default function Schools() {
             borderRadius: 10,
             fontWeight: 700, color: 'var(--brand-navy)',
           }}>
-            <span style={{ color: '#15803D', fontSize: '1.2rem', flexShrink: 0 }}>→</span>
+            <span style={{ color: '#15803D', fontSize: '1.2rem', flexShrink: 0 }}>&rarr;</span>
             DrFahm gives every student a clear, structured path — and gives you the visibility to see it working.
           </div>
         </section>
@@ -270,16 +270,10 @@ export default function Schools() {
                 borderRadius: 12,
                 padding: '24px 20px',
               }}>
-                <div style={{
-                  fontSize: '1.4rem', fontWeight: 900,
-                  color: '#15803D', marginBottom: 6,
-                }}>
+                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#15803D', marginBottom: 6 }}>
                   {o.stat}
                 </div>
-                <div style={{
-                  fontSize: '0.9rem', fontWeight: 700,
-                  color: 'var(--brand-navy)', marginBottom: 8,
-                }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: 8 }}>
                   {o.label}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -289,7 +283,6 @@ export default function Schools() {
             ))}
           </div>
 
-          {/* Feature grid */}
           <div className="schools-features-grid">
             {FEATURES.map((f) => (
               <div key={f.title} className="schools-feature-card">
@@ -301,14 +294,13 @@ export default function Schools() {
           </div>
         </section>
 
-        {/* ── PRICING — matching brand theme ───────────────────────────── */}
+        {/* ── PRICING ──────────────────────────────────────────────────── */}
         <section className="schools-section">
           <h2 className="schools-section-title">School pricing</h2>
           <p className="schools-section-sub">
             One-time annual fee, per exam. Pay for Qudurat, Tahsili, or both.
           </p>
 
-          {/* Using pricing-card classes to match Pricing page */}
           <div className="pricing-grid" style={{ maxWidth: 640, margin: '0 auto 16px' }}>
             {TIERS.map((t) => (
               <div
@@ -328,44 +320,42 @@ export default function Schools() {
                   </div>
                   <div className="pricing-plan-price">
                     <span className="pricing-price-currency">SAR </span>
-                    <span className={t.gold ? 'pricing-price-amount' : 'pricing-price-amount'}>
-                      {t.price}
-                    </span>
+                    <span className="pricing-price-amount">{t.price}</span>
                     <span className="pricing-price-period"> / student</span>
                   </div>
                   <div className="pricing-plan-worlds">
-                    per exam · 365 days · min {t.minStudents} students
+                    per exam &middot; 365 days &middot; min {t.minStudents} students
                   </div>
                 </div>
                 <ul className="pricing-feature-list">
                   <li className="pricing-feature-item">
-                    <span className="pricing-check">✓</span>
+                    <span className="pricing-check">&#10003;</span>
                     Minimum {t.minStudents} students
                   </li>
                   <li className="pricing-feature-item">
-                    <span className="pricing-check">✓</span>
+                    <span className="pricing-check">&#10003;</span>
                     Full access for 365 days
                   </li>
                   <li className="pricing-feature-item">
-                    <span className="pricing-check">✓</span>
+                    <span className="pricing-check">&#10003;</span>
                     Teacher dashboard included
                   </li>
                 </ul>
-                <a href="#contact" className={[
-                  'btn btn-full',
-                  t.gold  ? 'btn-gold'  : '',
-                  t.ghost ? 'btn-ghost' : '',
-                ].filter(Boolean).join(' ')}>
-                  Get started →
+                <a
+                  href="#contact"
+                  className={[
+                    'btn btn-full',
+                    t.gold  ? 'btn-gold'  : '',
+                    t.ghost ? 'btn-ghost' : '',
+                  ].filter(Boolean).join(' ')}
+                >
+                  Get started &rarr;
                 </a>
               </div>
             ))}
           </div>
 
-          <p style={{
-            textAlign: 'center', color: 'var(--text-muted)',
-            fontSize: '0.8rem', marginTop: 8,
-          }}>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 8 }}>
             Prices in SAR. Payment via Mada, Visa or Mastercard — secure Stripe checkout.
           </p>
         </section>
@@ -386,52 +376,40 @@ export default function Schools() {
           </div>
         </section>
 
-        {/* ── BOOK A CALL (Calendly) ────────────────────────────────────── */}
+        {/* ── BOOK A CALL ──────────────────────────────────────────────── */}
         <section className="schools-section">
           <div style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            padding: '36px 32px',
-            textAlign: 'center',
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 14, padding: '36px 32px', textAlign: 'center',
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: 12 }}>📅</div>
-            <h2 style={{
-              fontSize: '1.25rem', fontWeight: 700,
-              color: 'var(--brand-navy)', marginBottom: 8,
-            }}>
+            <div style={{ fontSize: '2rem', marginBottom: 12 }}>&#128197;</div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: 8 }}>
               Prefer to talk first?
             </h2>
             <p style={{
               fontSize: '0.9rem', color: 'var(--text-secondary)',
-              marginBottom: 20, maxWidth: 420, margin: '0 auto 20px',
+              maxWidth: 420, margin: '0 auto 20px',
             }}>
-              Book a free 15-minute call with our team. We'll answer your questions and
+              Book a free 15-minute call with our team. We will answer your questions and
               walk you through the platform.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               {CALENDLY_URL !== 'YOUR_CALENDLY_LINK' ? (
-                <a
-                  href={CALENDLY_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-green"
-                >
-                  Book a 15-min call →
+                <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="btn btn-green">
+                  Book a 15-min call &rarr;
                 </a>
               ) : (
-                // Calendly link not yet configured — show WhatsApp fallback
                 <a
                   href={`https://wa.me/${WA_NUMBER}?text=${WA_SCHOOLS_MESSAGE}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-green"
                 >
-                  Message us on WhatsApp →
+                  Message us on WhatsApp &rarr;
                 </a>
               )}
               <a href="#contact" className="btn btn-ghost">
-                Or fill in the form ↓
+                Or fill in the form &#8595;
               </a>
             </div>
           </div>
@@ -441,15 +419,15 @@ export default function Schools() {
         <section className="schools-section" id="contact">
           <h2 className="schools-section-title">Get started</h2>
           <p className="schools-section-sub">
-            Tell us about your school. We'll be in touch within one business day.
+            Tell us about your school. We will be in touch within one business day.
           </p>
 
           {submitted ? (
             <div className="schools-success">
-              <div className="schools-success-icon">✅</div>
-              <h3 className="schools-success-title">We've received your request!</h3>
+              <div className="schools-success-icon">&#9989;</div>
+              <h3 className="schools-success-title">We have received your request!</h3>
               <p className="schools-success-body">
-                We'll be in touch at <strong>{form.email}</strong> within one business day.
+                We will be in touch at <strong>{form.email}</strong> within one business day.
               </p>
               <Link to="/" className="btn btn-green" style={{ marginTop: 16 }}>
                 Back to home
@@ -481,6 +459,15 @@ export default function Schools() {
               </div>
 
               <div className="form-group">
+                <label className="form-label">Phone (optional)</label>
+                <input
+                  className="form-input" type="tel"
+                  value={form.phone} onChange={set('phone')}
+                  placeholder="+966 5X XXX XXXX"
+                />
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">School name *</label>
                 <input
                   className="form-input"
@@ -509,30 +496,19 @@ export default function Schools() {
                 </div>
               </div>
 
-              {/* Live estimate */}
               {(qCount > 0 || tCount > 0) && (
-                <div className="schools-estimate" style={{
-                  flexDirection: 'column', gap: 8, alignItems: 'flex-start',
-                }}>
+                <div className="schools-estimate" style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
                   <span style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                    📊 Estimated pricing
+                    Estimated pricing
                   </span>
                   {qCount > 0 && (
-                    <div style={{
-                      display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap',
-                    }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap' }}>
                       <span style={{ color: 'var(--text-muted)', minWidth: 80 }}>Qudurat</span>
                       {qEst ? (
                         <>
-                          <span style={{ color: 'var(--text-secondary)' }}>
-                            {qCount} students × SAR {qEst.tier.price}
-                          </span>
-                          <span style={{ fontWeight: 700, color: '#15803D' }}>
-                            = SAR {qEst.total.toLocaleString()}
-                          </span>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            ({qEst.tier.name})
-                          </span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{qCount} students x SAR {qEst.tier.price}</span>
+                          <span style={{ fontWeight: 700, color: '#15803D' }}>= SAR {qEst.total.toLocaleString()}</span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>({qEst.tier.name})</span>
                         </>
                       ) : (
                         <span style={{ color: '#b45309' }}>Minimum 30 students required</span>
@@ -540,21 +516,13 @@ export default function Schools() {
                     </div>
                   )}
                   {tCount > 0 && (
-                    <div style={{
-                      display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap',
-                    }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap' }}>
                       <span style={{ color: 'var(--text-muted)', minWidth: 80 }}>Tahsili</span>
                       {tEst ? (
                         <>
-                          <span style={{ color: 'var(--text-secondary)' }}>
-                            {tCount} students × SAR {tEst.tier.price}
-                          </span>
-                          <span style={{ fontWeight: 700, color: '#15803D' }}>
-                            = SAR {tEst.total.toLocaleString()}
-                          </span>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            ({tEst.tier.name})
-                          </span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{tCount} students x SAR {tEst.tier.price}</span>
+                          <span style={{ fontWeight: 700, color: '#15803D' }}>= SAR {tEst.total.toLocaleString()}</span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>({tEst.tier.name})</span>
                         </>
                       ) : (
                         <span style={{ color: '#b45309' }}>Minimum 30 students required</span>
@@ -573,28 +541,22 @@ export default function Schools() {
               )}
 
               <div className="form-group">
-                <label className="form-label">Anything else you'd like us to know?</label>
+                <label className="form-label">Anything else you would like us to know?</label>
                 <textarea
                   className="form-input" rows={3}
                   value={form.message} onChange={set('message')}
-                  placeholder="e.g. exam dates, number of classes, special requirements…"
+                  placeholder="e.g. exam dates, number of classes, special requirements"
                 />
               </div>
 
-              <button
-                type="submit"
-                className="btn btn-green btn-lg btn-full"
-                disabled={submitting}
-              >
-                {submitting ? 'Sending…' : 'Send request'}
+              <button type="submit" className="btn btn-green btn-lg btn-full" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Send request'}
               </button>
 
-              {/* ── Contact details at the bottom ── */}
               <div style={{
-                borderTop: '1px solid var(--border)',
-                paddingTop: 16, marginTop: 8,
-                display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center',
-                textAlign: 'center',
+                borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 8,
+                display: 'flex', flexDirection: 'column', gap: 6,
+                alignItems: 'center', textAlign: 'center',
               }}>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   We respond within 1 business day.
