@@ -186,7 +186,6 @@ function DemoWidget({ onFinish, questions, examLabel }) {
     <div className="demo-widget">
       <div className="demo-header">
         <div className="demo-label">
-          <span className="demo-badge">LIVE DEMO</span>
           <span className="demo-sub">{examLabel} · Question {qIndex + 1} of {questions.length}</span>
         </div>
         <MiniTimer secondsLeft={timeLeft} total={DEMO_TIMER} />
