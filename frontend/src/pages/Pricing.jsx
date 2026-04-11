@@ -1,21 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { billing } from '../api';
 import Navbar from '../components/Navbar';
 
 // ── DISPLAY-NAME-ONLY RENAME ──────────────────────────────────────────────────
 // plan_id values ('free', 'basic', 'premium') are unchanged in all API calls,
 // Stripe config, DB rows, and entitlement checks.
-// Only the name/cta/badge strings shown to the user have changed.
 
-// Static plan shape — fields that don't depend on exam selection
 const PLAN_SHAPE = [
   {
     id: 'free',
     name: 'Free',
     price: 0,
     duration: '7 days',
-    worldsNum: 1,          // World 1 only per track
+    worldsNum: 1,
     cta: 'Start free',
     ghost: true,
     gold: false,
@@ -48,7 +47,6 @@ const PLAN_SHAPE = [
   },
 ];
 
-// Exam-specific constants
 // Qudurat: 2 tracks × 5 worlds × 10 levels = 100 total levels
 // Tahsili: 4 tracks × 5 worlds × 10 levels = 200 total levels
 const EXAM_META = {
@@ -56,16 +54,12 @@ const EXAM_META = {
   tahsili: { tracks: 4, totalLevels: 200, freeLevels: 40 },
 };
 
-// Build exam-aware features for each plan
 function buildPlanFeatures(planId, exam) {
-  const { totalLevels, tracks } = EXAM_META[exam] || EXAM_META.qudurat;
-  const levelsPerTrack = totalLevels / tracks; // always 50
-  const freeLevelsPerTrack = 10;               // 1 world × 10 levels
-
+  const { totalLevels } = EXAM_META[exam] || EXAM_META.qudurat;
   switch (planId) {
     case 'free':
       return [
-        `World 1 in every track (${freeLevelsPerTrack} levels per track)`,
+        'World 1 in every track (10 levels per track)',
         'Full question experience',
         'Progress tracking',
         'No credit card required',
@@ -143,6 +137,23 @@ function FAQItem({ q, a }) {
   );
 }
 
+// Returns the active entitlement for a given plan_id + exam, or null
+function findActiveEnt(entitlements, planId, exam) {
+  if (!entitlements?.length) return null;
+  const now = new Date();
+  return entitlements.find(
+    (e) => e.plan_id === planId
+        && e.exam    === exam
+        && now < new Date(e.entitlement_expires_at)
+  ) || null;
+}
+
+function daysRemaining(expiresAt) {
+  return Math.max(0, Math.ceil(
+    (new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24)
+  ));
+}
+
 export default function Pricing() {
   const { user }       = useAuth();
   const navigate       = useNavigate();
@@ -151,8 +162,23 @@ export default function Pricing() {
   const [selectedExam, setSelectedExam] = useState(
     searchParams.get('exam') || 'qudurat'
   );
-  const [loading, setLoading] = useState(null);
-  const [error,   setError]   = useState('');
+  const [loading,      setLoading]      = useState(null);
+  const [error,        setError]        = useState('');
+  const [entitlements, setEntitlements] = useState([]);
+
+  // Fetch entitlements on mount so we can show active state on CTAs
+  useEffect(() => {
+    if (!user) return;
+    billing.getEntitlements()
+      .then((data) => {
+        const all = [
+          ...(data?.individual_entitlements || []),
+          ...(data?.org_entitlements        || []),
+        ];
+        setEntitlements(all);
+      })
+      .catch(() => {});
+  }, [user]);
 
   const { totalLevels, freeLevels } = EXAM_META[selectedExam];
 
@@ -189,7 +215,6 @@ export default function Pricing() {
     <>
       <Navbar />
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <div className="pricing-hero">
         <div
           className="home-section-tag"
@@ -221,25 +246,39 @@ export default function Pricing() {
           </div>
         )}
 
-        {/* ── Plan cards ─────────────────────────────────────────────────── */}
         <div className="pricing-grid">
           {PLAN_SHAPE.map((plan) => {
-            const features = buildPlanFeatures(plan.id, selectedExam);
+            const features  = buildPlanFeatures(plan.id, selectedExam);
             const worldsLabel = plan.id === 'free'
               ? `World 1 per track · ${selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}`
               : `All 5 worlds per track · ${selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}`;
+
+            // Check if student already holds this plan for the selected exam
+            const activeEnt = plan.id !== 'free'
+              ? findActiveEnt(entitlements, plan.id, selectedExam)
+              : null;
+            const days = activeEnt ? daysRemaining(activeEnt.entitlement_expires_at) : null;
+            const expiryStr = activeEnt
+              ? new Date(activeEnt.entitlement_expires_at).toLocaleDateString('en-GB', {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                })
+              : null;
 
             return (
               <div
                 key={plan.id}
                 className={[
                   'pricing-card',
-                  plan.ghost ? 'ghost' : '',
-                  plan.gold  ? 'gold'  : '',
+                  plan.ghost    ? 'ghost'  : '',
+                  plan.gold     ? 'gold'   : '',
+                  activeEnt     ? 'active' : '',
                 ].filter(Boolean).join(' ')}
               >
-                {plan.badge && (
+                {plan.badge && !activeEnt && (
                   <div className="pricing-gold-badge">{plan.badge}</div>
+                )}
+                {activeEnt && (
+                  <div className="pricing-active-badge">Your plan</div>
                 )}
 
                 <div className="pricing-card-header">
@@ -282,28 +321,42 @@ export default function Pricing() {
                   {plan.worldsNum} of {WORLDS_PER_TRACK} worlds per track
                 </div>
 
-                <button
-                  className={[
-                    'btn btn-full btn-lg',
-                    plan.gold  ? 'btn-gold'  : '',
-                    plan.ghost ? 'btn-ghost' : '',
-                    !plan.gold && !plan.ghost ? 'btn-green' : '',
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => handleCheckout(plan.id)}
-                  disabled={loading === plan.id}
-                >
-                  {loading === plan.id ? 'Redirecting…' : plan.cta}
-                </button>
-
-                {plan.doubt && (
-                  <p className="pricing-silver-doubt">{plan.doubt}</p>
+                {/* CTA — replaced with active state if plan is held */}
+                {activeEnt ? (
+                  <div className="pricing-active-state">
+                    <div className="pricing-active-label">Active plan</div>
+                    <div className="pricing-active-expiry">
+                      <span className="pricing-active-days">{days} day{days !== 1 ? 's' : ''} remaining</span>
+                      <span className="pricing-active-date">Expires {expiryStr}</span>
+                    </div>
+                    <Link to={`/exam/${selectedExam}`} className="btn btn-ghost btn-full" style={{ marginTop: 8 }}>
+                      Go to {selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'} →
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      className={[
+                        'btn btn-full btn-lg',
+                        plan.gold  ? 'btn-gold'  : '',
+                        plan.ghost ? 'btn-ghost' : '',
+                        !plan.gold && !plan.ghost ? 'btn-green' : '',
+                      ].filter(Boolean).join(' ')}
+                      onClick={() => handleCheckout(plan.id)}
+                      disabled={loading === plan.id}
+                    >
+                      {loading === plan.id ? 'Redirecting…' : plan.cta}
+                    </button>
+                    {plan.doubt && (
+                      <p className="pricing-silver-doubt">{plan.doubt}</p>
+                    )}
+                  </>
                 )}
               </div>
             );
           })}
         </div>
 
-        {/* ── Trust strip ────────────────────────────────────────────────── */}
         <div className="pricing-trust">
           {[
             '✓ One-time payment',
@@ -315,7 +368,6 @@ export default function Pricing() {
           ))}
         </div>
 
-        {/* ── Compare plans table — level counts update with exam toggle ─── */}
         <div className="pricing-compare">
           <h2 className="pricing-compare-title">Compare plans</h2>
           <div className="pricing-table-wrap">
@@ -330,12 +382,12 @@ export default function Pricing() {
               </thead>
               <tbody>
                 {[
-                  ['Worlds per track', '1',                       '5',                       '5'],
-                  ['Total levels',     String(freeLevels),         String(totalLevels),        String(totalLevels)],
-                  ['Duration',         '7 days',                  '90 days',                 '1 year'],
-                  ['Progress tracking','✓',                       '✓',                       '✓'],
-                  ['Full coverage',    '—',                       '✓',                       '✓'],
-                  ['Price',            'Free',                    'SAR 199',                 'SAR 299'],
+                  ['Worlds per track', '1',                 '5',               '5'],
+                  ['Total levels',     String(freeLevels),  String(totalLevels), String(totalLevels)],
+                  ['Duration',         '7 days',            '90 days',         '1 year'],
+                  ['Progress tracking','✓',                 '✓',               '✓'],
+                  ['Full coverage',    '—',                 '✓',               '✓'],
+                  ['Price',            'Free',              'SAR 199',         'SAR 299'],
                 ].map(([feature, free, silver, gold]) => (
                   <tr key={feature}>
                     <td className="pricing-table-feature">{feature}</td>
@@ -354,7 +406,6 @@ export default function Pricing() {
           </p>
         </div>
 
-        {/* ── Schools callout ─────────────────────────────────────────────── */}
         <div className="pricing-schools-callout">
           <div className="pricing-schools-left">
             <div className="pricing-schools-icon">🏫</div>
@@ -370,7 +421,6 @@ export default function Pricing() {
           </Link>
         </div>
 
-        {/* ── FAQ ─────────────────────────────────────────────────────────── */}
         <div className="pricing-faq">
           <h2 className="pricing-compare-title">Frequently asked questions</h2>
           <div className="pricing-faq-list">

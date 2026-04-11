@@ -21,6 +21,19 @@ const EXAM_INFO = {
   },
 };
 
+// Display name mapping — plan_id values stay unchanged in DB/API
+const PLAN_DISPLAY = {
+  basic:   'Silver',
+  premium: 'Gold',
+  free:    'Free',
+};
+
+function daysRemaining(expiresAt) {
+  return Math.max(0, Math.ceil(
+    (new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24)
+  ));
+}
+
 // ── M3: Weak Topics Card ──────────────────────────────────────────────────────
 
 const PRIORITY_STYLE = {
@@ -66,14 +79,14 @@ function WeakTopicsCard({ data }) {
   );
 }
 
-// ── Trial badge — prominent, correct "days" format ────────────────────────────
+// ── Trial badge ───────────────────────────────────────────────────────────────
 
 function TrialBadge({ trial }) {
   if (!trial) return null;
   const now      = new Date();
   const expires  = new Date(trial.trial_expires_at);
   const active   = now < expires;
-  const daysLeft = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
+  const days     = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
 
   if (!active) {
     return (
@@ -95,12 +108,12 @@ function TrialBadge({ trial }) {
       background: 'rgba(11,93,75,0.08)', border: '1.5px solid rgba(11,93,75,0.3)',
       color: 'var(--brand-green, #0B5D4B)', fontSize: '0.85rem', fontWeight: 700,
     }}>
-      ⏱ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left in trial
+      ⏱ {days} day{days !== 1 ? 's' : ''} left in trial
     </span>
   );
 }
 
-// ── Exam card with prominent CTA ──────────────────────────────────────────────
+// ── Exam card ─────────────────────────────────────────────────────────────────
 
 function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
   const info  = EXAM_INFO[examKey];
@@ -114,16 +127,15 @@ function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
   }
   const pct = totalWorlds > 0 ? Math.round((worldsCompleted / totalWorlds) * 100) : 0;
 
-  const trialActive   = trial && new Date() < new Date(trial.trial_expires_at);
-  const trialExpired  = trial && new Date() >= new Date(trial.trial_expires_at);
-  const noTrialYet    = !trial;
+  const trialActive  = trial && new Date() < new Date(trial.trial_expires_at);
+  const trialExpired = trial && new Date() >= new Date(trial.trial_expires_at);
+  const noTrialYet   = !trial;
 
-  // CTA label and style
   let ctaLabel = null;
   if (!isAdmin && !ent) {
-    if (trialActive)   ctaLabel = 'Continue prep \u2192';
-    else if (trialExpired) ctaLabel = 'Unlock access \u2192';
-    else                ctaLabel = 'Start free trial \u2192';
+    if (trialActive)        ctaLabel = 'Continue prep \u2192';
+    else if (trialExpired)  ctaLabel = 'Unlock access \u2192';
+    else                    ctaLabel = 'Start free trial \u2192';
   } else if (!isAdmin && ent) {
     ctaLabel = 'Continue prep \u2192';
   }
@@ -137,11 +149,12 @@ function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
       </h3>
       <p className="exam-card-desc">{info.description}</p>
 
-      {/* Status badge */}
       <div style={{ marginBottom: 16 }}>
-        {isAdmin && <span className="plan-pill premium">Admin \u2014 Full Access</span>}
+        {isAdmin && <span className="plan-pill premium">Admin — Full Access</span>}
         {!isAdmin && ent && (
-          <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>{ent.plan_id} Plan</span>
+          <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>
+            {PLAN_DISPLAY[ent.plan_id] || ent.plan_id} Plan
+          </span>
         )}
         {!isAdmin && !ent && trialActive  && <TrialBadge trial={trial} />}
         {!isAdmin && !ent && trialExpired && <TrialBadge trial={trial} />}
@@ -157,7 +170,6 @@ function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
         )}
       </div>
 
-      {/* Progress */}
       <div className="exam-progress-bar" style={{ marginBottom: 6 }}>
         <div className="exam-progress-fill" style={{ width: `${pct}%` }} />
       </div>
@@ -165,14 +177,11 @@ function ExamCard({ examKey, entitlements, trials, progressData, isAdmin }) {
         {worldsCompleted} of {totalWorlds} worlds completed
       </p>
 
-      {/* CTA button — visual only (whole card is already the link) */}
       {ctaLabel && (
         <div style={{
-          marginTop: 'auto',
-          padding: '10px 0 0',
+          marginTop: 'auto', padding: '10px 0 0',
           borderTop: '1px solid var(--border)',
-          display: 'flex',
-          justifyContent: 'center',
+          display: 'flex', justifyContent: 'center',
         }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -201,6 +210,49 @@ function getTrialState(trials, allEntitlements) {
   if (anyActive)  return 'active_trial';
   return 'no_trial';
 }
+
+// ── Entitlement row with days remaining ───────────────────────────────────────
+
+function EntitlementRow({ ent }) {
+  const days    = daysRemaining(ent.entitlement_expires_at);
+  const expires = new Date(ent.entitlement_expires_at).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+  const displayName = PLAN_DISPLAY[ent.plan_id] || ent.plan_id;
+  const isLow = days <= 14;
+
+  return (
+    <div className="entitlement-row">
+      <div>
+        <div style={{ fontWeight: 600, fontSize: '0.95rem', textTransform: 'capitalize' }}>
+          {ent.exam} — {displayName} plan
+        </div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+          Expires {expires} · Worlds 1–{ent.max_world_index} per track
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {/* Days remaining pill */}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center',
+          padding: '3px 10px', borderRadius: 20,
+          fontSize: '0.78rem', fontWeight: 700,
+          background: isLow ? 'rgba(185,28,28,0.07)' : 'rgba(11,93,75,0.07)',
+          border: `1px solid ${isLow ? 'rgba(185,28,28,0.2)' : 'rgba(11,93,75,0.2)'}`,
+          color: isLow ? '#B91C1C' : 'var(--brand-green)',
+          whiteSpace: 'nowrap',
+        }}>
+          {days} day{days !== 1 ? 's' : ''} left
+        </span>
+        <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>
+          {displayName}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { user }  = useAuth();
@@ -298,24 +350,13 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Active entitlements */}
+        {/* Active entitlements — with days remaining */}
         {!loading && allEntitlements.length > 0 && (
           <div className="section">
             <p className="section-title">Active Plans</p>
             <div className="card">
               {allEntitlements.map((ent) => (
-                <div key={ent.id} className="entitlement-row">
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem', textTransform: 'capitalize' }}>
-                      {ent.exam} \u2014 {ent.plan_id} plan
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                      Expires {new Date(ent.entitlement_expires_at).toLocaleDateString()}
-                      {' \u00b7 '}Worlds 1\u2013{ent.max_world_index} per track
-                    </div>
-                  </div>
-                  <span className={`plan-pill ${ent.plan_id}`} style={{ textTransform: 'capitalize' }}>{ent.plan_id}</span>
-                </div>
+                <EntitlementRow key={ent.id} ent={ent} />
               ))}
             </div>
           </div>
@@ -350,7 +391,7 @@ export default function Dashboard() {
               <>
                 <div className="paywall-text">
                   <h3>Start your free 7-day trial</h3>
-                  <p>Click any exam above to begin. World 1 is free \u2014 no credit card needed.</p>
+                  <p>Click any exam above to begin. World 1 is free — no credit card needed.</p>
                 </div>
                 <div className="paywall-actions">
                   <Link to="/pricing" className="btn btn-ghost btn-sm">View Plans</Link>

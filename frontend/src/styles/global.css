@@ -1127,6 +1127,67 @@ body {
 /* ════════════════════════════════════════════════════════════════════════════
    CHUNK P1 — PRICING PAGE: GOLD DOMINANCE + DISPLAY-NAME RENAME
    plan_id values ('basic','premium') unchanged in API / DB / Stripe.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.pricing-card.gold {
+  border-color: rgba(198,168,91,0.45);
+  border-width: 1.5px;
+  background: rgba(198,168,91,0.025);
+  box-shadow: 0 4px 20px rgba(198,168,91,0.1), 0 1px 4px rgba(28,39,51,0.05);
+}
+.pricing-card.gold:hover {
+  box-shadow: 0 6px 28px rgba(198,168,91,0.18), 0 2px 8px rgba(28,39,51,0.06);
+}
+.pricing-card.gold .pricing-price-amount { font-size: 2.4rem; }
+
+.pricing-gold-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: var(--brand-gold); color: #3A2800;
+  font-size: 0.7rem; font-weight: 700; padding: 4px 14px;
+  border-radius: 20px; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap;
+}
+.pricing-plan-name.gold-name { color: var(--brand-gold); }
+
+.btn-gold {
+  background: var(--brand-gold); color: #3A2800; border: 1px solid transparent;
+}
+.btn-gold:hover:not(:disabled) {
+  background: #b89640; color: #3A2800;
+  transform: translateY(-1px); box-shadow: 0 2px 8px rgba(198,168,91,0.3);
+}
+
+.pricing-silver-doubt {
+  font-size: 0.78rem; color: var(--text-muted);
+  text-align: center; margin-top: 8px; line-height: 1.4; font-style: italic;
+}
+
+/* ── Active plan state on pricing card ───────────────────────────────────── */
+.pricing-card.active {
+  border-color: rgba(11,93,75,0.35);
+  background: rgba(11,93,75,0.02);
+}
+.pricing-active-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: var(--brand-green); color: var(--brand-sand);
+  font-size: 0.7rem; font-weight: 700; padding: 4px 14px;
+  border-radius: 20px; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap;
+}
+.pricing-active-state {
+  display: flex; flex-direction: column; gap: 4px;
+  background: rgba(11,93,75,0.05); border: 1px solid rgba(11,93,75,0.15);
+  border-radius: var(--radius); padding: 14px 16px; margin-top: 4px;
+}
+.pricing-active-label {
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--brand-green);
+}
+.pricing-active-expiry { display: flex; flex-direction: column; gap: 2px; }
+.pricing-active-days { font-size: 1rem; font-weight: 700; color: var(--brand-navy); }
+.pricing-active-date { font-size: 0.8rem; color: var(--text-muted); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CHUNK P1 — PRICING PAGE: GOLD DOMINANCE + DISPLAY-NAME RENAME
+   plan_id values ('basic','premium') unchanged in API / DB / Stripe.
    Only presentation-layer classes below.
    ════════════════════════════════════════════════════════════════════════════ */
 
