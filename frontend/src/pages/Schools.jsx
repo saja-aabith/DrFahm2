@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { Users, LayoutDashboard, ShieldCheck, FileBarChart2, Crown, HeadphonesIcon } from 'lucide-react';
 
 // ── Replace with your Calendly link when ready ────────────────────────────────
 const CALENDLY_URL = 'YOUR_CALENDLY_LINK';
@@ -43,32 +44,32 @@ const PROBLEMS = [
 // ── What schools get ──────────────────────────────────────────────────────────
 const FEATURES = [
   {
-    icon:  '👤',
+    icon:  <Users size={26} strokeWidth={1.5} />,
     title: 'Bulk student accounts',
     desc:  'Provision hundreds of accounts instantly. Each student gets a unique login with pre-set exam access.',
   },
   {
-    icon:  '📊',
+    icon:  <LayoutDashboard size={26} strokeWidth={1.5} />,
     title: 'Teacher dashboard',
     desc:  "Track every student's world progress and level pass rate from a single view. Know who needs attention.",
   },
   {
-    icon:  '🔒',
+    icon:  <ShieldCheck size={26} strokeWidth={1.5} />,
     title: 'Managed access control',
     desc:  "Students only see what you have activated. Lock or unlock worlds per student group from one place.",
   },
   {
-    icon:  '📋',
+    icon:  <FileBarChart2 size={26} strokeWidth={1.5} />,
     title: 'Progress reports',
     desc:  'Export student progress data for internal reporting, parent communication, or teacher review.',
   },
   {
-    icon:  '🔑',
+    icon:  <Crown size={26} strokeWidth={1.5} />,
     title: 'School leader account',
     desc:  'One designated leader manages all student accounts. No admin intervention required after setup.',
   },
   {
-    icon:  '💬',
+    icon:  <HeadphonesIcon size={26} strokeWidth={1.5} />,
     title: 'Dedicated onboarding',
     desc:  'We set up your org, configure access, and brief your team. No technical knowledge needed on your end.',
   },

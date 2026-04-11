@@ -736,7 +736,20 @@ body {
 .schools-section-sub   { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 24px; }
 .schools-features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
 .schools-feature-card  { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
-.schools-feature-icon  { font-size: 1.6rem; margin-bottom: 10px; }
+.schools-feature-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(21,128,61,0.10) 0%, rgba(21,128,61,0.04) 100%);
+  border: 1px solid rgba(21,128,61,0.18);
+  box-shadow: 0 2px 8px rgba(21,128,61,0.08), inset 0 1px 0 rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #15803D;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
 .schools-feature-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
 .schools-feature-desc  { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
 .schools-steps     { display: flex; flex-direction: column; gap: 20px; }
