@@ -302,22 +302,24 @@ export default function Pricing() {
                 </div>
 
                 {activeEnt ? (
-                  <div className="pricing-active-state">
-                    <div className="pricing-active-label">Active plan</div>
-                    <div className="pricing-active-expiry">
-                      <span className="pricing-active-days">{days} day{days !== 1 ? 's' : ''} remaining</span>
-                      <span className="pricing-active-date">Expires {expiryStr}</span>
+                  <div className="pricing-card-actions">
+                    <div className="pricing-active-state">
+                      <div className="pricing-active-label">Active plan</div>
+                      <div className="pricing-active-expiry">
+                        <span className="pricing-active-days">{days} day{days !== 1 ? 's' : ''} remaining</span>
+                        <span className="pricing-active-date">Expires {expiryStr}</span>
+                      </div>
+                      <Link
+                        to={`/exam/${selectedExam}`}
+                        className="btn btn-ghost btn-full"
+                        style={{ marginTop: 8 }}
+                      >
+                        Go to {selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'} →
+                      </Link>
                     </div>
-                    <Link
-                      to={`/exam/${selectedExam}`}
-                      className="btn btn-ghost btn-full"
-                      style={{ marginTop: 8 }}
-                    >
-                      Go to {selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'} →
-                    </Link>
                   </div>
                 ) : (
-                  <>
+                  <div className="pricing-card-actions">
                     <button
                       className={[
                         'btn btn-full btn-lg',
@@ -333,7 +335,7 @@ export default function Pricing() {
                     {plan.doubt && (
                       <p className="pricing-silver-doubt">{plan.doubt}</p>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             );
