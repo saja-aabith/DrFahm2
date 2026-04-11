@@ -47,6 +47,13 @@ const CONF_COLOR = {
   low:    '#b45309',
 };
 
+// Display name mapping — plan_id values unchanged in DB/API
+const PLAN_DISPLAY = {
+  basic:   'Silver',
+  premium: 'Gold',
+  free:    'Free',
+};
+
 function fmtAvg(seconds) {
   if (seconds == null) return '\u2014';
   const s = Math.round(seconds);
@@ -93,7 +100,6 @@ function PredictedScoreBanner({ exam, data }) {
       border: '1px solid var(--border)',
     }}>
       <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎯</span>
-
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>
           Predicted {EXAM_SHORT[exam] || exam} score
@@ -107,7 +113,6 @@ function PredictedScoreBanner({ exam, data }) {
           </span>
         </div>
       </div>
-
       {hasSections && (
         <div style={{
           display: 'flex', gap: 16, flexShrink: 0,
@@ -185,7 +190,6 @@ function LeaderboardView({ exam }) {
       </div>
     );
   }
-
   if (error) {
     return <div className="alert alert-error" style={{ marginTop: 24 }}>{error}</div>;
   }
@@ -255,7 +259,6 @@ function LeaderboardView({ exam }) {
 
 // ── Level Node ───────────────────────────────────────────────────────────────
 
-// Lock reasons that route to pricing instead of blocking silently
 const PRICING_LOCK_REASONS = new Set([
   'beyond_trial_cap', 'trial_expired', 'no_entitlement', 'seat_no_coverage',
 ]);
@@ -272,10 +275,10 @@ function LevelNode({ level, examKey, worldKey }) {
     } else if (isPricingLock) {
       navigate(`/pricing?exam=${examKey}`);
     }
-    // progression locks (level_locked) silently block — no action
   };
   return (
-    <div className={`level-node ${status}${isPricingLock ? ' upgrade-trigger' : ''}`}
+    <div
+      className={`level-node ${status}${isPricingLock ? ' upgrade-trigger' : ''}`}
       onClick={handleClick}
       title={isPricingLock ? 'Unlock with full access →' : locked ? (LOCK_MESSAGES[lock_reason] || lock_reason) : `Level ${level_number}`}
       role="button"
@@ -303,9 +306,9 @@ function WorldCard({ world, examKey, defaultOpen }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(defaultOpen);
   const { world_key, world_name, world_name_ar, index, locked, lock_reason, levels } = world;
-  const passedCount    = levels.filter((l) => l.passed).length;
-  const allPassed      = passedCount === 10;
-  const isPricingLock  = locked && PRICING_LOCK_REASONS.has(lock_reason);
+  const passedCount   = levels.filter((l) => l.passed).length;
+  const allPassed     = passedCount === 10;
+  const isPricingLock = locked && PRICING_LOCK_REASONS.has(lock_reason);
 
   const handleHeaderClick = () => {
     if (isPricingLock) {
@@ -356,7 +359,9 @@ function WorldCard({ world, examKey, defaultOpen }) {
       </div>
       {open && (
         <div className="world-levels-grid">
-          {levels.map((level) => <LevelNode key={level.level_number} level={level} examKey={examKey} worldKey={world_key} />)}
+          {levels.map((level) => (
+            <LevelNode key={level.level_number} level={level} examKey={examKey} worldKey={world_key} />
+          ))}
         </div>
       )}
     </div>
@@ -369,7 +374,11 @@ function TrackTabs({ tracks, activeTrack, onSelect }) {
   return (
     <div className="track-tabs">
       {tracks.map((track) => (
-        <button key={track.track_key} className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`} onClick={() => onSelect(track.track_key)}>
+        <button
+          key={track.track_key}
+          className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`}
+          onClick={() => onSelect(track.track_key)}
+        >
           <span className="track-tab-en">{track.track_name}</span>
           <span className="track-tab-ar">{TRACK_LABELS_AR[track.track_key] || ''}</span>
         </button>
@@ -403,7 +412,17 @@ function TrackProgressBar({ track }) {
 
 function ViewToggleBtn({ active, onClick, icon: Icon, label }) {
   return (
-    <button onClick={onClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 18px', borderRadius: 8, fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.15s', background: active ? 'rgba(139,92,246,0.15)' : 'transparent', border: active ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)', color: active ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)' }}>
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '8px 18px', borderRadius: 8, fontWeight: 600, fontSize: '0.9rem',
+        cursor: 'pointer', transition: 'all 0.15s',
+        background: active ? 'rgba(139,92,246,0.15)' : 'transparent',
+        border: active ? '1.5px solid rgba(139,92,246,0.5)' : '1.5px solid var(--border)',
+        color: active ? 'var(--violet-light, #a78bfa)' : 'var(--text-muted)',
+      }}
+    >
       <Icon size={20} strokeWidth={2} />
       {label}
     </button>
@@ -419,16 +438,14 @@ export default function ExamPage() {
 
   const isAdmin = user?.role === 'drfahm_admin';
 
-  const [worldMap,        setWorldMap]        = useState(null);
-  const [loading,         setLoading]         = useState(true);
-  const [error,           setError]           = useState('');
-  const [entitlements,    setEntitlements]    = useState(null);
-  const [activeTrack,     setActiveTrack]     = useState(null);
-  const [view,            setView]            = useState('map');
-  // M2: predicted score for the current user
-  const [predictedScore,  setPredictedScore]  = useState(null);
-  // M3: weak topics for the current user
-  const [weakTopics,      setWeakTopics]      = useState(null);
+  const [worldMap,       setWorldMap]       = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState('');
+  const [entitlements,   setEntitlements]   = useState(null);
+  const [activeTrack,    setActiveTrack]    = useState(null);
+  const [view,           setView]           = useState('map');
+  const [predictedScore, setPredictedScore] = useState(null);
+  const [weakTopics,     setWeakTopics]     = useState(null);
 
   useEffect(() => {
     if (!['qudurat', 'tahsili'].includes(exam)) {
@@ -439,8 +456,8 @@ export default function ExamPage() {
     Promise.all([
       examsApi.worldMap(exam),
       billing.getEntitlements().catch(() => null),
-      examsApi.predictedScore(exam).catch(() => null),   // M2
-      examsApi.weakTopics(exam).catch(() => null),        // M3
+      examsApi.predictedScore(exam).catch(() => null),
+      examsApi.weakTopics(exam).catch(() => null),
     ]).then(([mapData, billingData, predData, weakData]) => {
       setWorldMap(mapData);
       setEntitlements(billingData);
@@ -484,13 +501,18 @@ export default function ExamPage() {
 
   const allEntitlements = [
     ...(entitlements?.individual_entitlements || []),
-    ...(entitlements?.org_entitlements || []),
+    ...(entitlements?.org_entitlements        || []),
   ];
   const hasPaidPlan = allEntitlements.some(
     (e) => e.exam === exam && new Date() < new Date(e.entitlement_expires_at)
   );
   const trial       = entitlements?.trials?.find((t) => t.exam === exam);
   const trialActive = trial && new Date() < new Date(trial.trial_expires_at);
+
+  const activeEnt        = allEntitlements.find(
+    (e) => e.exam === exam && new Date() < new Date(e.entitlement_expires_at)
+  );
+  const planDisplayName  = activeEnt ? (PLAN_DISPLAY[activeEnt.plan_id] || activeEnt.plan_id) : null;
 
   const firstUnlockedIdx = currentTrack?.worlds?.findIndex((w) => !w.locked) ?? 0;
   const totalTracks      = tracks.length;
@@ -518,24 +540,40 @@ export default function ExamPage() {
           </p>
         </div>
 
+        {/* Paid plan — show active plan info, no nudge */}
+        {!isAdmin && hasPaidPlan && planDisplayName && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 18px', borderRadius: 10, marginBottom: 24,
+            background: 'rgba(11,93,75,0.05)', border: '1px solid rgba(11,93,75,0.2)',
+          }}>
+            <span style={{ fontSize: '1rem' }}>✓</span>
+            <span style={{ fontSize: '0.9rem', color: 'var(--brand-green)', fontWeight: 600 }}>
+              {planDisplayName} plan active — all worlds unlocked
+            </span>
+          </div>
+        )}
+
+        {/* Free trial — nudge to upgrade */}
         {!isAdmin && !hasPaidPlan && trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
               <h3>You're on the free trial &mdash; World 1 unlocked per track</h3>
-              <p>Upgrade to Basic for all 5 worlds, or Premium for the full experience.</p>
+              <p>Upgrade to Silver for 90 days access, or Gold for the full year.</p>
             </div>
             <div className="paywall-actions">
-              <Link to={`/pricing?exam=${exam}&plan=basic`} className="btn btn-ghost btn-sm">Basic Plan</Link>
-              <Link to={`/pricing?exam=${exam}&plan=premium`} className="btn btn-violet btn-sm">Premium Plan</Link>
+              <Link to={`/pricing?exam=${exam}`} className="btn btn-ghost btn-sm">Silver</Link>
+              <Link to={`/pricing?exam=${exam}`} className="btn btn-violet btn-sm">Gold</Link>
             </div>
           </div>
         )}
 
+        {/* Trial expired */}
         {!isAdmin && !hasPaidPlan && !trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
               <h3>Your trial has expired</h3>
-              <p>Upgrade to a paid plan to continue your exam preparation.</p>
+              <p>Upgrade to Silver or Gold to continue your exam preparation.</p>
             </div>
             <div className="paywall-actions">
               <Link to={`/pricing?exam=${exam}`} className="btn btn-primary btn-sm">View Plans</Link>
@@ -555,10 +593,7 @@ export default function ExamPage() {
             )}
             {currentTrack && <TrackProgressBar track={currentTrack} />}
 
-            {/* M2: Predicted score banner — shown once the student has passed at least one level */}
             <PredictedScoreBanner exam={exam} data={predictedScore} />
-
-            {/* M3: Weak topics — shown once the student has struggle data */}
             <WeakTopicsCard data={weakTopics} />
 
             <div className="world-map-grid">

@@ -3,13 +3,20 @@ import { Link } from 'react-router-dom';
 import { billing } from '../api';
 import Navbar from '../components/Navbar';
 
-const POLL_INTERVAL_MS = 2500;  // check every 2.5 seconds
-const MAX_POLLS        = 12;    // give up after 30 seconds
+const POLL_INTERVAL_MS = 2500;
+const MAX_POLLS        = 12;
+
+// Display name mapping — plan_id values unchanged in DB/API
+const PLAN_DISPLAY = {
+  basic:   'Silver',
+  premium: 'Gold',
+  free:    'Free',
+};
 
 export default function BillingSuccess() {
-  const [entitlements,  setEntitlements]  = useState(null);
-  const [pollCount,     setPollCount]     = useState(0);
-  const [gaveUp,        setGaveUp]        = useState(false);
+  const [entitlements, setEntitlements] = useState(null);
+  const [pollCount,    setPollCount]    = useState(0);
+  const [gaveUp,       setGaveUp]       = useState(false);
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -22,7 +29,6 @@ export default function BillingSuccess() {
         ].filter((e) => new Date() < new Date(e.entitlement_expires_at));
 
         if (active.length > 0) {
-          // Entitlement confirmed — stop polling
           clearInterval(pollRef.current);
           setEntitlements(data);
           return;
@@ -41,7 +47,6 @@ export default function BillingSuccess() {
       });
     };
 
-    // First check immediately, then poll
     poll();
     pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
     return () => clearInterval(pollRef.current);
@@ -65,11 +70,10 @@ export default function BillingSuccess() {
           </h1>
           <p className="success-subtitle">
             {activated
-              ? 'Your plan is now active. Your full exam journey is unlocked — let\'s go.'
+              ? "Your plan is now active. Your full exam journey is unlocked — let's go."
               : 'Your payment went through. We\'re activating your plan now.'}
           </p>
 
-          {/* Activating state */}
           {!activated && !gaveUp && (
             <div style={{ margin: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <div className="spinner" />
@@ -79,38 +83,42 @@ export default function BillingSuccess() {
             </div>
           )}
 
-          {/* Gave up — webhook likely delayed */}
           {!activated && gaveUp && (
             <div className="alert alert-info" style={{ marginBottom: 24 }}>
               Your payment was received but activation is taking longer than usual.
               Please refresh your dashboard in a minute — your plan will appear automatically.
               If it doesn't arrive within 5 minutes,{' '}
-              <a href="mailto:billing@drfahm.com" style={{ color: 'var(--violet-light)' }}>
+              <a href="mailto:support@drfahm.com" style={{ color: 'var(--brand-green)' }}>
                 contact us
               </a>.
             </div>
           )}
 
-          {/* Confirmed entitlements */}
           {activated && (
             <div style={{ marginBottom: 28 }}>
-              {activeEnts.map((e) => (
-                <div key={e.id} className="card" style={{ marginBottom: 10, textAlign: 'left' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>
-                        {e.exam} — {e.plan_id} Plan
+              {activeEnts.map((e) => {
+                const displayName = PLAN_DISPLAY[e.plan_id] || e.plan_id;
+                return (
+                  <div key={e.id} className="card" style={{ marginBottom: 10, textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>
+                          {e.exam} — {displayName} Plan
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                          Worlds 1–{e.max_world_index} · Expires{' '}
+                          {new Date(e.entitlement_expires_at).toLocaleDateString('en-GB', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                          })}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                        Worlds 1–{e.max_world_index} · Expires {new Date(e.entitlement_expires_at).toLocaleDateString()}
-                      </div>
+                      <span className={`plan-pill ${e.plan_id}`}>
+                        {displayName}
+                      </span>
                     </div>
-                    <span className={`plan-pill ${e.plan_id}`} style={{ textTransform: 'capitalize' }}>
-                      {e.plan_id}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
