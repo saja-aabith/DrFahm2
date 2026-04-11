@@ -32,7 +32,9 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
+          <Link to="/" style={{ textDecoration: 'none' }}>
+            <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
+          </Link>
         </div>
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-subtitle">Log in to continue your exam prep</p>
@@ -71,7 +73,7 @@ export default function Login() {
             className="btn btn-primary btn-full"
             disabled={loading}
           >
-            {loading ? 'Logging in…' : 'Log in'}
+            {loading ? 'Logging in...' : 'Log in'}
           </button>
         </form>
 
