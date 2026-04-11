@@ -332,9 +332,13 @@ export default function Pricing() {
                     >
                       {loading === plan.id ? 'Redirecting…' : plan.cta}
                     </button>
-                    {plan.doubt && (
-                      <p className="pricing-silver-doubt">{plan.doubt}</p>
-                    )}
+                    {/* Always rendered — hidden when empty so all buttons stay at same height */}
+                    <p
+                      className="pricing-silver-doubt"
+                      style={{ visibility: plan.doubt ? 'visible' : 'hidden' }}
+                    >
+                      {plan.doubt || 'placeholder'}
+                    </p>
                   </div>
                 )}
               </div>
