@@ -18,10 +18,12 @@ export default function Register() {
   const examParam = searchParams.get('exam');
   const examLabel = EXAM_LABELS[examParam] || null;
 
-  const [form, setForm]       = useState({ username: '', email: '', password: '', confirm: '' });
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPass, setShowPass]   = useState(false);
+  const [form, setForm] = useState({
+    username: '', email: '', phone: '', password: '', confirm: '',
+  });
+  const [error,       setError]       = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -29,11 +31,16 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.password !== form.confirm) { setError('Passwords do not match.'); return; }
+    if (form.password !== form.confirm) { setError('Passwords do not match.');             return; }
     if (form.password.length < 8)       { setError('Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
-      await register(form.username.trim(), form.email.trim() || undefined, form.password);
+      await register(
+        form.username.trim(),
+        form.email.trim()   || undefined,
+        form.password,
+        form.phone.trim()   || undefined,   // optional — backend stores for WhatsApp contact
+      );
       if (examParam && ['qudurat', 'tahsili'].includes(examParam)) {
         navigate(`/exam/${examParam}`, { replace: true });
       } else {
@@ -50,7 +57,7 @@ export default function Register() {
     <div className="auth-page" style={{ alignItems: 'flex-start', paddingTop: 48 }}>
       <div className="auth-card" style={{ maxWidth: 460 }}>
 
-        {/* Logo */}
+        {/* Logo — no home link; registration is a conversion dead-end */}
         <div className="auth-logo" style={{ marginBottom: 20 }}>
           <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
         </div>
@@ -58,13 +65,16 @@ export default function Register() {
         {/* Headline */}
         <h1 style={{
           fontSize: '1.75rem', fontWeight: 800, textAlign: 'center',
-          color: 'var(--brand-navy, #1C2733)', marginBottom: 6, lineHeight: 1.2,
+          color: 'var(--brand-navy)', marginBottom: 6, lineHeight: 1.2,
         }}>
           {examLabel
             ? `Start your free 7-day ${examLabel} trial`
             : 'Start your 7-day free trial'}
         </h1>
-        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20 }}>
+        <p style={{
+          textAlign: 'center', color: 'var(--text-secondary)',
+          fontSize: '0.9rem', marginBottom: 20,
+        }}>
           Full access. No credit card. Cancel anytime.
         </p>
 
@@ -77,33 +87,28 @@ export default function Register() {
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
               <span style={{
                 width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                background: 'rgba(11,93,75,0.1)', border: '1.5px solid rgba(11,93,75,0.3)',
+                background: 'rgba(21,128,61,0.1)', border: '1.5px solid rgba(21,128,61,0.3)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--brand-green, #0B5D4B)', fontSize: '0.7rem', fontWeight: 800,
+                color: '#15803D', fontSize: '0.7rem', fontWeight: 800,
               }}>✓</span>
               <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                <strong style={{ color: 'var(--brand-navy, #1C2733)' }}>{f.bold}</strong>{f.rest}
+                <strong style={{ color: 'var(--brand-navy)' }}>{f.bold}</strong>{f.rest}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Error */}
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
-        {/* Form */}
         <form style={{ display: 'flex', flexDirection: 'column', gap: 14 }} onSubmit={handleSubmit}>
 
           <div className="form-group">
             <label className="form-label">Username</label>
             <input
-              className="form-input"
-              type="text"
+              className="form-input" type="text"
               placeholder="Choose a username"
-              value={form.username}
-              onChange={set('username')}
-              autoComplete="username"
-              minLength={3} maxLength={80} required
+              value={form.username} onChange={set('username')}
+              autoComplete="username" minLength={3} maxLength={80} required
             />
           </div>
 
@@ -115,12 +120,26 @@ export default function Register() {
               </span>
             </label>
             <input
-              className="form-input"
-              type="email"
+              className="form-input" type="email"
               placeholder="your@email.com"
-              value={form.email}
-              onChange={set('email')}
+              value={form.email} onChange={set('email')}
               autoComplete="email"
+            />
+          </div>
+
+          {/* ── Phone number — optional, used for WhatsApp support ── */}
+          <div className="form-group">
+            <label className="form-label">
+              Phone{' '}
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem' }}>
+                (optional — for WhatsApp updates)
+              </span>
+            </label>
+            <input
+              className="form-input" type="tel"
+              placeholder="+966 5X XXX XXXX"
+              value={form.phone} onChange={set('phone')}
+              autoComplete="tel"
             />
           </div>
 
@@ -131,15 +150,12 @@ export default function Register() {
                 className="form-input"
                 type={showPass ? 'text' : 'password'}
                 placeholder="Minimum 8 characters"
-                value={form.password}
-                onChange={set('password')}
-                autoComplete="new-password"
-                minLength={8} required
+                value={form.password} onChange={set('password')}
+                autoComplete="new-password" minLength={8} required
                 style={{ paddingRight: 64 }}
               />
               <button
-                type="button"
-                onClick={() => setShowPass((v) => !v)}
+                type="button" onClick={() => setShowPass((v) => !v)}
                 style={{
                   position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -159,15 +175,12 @@ export default function Register() {
                 className="form-input"
                 type={showConfirm ? 'text' : 'password'}
                 placeholder="Repeat your password"
-                value={form.confirm}
-                onChange={set('confirm')}
-                autoComplete="new-password"
-                required
+                value={form.confirm} onChange={set('confirm')}
+                autoComplete="new-password" required
                 style={{ paddingRight: 64 }}
               />
               <button
-                type="button"
-                onClick={() => setShowConfirm((v) => !v)}
+                type="button" onClick={() => setShowConfirm((v) => !v)}
                 style={{
                   position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -180,29 +193,26 @@ export default function Register() {
             </div>
           </div>
 
-          {/* CTA button */}
           <button
-            type="submit"
-            disabled={loading}
+            type="submit" disabled={loading}
             style={{
               width: '100%', padding: '13px 20px',
-              background: loading ? 'rgba(11,93,75,0.6)' : 'var(--brand-green, #0B5D4B)',
-              color: 'var(--brand-sand, #F5F2EC)',
+              background: loading ? 'rgba(21,128,61,0.6)' : '#15803D',
+              color: 'var(--brand-sand)',
               border: 'none', borderRadius: 8,
               fontSize: '1rem', fontWeight: 800,
               fontFamily: 'Tajawal, sans-serif',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.16s ease, transform 0.12s ease',
+              transition: 'background 0.16s ease',
               marginTop: 4,
             }}
-            onMouseEnter={(e) => { if (!loading) e.target.style.background = 'var(--brand-navy, #1C2733)'; }}
-            onMouseLeave={(e) => { if (!loading) e.target.style.background = 'var(--brand-green, #0B5D4B)'; }}
+            onMouseEnter={(e) => { if (!loading) e.target.style.background = '#166534'; }}
+            onMouseLeave={(e) => { if (!loading) e.target.style.background = '#15803D'; }}
           >
             {loading ? 'Creating your account…' : 'Start My Free Trial'}
           </button>
         </form>
 
-        {/* Trust signals */}
         <div style={{
           display: 'flex', justifyContent: 'center', gap: 20,
           marginTop: 14, flexWrap: 'wrap',
@@ -212,21 +222,25 @@ export default function Register() {
               display: 'flex', alignItems: 'center', gap: 5,
               fontSize: '0.78rem', color: 'var(--text-muted)',
             }}>
-              <span style={{ color: 'var(--brand-green, #0B5D4B)', fontWeight: 700, fontSize: '0.75rem' }}>✓</span>
+              <span style={{ color: '#15803D', fontWeight: 700, fontSize: '0.75rem' }}>✓</span>
               {t}
             </span>
           ))}
         </div>
 
-        {/* Terms + login */}
-        <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 14, textAlign: 'center' }}>
+        <div style={{
+          borderTop: '1px solid var(--border)', marginTop: 16,
+          paddingTop: 14, textAlign: 'center',
+        }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 10 }}>
             By signing up you agree to our{' '}
-            <Link to="/terms" style={{ color: 'var(--brand-green, #0B5D4B)', textDecoration: 'none' }}>Terms of Service</Link>.
+            <Link to="/terms" style={{ color: '#15803D', textDecoration: 'none' }}>
+              Terms of Service
+            </Link>.
           </p>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             Already have an account?{' '}
-            <Link to="/login" style={{ color: 'var(--brand-green, #0B5D4B)', fontWeight: 700, textDecoration: 'none' }}>
+            <Link to="/login" style={{ color: '#15803D', fontWeight: 700, textDecoration: 'none' }}>
               Log in
             </Link>
           </p>

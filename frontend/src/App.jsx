@@ -15,44 +15,48 @@ import BillingSuccess from './pages/BillingSuccess';
 import Pricing        from './pages/Pricing';
 import Schools        from './pages/Schools';
 import AdminPanel     from './pages/AdminPanel';
+import Home           from './pages/Home';
 
-import Home from './pages/Home';
-
+// Global components
+import WhatsAppFloat  from './components/WhatsAppFloat';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-          <Routes>
-            {/* Public */}
-            <Route path="/"        element={<Home />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/schools" element={<Schools />} />
-            <Route path="/login"   element={<Login />} />
-            <Route path="/register" element={<Register />} />
+        <Routes>
+          {/* Public */}
+          <Route path="/"         element={<Home />} />
+          <Route path="/pricing"  element={<Pricing />} />
+          <Route path="/schools"  element={<Schools />} />
+          <Route path="/login"    element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-            {/* Protected — any authenticated user */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute><Dashboard /></ProtectedRoute>
-            } />
-            <Route path="/exam/:exam" element={
-              <ProtectedRoute><ExamPage /></ProtectedRoute>
-            } />
-            <Route path="/exam/:exam/world/:worldKey/level/:levelNumber" element={
-              <ProtectedRoute><Level /></ProtectedRoute>
-            } />
-            <Route path="/billing/success" element={
-              <ProtectedRoute><BillingSuccess /></ProtectedRoute>
-            } />
+          {/* Protected — any authenticated user */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute><Dashboard /></ProtectedRoute>
+          } />
+          <Route path="/exam/:exam" element={
+            <ProtectedRoute><ExamPage /></ProtectedRoute>
+          } />
+          <Route path="/exam/:exam/world/:worldKey/level/:levelNumber" element={
+            <ProtectedRoute><Level /></ProtectedRoute>
+          } />
+          <Route path="/billing/success" element={
+            <ProtectedRoute><BillingSuccess /></ProtectedRoute>
+          } />
 
-            {/* Admin only */}
-            <Route path="/admin" element={
-              <AdminRoute><AdminPanel /></AdminRoute>
-            } />
+          {/* Admin only */}
+          <Route path="/admin" element={
+            <AdminRoute><AdminPanel /></AdminRoute>
+          } />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+
+        {/* WhatsApp float visible on every page */}
+        <WhatsAppFloat />
       </AuthProvider>
     </BrowserRouter>
   );

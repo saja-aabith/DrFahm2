@@ -5,29 +5,21 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true); // true during initial me() check
+  const [loading, setLoading] = useState(true);
 
-  // On mount — rehydrate from stored tokens
+  // Rehydrate from stored tokens on mount
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!token) { setLoading(false); return; }
     authApi.me()
       .then((data) => setUser(data.user))
-      .catch(() => {
-        clearTokens();
-        setUser(null);
-      })
+      .catch(() => { clearTokens(); setUser(null); })
       .finally(() => setLoading(false));
   }, []);
 
   // Listen for forced logout (401 + refresh failed in api layer)
   useEffect(() => {
-    const handler = () => {
-      setUser(null);
-    };
+    const handler = () => setUser(null);
     window.addEventListener('auth:logout', handler);
     return () => window.removeEventListener('auth:logout', handler);
   }, []);
@@ -39,8 +31,10 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
-  const register = useCallback(async (username, email, password) => {
-    const data = await authApi.register({ username, email, password });
+  // NOTE: backend auth.py register endpoint needs to accept + store phone_number.
+  // Migration required: ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30);
+  const register = useCallback(async (username, email, password, phone_number) => {
+    const data = await authApi.register({ username, email, password, phone_number });
     setTokens({ access_token: data.access_token, refresh_token: data.refresh_token });
     setUser(data.user);
     return data.user;
