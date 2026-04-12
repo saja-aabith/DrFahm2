@@ -720,28 +720,28 @@ body {
   margin-bottom: 24px;
 }
 .prob-headline {
-  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  font-size: clamp(2.8rem, 6vw, 4.4rem);
   font-weight: 800;
-  line-height: 1.12;
+  line-height: 1.1;
   color: #FFFFFF;
   margin-bottom: 20px;
-  text-shadow: 0 2px 40px rgba(0,0,0,0.3);
+  letter-spacing: -1px;
 }
-/* Highlighted accent word — like DrFrost's yellow/orange word */
+/* Highlighted accent word */
 .prob-headline-accent {
   color: #4ADE80;
   position: relative;
   display: inline-block;
 }
 .prob-subhead {
-  font-size: 1.15rem;
-  color: rgba(255,255,255,0.55);
+  font-size: 1.2rem;
+  color: rgba(255,255,255,0.5);
   max-width: 520px;
   margin: 0 auto;
   line-height: 1.65;
 }
 
-/* Problem cards — DrFrost large-icon card style */
+/* Problem cards — white cards on dark bg like DrFrost */
 .prob-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -752,74 +752,65 @@ body {
 
 .prob-card {
   position: relative;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: #FFFFFF;
+  border: none;
   border-radius: 20px;
-  padding: 36px 32px;
+  padding: 40px 32px 36px;
   overflow: hidden;
   cursor: default;
-  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   animation: prob-card-in 0.6s ease both;
+  text-align: center;
 }
 .prob-card:hover {
-  transform: translateY(-8px);
-  border-color: rgba(248,113,113,0.4);
-  background: rgba(255,255,255,0.07);
-  box-shadow: 0 28px 56px rgba(0,0,0,0.35), 0 0 0 1px rgba(220,38,38,0.15);
+  transform: translateY(-10px);
+  box-shadow: 0 32px 64px rgba(0,0,0,0.4);
 }
 @keyframes prob-card-in {
   from { opacity: 0; transform: translateY(28px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Large icon container — DrFrost style: big, centered, colorful */
+/* Large icon container — centered, colorful */
 .prob-card-icon-wrap {
-  width: 72px; height: 72px;
-  border-radius: 18px;
-  background: rgba(220,38,38,0.14);
-  border: 1px solid rgba(248,113,113,0.25);
+  width: 88px; height: 88px;
+  border-radius: 22px;
+  background: rgba(220,38,38,0.1);
+  border: 2px solid rgba(220,38,38,0.15);
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 24px;
-  box-shadow: 0 0 28px rgba(220,38,38,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
-  font-size: 2rem;
+  margin: 0 auto 24px;
+  font-size: 2.6rem;
   line-height: 1;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s ease;
 }
 .prob-card:hover .prob-card-icon-wrap {
-  transform: scale(1.08) rotate(-3deg);
-  box-shadow: 0 0 40px rgba(220,38,38,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+  transform: scale(1.1) rotate(-4deg);
 }
 
 .prob-card-num {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 2px;
-  color: rgba(252,165,165,0.45);
+  color: rgba(220,38,38,0.35);
   margin-bottom: 8px;
   text-transform: uppercase;
   position: absolute;
-  top: 24px; right: 24px;
+  top: 20px; right: 22px;
 }
 .prob-card-title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #FFFFFF;
-  margin-bottom: 10px;
-  line-height: 1.35;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin-bottom: 12px;
+  line-height: 1.25;
 }
 .prob-card-text {
   font-size: 0.95rem;
-  color: rgba(255,255,255,0.55);
+  color: #475569;
   line-height: 1.65;
   font-weight: 400;
 }
-.prob-card-glow {
-  position: absolute;
-  inset: 0; border-radius: 20px;
-  background: radial-gradient(circle at 30% 0%, rgba(220,38,38,0.1) 0%, transparent 60%);
-  pointer-events: none; opacity: 0; transition: opacity 0.3s ease;
-}
-.prob-card:hover .prob-card-glow { opacity: 1; }
+.prob-card-glow { display: none; }
 
 /* Divider */
 .prob-divider {
