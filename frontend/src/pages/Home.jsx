@@ -290,11 +290,6 @@ function StatsSection() {
         <span className="home-stat-num">{levels}</span>
         <span className="home-stat-label">structured mastery levels</span>
       </div>
-      <div className="home-stat-divider" />
-      <div className="home-stat">
-        <span className="home-stat-num">2</span>
-        <span className="home-stat-label">national exams covered</span>
-      </div>
     </div>
   );
 }
@@ -511,9 +506,7 @@ export default function Home() {
 
       {/* ── 2. STATS ─────────────────────────────────────────────────────── */}
       <section className="home-section home-section-stats">
-        <div className="home-container">
-          <StatsSection />
-        </div>
+        <StatsSection />
       </section>
 
       {/* ── 3. PROBLEM + REFRAME ─────────────────────────────────────────── */}
@@ -527,27 +520,27 @@ export default function Home() {
 
         <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
 
-          {/* Header */}
           <div className="prob-header">
             <div className="prob-eyebrow">Why most students don't improve</div>
             <h2 className="prob-headline">
-              The problem isn't effort.<br />It's structure.
+              The problem isn't <span className="prob-headline-accent">effort</span>.<br />It's structure.
             </h2>
             <p className="prob-subhead">
               Most students prepare the same way and wonder why their score stays flat.
             </p>
           </div>
 
-          {/* Three problem cards */}
+          {/* Three problem cards — DrFrost large-icon style */}
           <div className="prob-cards">
             {[
-              { num: '01', text: 'Random prep with no clear structure or path' },
-              { num: '02', text: 'No visibility into which topics are holding you back' },
-              { num: '03', text: 'More hours studied does not automatically mean a better score' },
+              { num: '01', icon: '🎯', title: 'No clear path', text: 'Random prep with no structure means every session starts from scratch.' },
+              { num: '02', icon: '🔍', title: 'No visibility', text: 'You can\'t see which topics are actually holding your score back.' },
+              { num: '03', icon: '⏱️', title: 'Wasted effort', text: 'More hours studied does not automatically mean a better score.' },
             ].map((item, i) => (
               <div key={item.num} className="prob-card" style={{ animationDelay: `${i * 120}ms` }}>
-                <div className="prob-card-num">{item.num}</div>
-                <div className="prob-card-x">✕</div>
+                <span className="prob-card-num">{item.num}</span>
+                <div className="prob-card-icon-wrap">{item.icon}</div>
+                <h3 className="prob-card-title">{item.title}</h3>
                 <p className="prob-card-text">{item.text}</p>
                 <div className="prob-card-glow" />
               </div>
