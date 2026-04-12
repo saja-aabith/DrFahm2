@@ -391,6 +391,72 @@ function Cube3D() {
   );
 }
 
+// ── SVG illustrations for problem cards ──────────────────────────────────────
+const IllustrationNoPath = () => (
+  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Background circle */}
+    <circle cx="40" cy="40" r="36" fill="rgba(220,38,38,0.08)" />
+    {/* Tangled arrows representing random/no structure */}
+    {/* Arrow 1 — going right then blocked */}
+    <path d="M16 32 L36 32" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M32 27 L36 32 L32 37" stroke="#EF4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Blocked line */}
+    <line x1="39" y1="27" x2="39" y2="37" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
+    {/* Arrow 2 — going down randomly */}
+    <path d="M52 20 L52 36" stroke="#F97316" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M47 32 L52 36 L57 32" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Arrow 3 — going diagonal, lost */}
+    <path d="M20 50 L38 58" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M33 55 L38 58 L36 53" stroke="#EF4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Arrow 4 — looping back */}
+    <path d="M55 46 Q68 46 68 56 Q68 66 55 66 L44 66" stroke="#F97316" strokeWidth="3" strokeLinecap="round" fill="none"/>
+    <path d="M48 62 L44 66 L48 70" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Question mark in center */}
+    <circle cx="28" cy="58" r="8" fill="rgba(220,38,38,0.15)" stroke="#EF4444" strokeWidth="1.5"/>
+    <text x="28" y="62" textAnchor="middle" fill="#EF4444" fontSize="10" fontWeight="bold">?</text>
+  </svg>
+);
+
+const IllustrationNoVisibility = () => (
+  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="40" cy="40" r="36" fill="rgba(220,38,38,0.08)" />
+    {/* Chart bars — going up like progress */}
+    <rect x="14" y="52" width="10" height="16" rx="2" fill="#FCA5A5"/>
+    <rect x="28" y="42" width="10" height="26" rx="2" fill="#F87171"/>
+    <rect x="42" y="34" width="10" height="34" rx="2" fill="#EF4444"/>
+    <rect x="56" y="24" width="10" height="44" rx="2" fill="#DC2626"/>
+    {/* Fog overlay — semi transparent rectangles suggesting hidden data */}
+    <rect x="10" y="20" width="60" height="46" rx="8" fill="rgba(13,31,53,0.75)"/>
+    {/* Eye with line through it */}
+    <ellipse cx="40" cy="40" rx="16" ry="10" stroke="rgba(252,165,165,0.6)" strokeWidth="2" fill="none"/>
+    <circle cx="40" cy="40" r="5" fill="rgba(252,165,165,0.3)" stroke="#FCA5A5" strokeWidth="1.5"/>
+    <circle cx="40" cy="40" r="2" fill="#FCA5A5"/>
+    {/* Diagonal line through eye */}
+    <line x1="26" y1="26" x2="54" y2="54" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const IllustrationWastedEffort = () => (
+  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="40" cy="40" r="36" fill="rgba(220,38,38,0.08)" />
+    {/* Clock face */}
+    <circle cx="40" cy="40" r="22" stroke="#F87171" strokeWidth="2.5" fill="rgba(220,38,38,0.06)"/>
+    <circle cx="40" cy="40" r="2.5" fill="#EF4444"/>
+    {/* Clock hands */}
+    <line x1="40" y1="40" x2="40" y2="23" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+    <line x1="40" y1="40" x2="52" y2="46" stroke="#F87171" strokeWidth="2" strokeLinecap="round"/>
+    {/* Clock hour marks */}
+    <line x1="40" y1="20" x2="40" y2="23" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="40" y1="57" x2="40" y2="60" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="20" y1="40" x2="23" y2="40" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="57" y1="40" x2="60" y2="40" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
+    {/* X mark — effort wasted */}
+    <circle cx="59" cy="20" r="10" fill="#0D1F35" stroke="#EF4444" strokeWidth="1.5"/>
+    <line x1="54" y1="15" x2="64" y2="25" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+    <line x1="64" y1="15" x2="54" y2="25" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+  </svg>
+);
+
 // ── Problem bullets ───────────────────────────────────────────────────────────
 const PROBLEM_BULLETS = [
   'Random prep with no clear structure or path',
@@ -533,16 +599,17 @@ export default function Home() {
           {/* Three problem cards — DrFrost large-icon style */}
           <div className="prob-cards">
             {[
-              { num: '01', icon: '🎯', title: 'No clear path', text: 'Random prep with no structure means every session starts from scratch.' },
-              { num: '02', icon: '🔍', title: 'No visibility', text: 'You can\'t see which topics are actually holding your score back.' },
-              { num: '03', icon: '⏱️', title: 'Wasted effort', text: 'More hours studied does not automatically mean a better score.' },
+              { num: '01', Illustration: IllustrationNoPath,        title: 'No clear path',   text: "Random prep with no structure means every session starts from scratch." },
+              { num: '02', Illustration: IllustrationNoVisibility,  title: 'No visibility',   text: "You can't see which topics are actually holding your score back." },
+              { num: '03', Illustration: IllustrationWastedEffort,  title: 'Wasted effort',   text: 'More hours studied does not automatically mean a better score.' },
             ].map((item, i) => (
               <div key={item.num} className="prob-card" style={{ animationDelay: `${i * 120}ms` }}>
                 <span className="prob-card-num">{item.num}</span>
-                <div className="prob-card-icon-wrap">{item.icon}</div>
+                <div className="prob-card-svg-wrap">
+                  <item.Illustration />
+                </div>
                 <h3 className="prob-card-title">{item.title}</h3>
                 <p className="prob-card-text">{item.text}</p>
-                <div className="prob-card-glow" />
               </div>
             ))}
           </div>
