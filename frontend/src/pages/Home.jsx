@@ -393,67 +393,113 @@ function Cube3D() {
 
 // ── SVG illustrations for problem cards ──────────────────────────────────────
 const IllustrationNoPath = () => (
-  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Background circle */}
-    <circle cx="40" cy="40" r="36" fill="rgba(220,38,38,0.08)" />
-    {/* Tangled arrows representing random/no structure */}
-    {/* Arrow 1 — going right then blocked */}
-    <path d="M16 32 L36 32" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M32 27 L36 32 L32 37" stroke="#EF4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Blocked line */}
-    <line x1="39" y1="27" x2="39" y2="37" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
-    {/* Arrow 2 — going down randomly */}
-    <path d="M52 20 L52 36" stroke="#F97316" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M47 32 L52 36 L57 32" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Arrow 3 — going diagonal, lost */}
-    <path d="M20 50 L38 58" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M33 55 L38 58 L36 53" stroke="#EF4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Arrow 4 — looping back */}
-    <path d="M55 46 Q68 46 68 56 Q68 66 55 66 L44 66" stroke="#F97316" strokeWidth="3" strokeLinecap="round" fill="none"/>
-    <path d="M48 62 L44 66 L48 70" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Question mark in center */}
-    <circle cx="28" cy="58" r="8" fill="rgba(220,38,38,0.15)" stroke="#EF4444" strokeWidth="1.5"/>
-    <text x="28" y="62" textAnchor="middle" fill="#EF4444" fontSize="10" fontWeight="bold">?</text>
+  <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg1" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="rgba(239,68,68,0.15)"/>
+        <stop offset="100%" stopColor="rgba(239,68,68,0.02)"/>
+      </radialGradient>
+      <linearGradient id="arr1" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#EF4444"/>
+        <stop offset="100%" stopColor="#F97316"/>
+      </linearGradient>
+    </defs>
+    <circle cx="65" cy="65" r="60" fill="url(#bg1)"/>
+    {/* Chaotic arrows pointing every direction */}
+    {/* Right arrow — then blocked */}
+    <path d="M22 50 L52 50" stroke="url(#arr1)" strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M47 44 L54 50 L47 56" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <line x1="58" y1="43" x2="58" y2="57" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
+    <line x1="54" y1="43" x2="62" y2="57" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
+    {/* Down arrow */}
+    <path d="M85 22 L85 52" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M79 47 L85 54 L91 47" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Left arrow — going backward */}
+    <path d="M108 80 L78 80" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M83 74 L76 80 L83 86" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Looping arrow — going in circles */}
+    <path d="M38 72 Q20 72 20 88 Q20 104 38 104 L55 104" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
+    <path d="M51 99 L57 105 L51 111" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Diagonal confused arrow */}
+    <path d="M65 62 L95 92" stroke="#FCA5A5" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="5 4"/>
+    <path d="M91 88 L96 93 L91 98" stroke="#FCA5A5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Central question mark */}
+    <circle cx="65" cy="65" r="14" fill="rgba(239,68,68,0.15)" stroke="#EF4444" strokeWidth="2"/>
+    <text x="65" y="71" textAnchor="middle" fill="#EF4444" fontSize="16" fontWeight="900" fontFamily="Arial">?</text>
   </svg>
 );
 
 const IllustrationNoVisibility = () => (
-  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="40" cy="40" r="36" fill="rgba(220,38,38,0.08)" />
-    {/* Chart bars — going up like progress */}
-    <rect x="14" y="52" width="10" height="16" rx="2" fill="#FCA5A5"/>
-    <rect x="28" y="42" width="10" height="26" rx="2" fill="#F87171"/>
-    <rect x="42" y="34" width="10" height="34" rx="2" fill="#EF4444"/>
-    <rect x="56" y="24" width="10" height="44" rx="2" fill="#DC2626"/>
-    {/* Fog overlay — semi transparent rectangles suggesting hidden data */}
-    <rect x="10" y="20" width="60" height="46" rx="8" fill="rgba(13,31,53,0.75)"/>
-    {/* Eye with line through it */}
-    <ellipse cx="40" cy="40" rx="16" ry="10" stroke="rgba(252,165,165,0.6)" strokeWidth="2" fill="none"/>
-    <circle cx="40" cy="40" r="5" fill="rgba(252,165,165,0.3)" stroke="#FCA5A5" strokeWidth="1.5"/>
-    <circle cx="40" cy="40" r="2" fill="#FCA5A5"/>
-    {/* Diagonal line through eye */}
-    <line x1="26" y1="26" x2="54" y2="54" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+  <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg2" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="rgba(239,68,68,0.15)"/>
+        <stop offset="100%" stopColor="rgba(239,68,68,0.02)"/>
+      </radialGradient>
+      <linearGradient id="bar1" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#EF4444"/>
+        <stop offset="100%" stopColor="#F87171"/>
+      </linearGradient>
+      <linearGradient id="bar2" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#DC2626"/>
+        <stop offset="100%" stopColor="#EF4444"/>
+      </linearGradient>
+    </defs>
+    <circle cx="65" cy="65" r="60" fill="url(#bg2)"/>
+    {/* Bar chart bars underneath */}
+    <rect x="20" y="85" width="16" height="28" rx="3" fill="url(#bar1)" opacity="0.4"/>
+    <rect x="42" y="68" width="16" height="45" rx="3" fill="url(#bar1)" opacity="0.4"/>
+    <rect x="64" y="52" width="16" height="61" rx="3" fill="url(#bar2)" opacity="0.4"/>
+    <rect x="86" y="38" width="16" height="75" rx="3" fill="url(#bar2)" opacity="0.4"/>
+    {/* Fog block covering everything */}
+    <rect x="14" y="30" width="100" height="72" rx="10" fill="rgba(13,31,53,0.82)"/>
+    {/* Large eye shape */}
+    <path d="M25 66 Q65 36 105 66 Q65 96 25 66Z" stroke="rgba(252,165,165,0.5)" strokeWidth="2" fill="rgba(252,165,165,0.06)"/>
+    {/* Iris */}
+    <circle cx="65" cy="66" r="14" fill="rgba(239,68,68,0.12)" stroke="#F87171" strokeWidth="1.5"/>
+    <circle cx="65" cy="66" r="7" fill="rgba(239,68,68,0.2)" stroke="#EF4444" strokeWidth="1.5"/>
+    <circle cx="65" cy="66" r="3" fill="#EF4444"/>
+    {/* Bold diagonal slash */}
+    <line x1="24" y1="25" x2="106" y2="107" stroke="#EF4444" strokeWidth="4" strokeLinecap="round"/>
+    <line x1="22" y1="23" x2="108" y2="109" stroke="rgba(239,68,68,0.25)" strokeWidth="8" strokeLinecap="round"/>
+    {/* Question marks floating */}
+    <text x="32" y="55" fill="rgba(252,165,165,0.5)" fontSize="13" fontWeight="700" fontFamily="Arial">?</text>
+    <text x="88" y="50" fill="rgba(252,165,165,0.5)" fontSize="11" fontWeight="700" fontFamily="Arial">?</text>
+    <text x="58" y="48" fill="rgba(252,165,165,0.35)" fontSize="9" fontWeight="700" fontFamily="Arial">?</text>
   </svg>
 );
 
 const IllustrationWastedEffort = () => (
-  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="40" cy="40" r="36" fill="rgba(220,38,38,0.08)" />
-    {/* Clock face */}
-    <circle cx="40" cy="40" r="22" stroke="#F87171" strokeWidth="2.5" fill="rgba(220,38,38,0.06)"/>
-    <circle cx="40" cy="40" r="2.5" fill="#EF4444"/>
-    {/* Clock hands */}
-    <line x1="40" y1="40" x2="40" y2="23" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="40" y1="40" x2="52" y2="46" stroke="#F87171" strokeWidth="2" strokeLinecap="round"/>
-    {/* Clock hour marks */}
-    <line x1="40" y1="20" x2="40" y2="23" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="40" y1="57" x2="40" y2="60" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="20" y1="40" x2="23" y2="40" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="57" y1="40" x2="60" y2="40" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round"/>
-    {/* X mark — effort wasted */}
-    <circle cx="59" cy="20" r="10" fill="#0D1F35" stroke="#EF4444" strokeWidth="1.5"/>
-    <line x1="54" y1="15" x2="64" y2="25" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="64" y1="15" x2="54" y2="25" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+  <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg3" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="rgba(239,68,68,0.15)"/>
+        <stop offset="100%" stopColor="rgba(239,68,68,0.02)"/>
+      </radialGradient>
+      <linearGradient id="hourGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#F87171"/>
+        <stop offset="100%" stopColor="#EF4444"/>
+      </linearGradient>
+    </defs>
+    <circle cx="65" cy="65" r="60" fill="url(#bg3)"/>
+    {/* Hourglass outline */}
+    <path d="M38 18 L92 18 L92 22 L70 50 L70 80 L92 108 L92 112 L38 112 L38 108 L60 80 L60 50 L38 22 Z" stroke="#F87171" strokeWidth="2.5" fill="rgba(239,68,68,0.06)" strokeLinejoin="round"/>
+    {/* Top sand (almost empty) */}
+    <path d="M42 24 L88 24 L72 46 L58 46 Z" fill="rgba(239,68,68,0.18)"/>
+    <path d="M80 24 L88 24 L72 46 L68 46 Z" fill="rgba(239,68,68,0.35)"/>
+    {/* Sand stream falling */}
+    <line x1="65" y1="50" x2="65" y2="80" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="3 3"/>
+    {/* Bottom sand (filling up) */}
+    <path d="M58 84 L72 84 L88 106 L42 106 Z" fill="rgba(239,68,68,0.25)"/>
+    <path d="M58 84 L72 84 L80 98 L50 98 Z" fill="rgba(239,68,68,0.35)"/>
+    {/* X badge — effort wasted */}
+    <circle cx="96" cy="26" r="16" fill="#1a0a0a" stroke="#EF4444" strokeWidth="2"/>
+    <line x1="88" y1="18" x2="104" y2="34" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
+    <line x1="104" y1="18" x2="88" y2="34" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
+    {/* Urgency lines beside hourglass */}
+    <line x1="20" y1="38" x2="30" y2="38" stroke="rgba(249,115,22,0.6)" strokeWidth="2.5" strokeLinecap="round"/>
+    <line x1="16" y1="50" x2="28" y2="50" stroke="rgba(249,115,22,0.4)" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="20" y1="62" x2="30" y2="62" stroke="rgba(249,115,22,0.3)" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
@@ -604,7 +650,6 @@ export default function Home() {
               { num: '03', Illustration: IllustrationWastedEffort,  title: 'Wasted effort',   text: 'More hours studied does not automatically mean a better score.' },
             ].map((item, i) => (
               <div key={item.num} className="prob-card" style={{ animationDelay: `${i * 120}ms` }}>
-                <span className="prob-card-num">{item.num}</span>
                 <div className="prob-card-svg-wrap">
                   <item.Illustration />
                 </div>

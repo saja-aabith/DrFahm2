@@ -777,11 +777,11 @@ body {
   align-items: center;
   justify-content: center;
   margin: 0 auto 28px;
-  width: 100px; height: 100px;
+  width: 130px; height: 130px;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .prob-card:hover .prob-card-svg-wrap {
-  transform: scale(1.12) translateY(-4px);
+  transform: scale(1.1) translateY(-6px);
 }
 
 .prob-card-num {
