@@ -1340,34 +1340,53 @@ export default function Home() {
       <SituationSection onStart={handleStart} selectedExam={selectedExam} />
 
       {/* ── 6. COMPARISON ────────────────────────────────────────────────── */}
-      <section className="home-section home-section-alt">
-        <div className="home-container">
-          <div className="home-section-header">
-            <h2 className="home-section-title">Better than random prep and crash courses</h2>
-            <p style={{ color: 'var(--text-muted)', marginTop: 8, fontSize: '0.95rem' }}>
-              Students across Saudi Arabia are using DrFahm to prepare for their next attempt.
+      <section className="cmp-section">
+        <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
+
+          <div className="cmp-header">
+            <div className="cmp-eyebrow">The difference is clear</div>
+            <h2 className="cmp-headline">
+              Better than random prep<br />and crash courses
+            </h2>
+            <p className="cmp-subhead">
+              Students across Saudi Arabia are switching to DrFahm because structure beats volume every time.
             </p>
           </div>
 
-          <div className="home-comparison-grid">
-            <div className="home-comparison-col col-negative">
-              <div className="home-comparison-col-title">Typical preparation</div>
-              <div className="home-comparison-items">
-                {COMPARISON_LEFT.map((item) => (
-                  <div key={item} className="home-comparison-item">
-                    <Minus size={15} className="home-comparison-icon" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div className="cmp-grid">
+            {/* Left — Typical prep (dark muted) */}
+            <div className="cmp-col cmp-col-bad">
+              <div className="cmp-col-header">
+                <div className="cmp-col-icon cmp-col-icon-bad">✕</div>
+                <h3 className="cmp-col-title cmp-col-title-bad">Typical preparation</h3>
+              </div>
+              <div className="cmp-items">
+                {COMPARISON_LEFT.map((item, i) => (
+                  <div key={item} className="cmp-item cmp-item-bad" style={{ animationDelay: `${i * 100}ms` }}>
+                    <div className="cmp-item-icon cmp-item-icon-bad">✕</div>
                     <span>{item}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="home-comparison-col col-positive">
-              <div className="home-comparison-col-title">DrFahm</div>
-              <div className="home-comparison-items">
-                {COMPARISON_RIGHT.map((item) => (
-                  <div key={item} className="home-comparison-item">
-                    <Check size={15} className="home-comparison-icon" style={{ flexShrink: 0, marginTop: 2 }} />
+            {/* VS divider */}
+            <div className="cmp-vs">
+              <div className="cmp-vs-line" />
+              <div className="cmp-vs-badge">VS</div>
+              <div className="cmp-vs-line" />
+            </div>
+
+            {/* Right — DrFahm (bright green) */}
+            <div className="cmp-col cmp-col-good">
+              <div className="cmp-col-header">
+                <div className="cmp-col-icon cmp-col-icon-good">✓</div>
+                <h3 className="cmp-col-title cmp-col-title-good">DrFahm</h3>
+              </div>
+              <div className="cmp-items">
+                {COMPARISON_RIGHT.map((item, i) => (
+                  <div key={item} className="cmp-item cmp-item-good" style={{ animationDelay: `${i * 100}ms` }}>
+                    <div className="cmp-item-icon cmp-item-icon-good">✓</div>
                     <span>{item}</span>
                   </div>
                 ))}
@@ -1375,15 +1394,16 @@ export default function Home() {
             </div>
           </div>
 
-          <p className="home-comparison-closing">
-            Doing more isn't the same as improving. Focus is what moves your score.
-          </p>
-
-          <div className="home-micro-cta">
-            <button onClick={() => handleStart(selectedExam)}>
+          {/* Bottom closing statement + CTA */}
+          <div className="cmp-footer">
+            <p className="cmp-closing">
+              Doing more isn't the same as improving. <strong>Focus is what moves your score.</strong>
+            </p>
+            <button className="btn btn-green btn-lg" onClick={() => handleStart(selectedExam)}>
               Start your free trial now →
             </button>
           </div>
+
         </div>
       </section>
 
