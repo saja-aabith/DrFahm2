@@ -902,66 +902,79 @@ export default function Home() {
       <Navbar />
 
       {/* ── 1. HERO ──────────────────────────────────────────────────────── */}
-      <section className="home-hero">
-        <div className={`home-hero-content ${heroVisible ? 'anim-in' : ''}`}>
-          <div className="home-hero-eyebrow">
-            <span className="home-hero-dot" />
-            Qudurat &amp; Tahsili preparation for Saudi students
-          </div>
+      <section className="hero-section">
+        {/* Background orbs */}
+        <div className="hero-orb hero-orb-1" />
+        <div className="hero-orb hero-orb-2" />
+        <div className="hero-orb hero-orb-3" />
+        {/* Subtle grid texture */}
+        <div className="hero-grid" aria-hidden="true" />
 
-          <h1 className="home-hero-title">
-            Stop wasting time on random prep. Improve your score with a clear plan.
-          </h1>
+        <div className="hero-inner">
+          {/* Left content */}
+          <div className={`hero-content ${heroVisible ? 'anim-in' : ''}`}>
 
-          <p className="home-hero-sub">
-            DrFahm shows you exactly what to focus on so every hour you study actually improves your score.
-          </p>
+            <div className="hero-eyebrow">
+              <span className="hero-eyebrow-dot" />
+              Qudurat &amp; Tahsili preparation for Saudi students
+            </div>
 
-          <div className="home-hero-exam-toggle">
-            <button
-              className={`home-hero-exam-btn ${selectedExam === 'qudurat' ? 'active' : ''}`}
-              onClick={() => handleExamChange('qudurat')}
-            >
-              Qudurat
+            <h1 className="hero-title">
+              Stop wasting time<br />
+              on <span className="hero-title-accent">random prep.</span><br />
+              Improve your score.
+            </h1>
+
+            <p className="hero-sub">
+              DrFahm shows you exactly what to focus on so every hour you study actually improves your score.
+            </p>
+
+            {/* Exam toggle */}
+            <div className="hero-toggle">
+              <button
+                className={`hero-toggle-btn ${selectedExam === 'qudurat' ? 'active' : ''}`}
+                onClick={() => handleExamChange('qudurat')}
+              >
+                Qudurat
+              </button>
+              <button
+                className={`hero-toggle-btn ${selectedExam === 'tahsili' ? 'active' : ''}`}
+                onClick={() => handleExamChange('tahsili')}
+              >
+                Tahsili
+              </button>
+            </div>
+
+            {/* CTA */}
+            <button className="hero-cta" onClick={() => handleStart(selectedExam)}>
+              Start free trial — {selectedExam === 'tahsili' ? 'Tahsili' : 'Qudurat'}
+              <span className="hero-cta-arrow">→</span>
             </button>
-            <button
-              className={`home-hero-exam-btn ${selectedExam === 'tahsili' ? 'active' : ''}`}
-              onClick={() => handleExamChange('tahsili')}
-            >
-              Tahsili
-            </button>
+
+            {/* Trust row */}
+            <div className="hero-trust">
+              <span>✓ 7-day free trial</span>
+              <span>✓ No credit card</span>
+              <span>✓ Cancel anytime</span>
+            </div>
           </div>
 
-          {/* ── Single universal CTA ── */}
-          <div className="home-hero-actions">
-            <button className="btn btn-green btn-lg" onClick={() => handleStart(selectedExam)}>
-              Start free trial
-            </button>
+          {/* Right: demo widget in glowing frame */}
+          <div className={`hero-demo-wrap ${heroVisible ? 'anim-in-delayed' : ''}`}>
+            <div className="hero-demo-glow" />
+            <div className="hero-demo-frame">
+              {demoFinished ? (
+                <DemoResult answers={demoAnswers} onStart={handleStart} exam={selectedExam} />
+              ) : (
+                <DemoWidget
+                  key={selectedExam}
+                  questions={demoQuestions}
+                  examLabel={demoLabel}
+                  onFinish={handleDemoFinish}
+                />
+              )}
+            </div>
           </div>
-
-          <div className="home-hero-trust">
-            <span>✓ 7-day free trial</span>
-            <span>✓ No credit card required</span>
-            <span>✓ Cancel anytime</span>
-          </div>
-
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 14 }}>
-            Start seeing what to fix from your first session.
-          </p>
-        </div>
-
-        {/* Right: exam-aware demo widget */}
-        <div className={`home-hero-visual ${heroVisible ? 'anim-in-delayed' : ''}`}>
-          {demoFinished ? (
-            <DemoResult answers={demoAnswers} onStart={handleStart} exam={selectedExam} />
-          ) : (
-            <DemoWidget
-              key={selectedExam}
-              questions={demoQuestions}
-              examLabel={demoLabel}
-              onFinish={handleDemoFinish}
-            />
-          )}
         </div>
       </section>
 
