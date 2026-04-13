@@ -391,8 +391,195 @@ function Cube3D() {
   );
 }
 
-// ── SVG illustrations for problem cards ──────────────────────────────────────
+// ── Animated SVG illustrations ────────────────────────────────────────────────
 const IllustrationNoPath = () => (
+  <svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>{`
+      @keyframes spin-slow { from{transform-origin:70px 70px;transform:rotate(0deg)} to{transform-origin:70px 70px;transform:rotate(360deg)} }
+      @keyframes bounce-q1 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+      @keyframes bounce-q2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+      @keyframes bounce-q3 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+      @keyframes arrow-flash { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      @keyframes sign-wobble { 0%,100%{transform:rotate(0deg);transform-origin:70px 90px} 25%{transform:rotate(-4deg);transform-origin:70px 90px} 75%{transform:rotate(4deg);transform-origin:70px 90px} }
+      .np-spin { animation: spin-slow 8s linear infinite; }
+      .np-q1   { animation: bounce-q1 1.8s ease-in-out infinite; }
+      .np-q2   { animation: bounce-q2 2.2s ease-in-out infinite 0.3s; }
+      .np-q3   { animation: bounce-q3 2s ease-in-out infinite 0.6s; }
+      .np-arr1 { animation: arrow-flash 1.4s ease-in-out infinite; }
+      .np-arr2 { animation: arrow-flash 1.4s ease-in-out infinite 0.5s; }
+      .np-arr3 { animation: arrow-flash 1.4s ease-in-out infinite 1s; }
+      .np-signs{ animation: sign-wobble 3s ease-in-out infinite; }
+    `}</style>
+    <defs>
+      <linearGradient id="np_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFF1F2"/><stop offset="100%" stopColor="#FEE2E2"/></linearGradient>
+      <linearGradient id="np_road" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818CF8"/><stop offset="100%" stopColor="#6366F1"/></linearGradient>
+    </defs>
+    <circle cx="70" cy="70" r="66" fill="url(#np_bg)"/>
+    <ellipse cx="70" cy="112" rx="32" ry="6" fill="rgba(0,0,0,0.07)"/>
+    {/* Road stem */}
+    <rect x="64" y="88" width="12" height="24" rx="6" fill="url(#np_road)"/>
+    <line x1="70" y1="98" x2="70" y2="106" stroke="white" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3"/>
+    {/* Sign post */}
+    <rect x="68" y="62" width="4" height="30" rx="2" fill="#92400E"/>
+    {/* Rotating arrows group */}
+    <g className="np-signs">
+      {/* Left sign */}
+      <rect x="28" y="56" width="34" height="13" rx="3" fill="#EF4444"/>
+      <path d="M28 62.5 L22 56 L22 69 Z" fill="#EF4444"/>
+      <line x1="34" y1="62" x2="54" y2="62" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M49 59 L54 62 L49 65" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Right sign */}
+      <rect x="78" y="46" width="34" height="13" rx="3" fill="#10B981"/>
+      <path d="M112 52.5 L118 46 L118 59 Z" fill="#10B981"/>
+      <line x1="82" y1="52" x2="102" y2="52" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M88 49 L83 52 L88 55" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Up sign */}
+      <rect x="48" y="30" width="28" height="13" rx="3" fill="#F59E0B"/>
+      <path d="M62 30 L70 22 L78 30 Z" fill="#F59E0B"/>
+      <text x="62" y="41" fill="white" fontSize="7" fontWeight="800" fontFamily="Arial" textAnchor="middle">↑</text>
+    </g>
+    {/* Spinning confused circle */}
+    <circle cx="70" cy="70" r="10" fill="rgba(99,102,241,0.1)" stroke="#6366F1" strokeWidth="1.5" strokeDasharray="4 3" className="np-spin"/>
+    {/* Bouncing question marks */}
+    <g className="np-q1"><text x="18" y="42" fill="#F59E0B" fontSize="20" fontWeight="900" fontFamily="Arial">?</text></g>
+    <g className="np-q2"><text x="108" y="36" fill="#EF4444" fontSize="16" fontWeight="900" fontFamily="Arial">?</text></g>
+    <g className="np-q3"><text x="112" y="82" fill="#6366F1" fontSize="14" fontWeight="900" fontFamily="Arial">?</text></g>
+    {/* Flashing arrows */}
+    <g className="np-arr1"><path d="M14 72 L26 72" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/><path d="M22 68 L27 72 L22 76" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></g>
+    <g className="np-arr2"><path d="M126 56 L114 56" stroke="#10B981" strokeWidth="3" strokeLinecap="round"/><path d="M118 52 L113 56 L118 60" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></g>
+    <g className="np-arr3"><path d="M38 112 L28 100" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/><path d="M31 104 L27 99 L33 97" fill="none" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></g>
+  </svg>
+);
+
+const IllustrationNoVisibility = () => (
+  <svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>{`
+      @keyframes fog-drift1 { 0%,100%{transform:translateX(0)} 50%{transform:translateX(8px)} }
+      @keyframes fog-drift2 { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-10px)} }
+      @keyframes fog-drift3 { 0%,100%{transform:translateX(0)} 50%{transform:translateX(6px)} }
+      @keyframes lock-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+      @keyframes twinkle1 { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.6)} }
+      @keyframes twinkle2 { 0%,100%{opacity:0.7;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
+      @keyframes twinkle3 { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.2)} }
+      @keyframes bar-grow  { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
+      .nv-fog1  { animation: fog-drift1 3s ease-in-out infinite; }
+      .nv-fog2  { animation: fog-drift2 4s ease-in-out infinite 0.5s; }
+      .nv-fog3  { animation: fog-drift3 3.5s ease-in-out infinite 1s; }
+      .nv-lock  { animation: lock-pulse 2s ease-in-out infinite; transform-origin:70px 72px; }
+      .nv-star1 { animation: twinkle1 1.6s ease-in-out infinite; }
+      .nv-star2 { animation: twinkle2 2s ease-in-out infinite 0.4s; }
+      .nv-star3 { animation: twinkle3 1.8s ease-in-out infinite 0.8s; }
+      .nv-bars  { animation: bar-grow 2.5s ease-in-out infinite; }
+    `}</style>
+    <defs>
+      <linearGradient id="nv_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#EFF6FF"/><stop offset="100%" stopColor="#F0FDF4"/></linearGradient>
+      <linearGradient id="nv_b1" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#3B82F6"/><stop offset="100%" stopColor="#93C5FD"/></linearGradient>
+      <linearGradient id="nv_b2" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#10B981"/><stop offset="100%" stopColor="#6EE7B7"/></linearGradient>
+      <linearGradient id="nv_b3" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#F59E0B"/><stop offset="100%" stopColor="#FCD34D"/></linearGradient>
+      <linearGradient id="nv_b4" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#8B5CF6"/><stop offset="100%" stopColor="#C4B5FD"/></linearGradient>
+    </defs>
+    <circle cx="70" cy="70" r="66" fill="url(#nv_bg)"/>
+    {/* Chart frame */}
+    <rect x="18" y="32" width="104" height="80" rx="10" fill="white" stroke="#E2E8F0" strokeWidth="1.5"/>
+    {/* Colorful bars */}
+    <g className="nv-bars">
+      <rect x="28" y="84" width="18" height="20" rx="3" fill="url(#nv_b1)"/>
+      <rect x="52" y="68" width="18" height="36" rx="3" fill="url(#nv_b2)"/>
+      <rect x="76" y="54" width="18" height="50" rx="3" fill="url(#nv_b3)"/>
+      <rect x="100" y="42" width="18" height="62" rx="3" fill="url(#nv_b4)"/>
+    </g>
+    {/* Animated fog layers */}
+    <g className="nv-fog1"><ellipse cx="50" cy="70" rx="30" ry="18" fill="rgba(203,213,225,0.75)"/></g>
+    <g className="nv-fog2"><ellipse cx="90" cy="62" rx="32" ry="20" fill="rgba(203,213,225,0.72)"/></g>
+    <g className="nv-fog3"><ellipse cx="70" cy="82" rx="38" ry="16" fill="rgba(203,213,225,0.7)"/></g>
+    <g className="nv-fog1"><ellipse cx="36" cy="82" rx="22" ry="14" fill="rgba(226,232,240,0.65)"/></g>
+    <g className="nv-fog2"><ellipse cx="104" cy="78" rx="22" ry="13" fill="rgba(226,232,240,0.6)"/></g>
+    {/* Pulsing padlock */}
+    <g className="nv-lock">
+      <rect x="52" y="62" width="36" height="28" rx="6" fill="#475569"/>
+      <path d="M61 62 L61 54 Q61 44 70 44 Q79 44 79 54 L79 62" stroke="#475569" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      <circle cx="70" cy="74" r="6" fill="#94A3B8"/>
+      <rect x="68" y="74" width="4" height="8" rx="2" fill="#94A3B8"/>
+    </g>
+    {/* Twinkling stars */}
+    <g className="nv-star1"><path d="M118 24 L120.5 18 L123 24 L129 26.5 L123 29 L120.5 35 L118 29 L112 26.5 Z" fill="#F59E0B"/></g>
+    <g className="nv-star2"><path d="M14 96 L16 91 L18 96 L23 98 L18 100 L16 105 L14 100 L9 98 Z" fill="#3B82F6"/></g>
+    <g className="nv-star3"><path d="M118 100 L120 96 L122 100 L126 102 L122 104 L120 108 L118 104 L114 102 Z" fill="#10B981"/></g>
+  </svg>
+);
+
+const IllustrationWastedEffort = () => (
+  <svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>{`
+      @keyframes wheel-spin  { from{transform-origin:70px 76px;transform:rotate(0deg)} to{transform-origin:70px 76px;transform:rotate(360deg)} }
+      @keyframes run-leg1    { 0%,100%{transform:rotate(0deg);transform-origin:70px 84px} 50%{transform:rotate(28deg);transform-origin:70px 84px} }
+      @keyframes run-leg2    { 0%,100%{transform:rotate(0deg);transform-origin:70px 84px} 50%{transform:rotate(-28deg);transform-origin:70px 84px} }
+      @keyframes run-arm1    { 0%,100%{transform:rotate(0deg);transform-origin:67px 68px} 50%{transform:rotate(30deg);transform-origin:67px 68px} }
+      @keyframes run-arm2    { 0%,100%{transform:rotate(0deg);transform-origin:73px 68px} 50%{transform:rotate(-30deg);transform-origin:73px 68px} }
+      @keyframes sweat-drop1 { 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(-8px,14px);opacity:0} }
+      @keyframes sweat-drop2 { 0%{transform:translate(0,0);opacity:0.8} 100%{transform:translate(-6px,18px);opacity:0} }
+      @keyframes sweat-drop3 { 0%{transform:translate(0,0);opacity:0.6} 100%{transform:translate(-10px,12px);opacity:0} }
+      @keyframes score-flat  { 0%,100%{stroke-dashoffset:0} 50%{stroke-dashoffset:-8px} }
+      @keyframes arrow-down  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
+      .we-wheel { animation: wheel-spin 1.8s linear infinite; }
+      .we-leg1  { animation: run-leg1 0.55s ease-in-out infinite; }
+      .we-leg2  { animation: run-leg2 0.55s ease-in-out infinite; }
+      .we-arm1  { animation: run-arm1 0.55s ease-in-out infinite; }
+      .we-arm2  { animation: run-arm2 0.55s ease-in-out infinite; }
+      .we-sw1   { animation: sweat-drop1 1.1s ease-in infinite; }
+      .we-sw2   { animation: sweat-drop2 1.1s ease-in infinite 0.35s; }
+      .we-sw3   { animation: sweat-drop3 1.1s ease-in infinite 0.7s; }
+      .we-arrow { animation: arrow-down 1s ease-in-out infinite; }
+    `}</style>
+    <defs>
+      <linearGradient id="we_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFF7ED"/><stop offset="100%" stopColor="#FFFBEB"/></linearGradient>
+      <linearGradient id="we_wheel" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#F97316"/><stop offset="100%" stopColor="#EF4444"/></linearGradient>
+      <linearGradient id="we_body" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FBBF24"/><stop offset="100%" stopColor="#F59E0B"/></linearGradient>
+    </defs>
+    <circle cx="70" cy="70" r="66" fill="url(#we_bg)"/>
+    {/* Spinning wheel */}
+    <g className="we-wheel">
+      <circle cx="70" cy="76" r="42" stroke="url(#we_wheel)" strokeWidth="7" fill="rgba(249,115,22,0.07)"/>
+      <circle cx="70" cy="76" r="34" stroke="rgba(249,115,22,0.22)" strokeWidth="2" fill="none"/>
+      <line x1="70" y1="34" x2="70" y2="118" stroke="rgba(249,115,22,0.18)" strokeWidth="2.5"/>
+      <line x1="28" y1="76" x2="112" y2="76" stroke="rgba(249,115,22,0.18)" strokeWidth="2.5"/>
+      <line x1="40" y1="46" x2="100" y2="106" stroke="rgba(249,115,22,0.13)" strokeWidth="2"/>
+      <line x1="100" y1="46" x2="40" y2="106" stroke="rgba(249,115,22,0.13)" strokeWidth="2"/>
+    </g>
+    {/* Running figure */}
+    {/* Head */}
+    <circle cx="70" cy="54" r="9" fill="url(#we_body)" stroke="#F59E0B" strokeWidth="1.5"/>
+    <circle cx="67" cy="52" r="1.5" fill="#92400E"/>
+    <circle cx="73" cy="52" r="1.5" fill="#92400E"/>
+    <path d="M67 57 Q70 59 73 57" stroke="#92400E" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+    {/* Body */}
+    <rect x="63" y="63" width="14" height="18" rx="5" fill="url(#we_body)"/>
+    {/* Animated legs */}
+    <g className="we-leg1"><rect x="63" y="80" width="7" height="18" rx="3.5" fill="#F59E0B"/></g>
+    <g className="we-leg2"><rect x="70" y="80" width="7" height="18" rx="3.5" fill="#FBBF24"/></g>
+    {/* Animated arms */}
+    <g className="we-arm1"><rect x="51" y="63" width="14" height="6" rx="3" fill="#FBBF24"/></g>
+    <g className="we-arm2"><rect x="75" y="65" width="14" height="6" rx="3" fill="#F59E0B"/></g>
+    {/* Sweat drops */}
+    <g className="we-sw1"><ellipse cx="52" cy="50" rx="3.5" ry="5" fill="#60A5FA" opacity="0.9"/></g>
+    <g className="we-sw2"><ellipse cx="46" cy="42" rx="2.5" ry="4" fill="#60A5FA" opacity="0.7"/></g>
+    <g className="we-sw3"><ellipse cx="57" cy="40" rx="2" ry="3" fill="#93C5FD" opacity="0.6"/></g>
+    {/* Score flat-line chart */}
+    <rect x="90" y="16" width="38" height="26" rx="5" fill="white" stroke="#E2E8F0" strokeWidth="1.5"/>
+    <text x="109" y="25" fill="#94A3B8" fontSize="6" fontWeight="700" fontFamily="Arial" textAnchor="middle">SCORE</text>
+    <polyline points="96,35 101,30 106,35 111,30 116,30 121,30" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Down arrow — animated */}
+    <g className="we-arrow">
+      <line x1="128" y1="30" x2="128" y2="42" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M124 39 L128 44 L132 39" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </g>
+    {/* Circular no-progress arrow */}
+    <path d="M16 62 Q8 50 16 38 Q22 28 34 30" stroke="#F97316" strokeWidth="3" strokeLinecap="round" fill="none"/>
+    <path d="M30 26 L35 31 L30 36" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  </svg>
+);
+
+// ── Problem bullets ───────────────────────────────────────────────────────────
   <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="np_bg" x1="0" y1="0" x2="1" y2="1">
