@@ -586,6 +586,279 @@ const PROBLEM_BULLETS = [
   'Hours studied ≠ score improvement without focus',
 ];
 
+// ── Situation SVGs ────────────────────────────────────────────────────────────
+const SvgFast = () => (
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>{`
+      @keyframes sf-tick { 0%,100%{transform:rotate(0deg);transform-origin:60px 60px} 4%{transform:rotate(-8deg);transform-origin:60px 60px} 8%{transform:rotate(0deg);transform-origin:60px 60px} }
+      @keyframes sf-hand { 0%{transform:rotate(-60deg);transform-origin:60px 60px} 100%{transform:rotate(240deg);transform-origin:60px 60px} }
+      @keyframes sf-num  { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      @keyframes sf-flash{ 0%,80%{opacity:0} 85%,95%{opacity:1} 100%{opacity:0} }
+      @keyframes sf-bolt { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-4px) scale(1.1)} }
+      .sf-case  { animation: sf-tick 1s ease infinite; }
+      .sf-hand  { animation: sf-hand 2s linear infinite; }
+      .sf-num1  { animation: sf-num  1s ease infinite 0s; }
+      .sf-num2  { animation: sf-num  1s ease infinite 0.33s; }
+      .sf-num3  { animation: sf-num  1s ease infinite 0.66s; }
+      .sf-flash { animation: sf-flash 2s ease infinite; }
+      .sf-bolt  { animation: sf-bolt 0.8s ease-in-out infinite; }
+    `}</style>
+    <defs>
+      <linearGradient id="sf_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFF7ED"/><stop offset="100%" stopColor="#FEF3C7"/></linearGradient>
+      <linearGradient id="sf_face" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FFFFFF"/><stop offset="100%" stopColor="#FEF9EE"/></linearGradient>
+    </defs>
+    <circle cx="60" cy="60" r="57" fill="url(#sf_bg)"/>
+    {/* Stopwatch case */}
+    <g className="sf-case">
+      <circle cx="60" cy="65" r="36" fill="url(#sf_face)" stroke="#F97316" strokeWidth="3.5"/>
+      <rect x="55" y="26" width="10" height="8" rx="3" fill="#F97316"/>
+      <rect x="45" y="22" width="30" height="8" rx="4" fill="#F97316"/>
+      {/* Timer marks */}
+      <line x1="60" y1="33" x2="60" y2="37" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="60" y1="89" x2="60" y2="93" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="28" y1="65" x2="32" y2="65" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="88" y1="65" x2="92" y2="65" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round"/>
+      {/* Countdown numbers */}
+      <text x="60" y="54" textAnchor="middle" fill="#EF4444" fontSize="9" fontWeight="800" fontFamily="Arial" className="sf-num1">3</text>
+      <text x="60" y="66" textAnchor="middle" fill="#F97316" fontSize="9" fontWeight="800" fontFamily="Arial" className="sf-num2">2</text>
+      <text x="60" y="78" textAnchor="middle" fill="#FBBF24" fontSize="9" fontWeight="800" fontFamily="Arial" className="sf-num3">1</text>
+    </g>
+    {/* Second hand spinning */}
+    <line x1="60" y1="65" x2="60" y2="40" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" className="sf-hand"/>
+    <circle cx="60" cy="65" r="3.5" fill="#EF4444"/>
+    {/* Flash effect */}
+    <circle cx="60" cy="65" r="36" fill="rgba(249,115,22,0.15)" className="sf-flash"/>
+    {/* Lightning bolt */}
+    <g className="sf-bolt">
+      <path d="M93 28 L87 42 L93 42 L87 56 L100 38 L94 38 Z" fill="#FBBF24" stroke="#F59E0B" strokeWidth="1"/>
+    </g>
+    {/* Urgency lines */}
+    <line x1="14" y1="50" x2="20" y2="50" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" opacity="0.7"/>
+    <line x1="12" y1="62" x2="19" y2="62" stroke="#EF4444" strokeWidth="2"   strokeLinecap="round" opacity="0.5"/>
+    <line x1="14" y1="74" x2="20" y2="74" stroke="#FBBF24" strokeWidth="2"   strokeLinecap="round" opacity="0.4"/>
+  </svg>
+);
+
+const SvgStuck = () => (
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>{`
+      @keyframes ss-needle { 0%,40%{transform:rotate(-20deg);transform-origin:60px 78px} 50%{transform:rotate(-22deg);transform-origin:60px 78px} 60%,90%{transform:rotate(-20deg);transform-origin:60px 78px} 92%{transform:rotate(50deg);transform-origin:60px 78px} 100%{transform:rotate(50deg);transform-origin:60px 78px} }
+      @keyframes ss-shake  { 0%,100%{transform:translateX(0)} 10%{transform:translateX(-3px)} 20%{transform:translateX(3px)} 30%{transform:translateX(-2px)} 40%{transform:translateX(2px)} 50%{transform:translateX(0)} }
+      @keyframes ss-break  { 0%,88%{opacity:0} 92%,100%{opacity:1} }
+      @keyframes ss-spark  { 0%,88%{opacity:0;transform:scale(0)} 93%{opacity:1;transform:scale(1.3)} 100%{opacity:0;transform:scale(0)} }
+      @keyframes ss-zone   { 0%,88%{fill:rgba(239,68,68,0.15)} 94%,100%{fill:rgba(74,222,128,0.2)} }
+      .ss-needle { animation: ss-needle 3s cubic-bezier(0.4,0,0.2,1) infinite; }
+      .ss-gauge  { animation: ss-shake 3s ease infinite; }
+      .ss-break  { animation: ss-break 3s ease infinite; }
+      .ss-spark  { animation: ss-spark 3s ease infinite; }
+      .ss-zone   { animation: ss-zone  3s ease infinite; }
+    `}</style>
+    <defs>
+      <linearGradient id="ss_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#EFF6FF"/><stop offset="100%" stopColor="#E0F2FE"/></linearGradient>
+      <linearGradient id="ss_arc" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#22C55E"/><stop offset="40%" stopColor="#EAB308"/><stop offset="100%" stopColor="#EF4444"/></linearGradient>
+    </defs>
+    <circle cx="60" cy="60" r="57" fill="url(#ss_bg)"/>
+    {/* Gauge background arc */}
+    <path d="M 18 82 A 42 42 0 0 1 102 82" stroke="#E2E8F0" strokeWidth="10" strokeLinecap="round" fill="none"/>
+    {/* Colored arc */}
+    <path d="M 18 82 A 42 42 0 0 1 102 82" stroke="url(#ss_arc)" strokeWidth="10" strokeLinecap="round" fill="none"/>
+    {/* Zone labels */}
+    <text x="20"  y="96" fill="#22C55E" fontSize="8" fontWeight="700" fontFamily="Arial">LOW</text>
+    <text x="52"  y="32" fill="#EAB308" fontSize="8" fontWeight="700" fontFamily="Arial">MID</text>
+    <text x="92"  y="96" fill="#EF4444" fontSize="8" fontWeight="700" fontFamily="Arial">HIGH</text>
+    {/* Stuck zone highlight */}
+    <path d="M 18 82 A 42 42 0 0 1 42 45" stroke="rgba(239,68,68,0)" strokeWidth="10" fill="none" className="ss-zone"/>
+    {/* Tick marks */}
+    {[0,30,60,90,120,150,180].map((deg, i) => {
+      const r = deg * Math.PI / 180;
+      const cx = 60 + 42 * Math.cos(Math.PI + r);
+      const cy = 82 + 42 * Math.sin(Math.PI + r);
+      const ix = 60 + 36 * Math.cos(Math.PI + r);
+      const iy = 82 + 36 * Math.sin(Math.PI + r);
+      return <line key={i} x1={cx} y1={cy} x2={ix} y2={iy} stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round"/>;
+    })}
+    {/* Gauge body */}
+    <g className="ss-gauge">
+      <circle cx="60" cy="78" r="8" fill="#1E293B"/>
+    </g>
+    {/* Needle — stuck then breaks free */}
+    <g className="ss-needle">
+      <line x1="60" y1="78" x2="60" y2="42" stroke="#1E293B" strokeWidth="3" strokeLinecap="round"/>
+      <polygon points="60,38 57,46 63,46" fill="#EF4444"/>
+    </g>
+    {/* Break free burst */}
+    <g className="ss-break">
+      <circle cx="60" cy="78" r="16" fill="none" stroke="#4ADE80" strokeWidth="2.5" strokeDasharray="4 3"/>
+    </g>
+    <g className="ss-spark">
+      <path d="M60 55 L62 62 L68 60 L63 66 L66 73 L60 68 L54 73 L57 66 L52 60 L58 62Z" fill="#FBBF24"/>
+    </g>
+    {/* Score label */}
+    <rect x="40" y="88" width="40" height="16" rx="5" fill="white" stroke="#E2E8F0" strokeWidth="1"/>
+    <text x="60" y="99" textAnchor="middle" fill="#64748B" fontSize="8" fontWeight="700" fontFamily="Arial">SAME SCORE</text>
+  </svg>
+);
+
+const SvgTrophy = () => (
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>{`
+      @keyframes st-shine { 0%,100%{transform:translateX(-40px) skewX(-15deg)} 50%{transform:translateX(140px) skewX(-15deg)} }
+      @keyframes st-star1 { 0%,100%{transform:translate(0,0) scale(1);opacity:0.8} 50%{transform:translate(-3px,-6px) scale(1.2);opacity:1} }
+      @keyframes st-star2 { 0%,100%{transform:translate(0,0) scale(1);opacity:0.6} 50%{transform:translate(4px,-8px) scale(1.15);opacity:1} }
+      @keyframes st-star3 { 0%,100%{transform:translate(0,0) scale(0.8);opacity:0.5} 50%{transform:translate(-2px,-5px) scale(1.1);opacity:0.9} }
+      @keyframes st-glow  { 0%,100%{opacity:0.3;r:28} 50%{opacity:0.6;r:34} }
+      @keyframes st-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+      .st-shine { animation: st-shine 2.5s ease-in-out infinite; }
+      .st-star1 { animation: st-star1 1.8s ease-in-out infinite; transform-origin:25px 25px; }
+      .st-star2 { animation: st-star2 2.2s ease-in-out infinite 0.3s; transform-origin:95px 20px; }
+      .st-star3 { animation: st-star3 2s ease-in-out infinite 0.6s; transform-origin:15px 70px; }
+      .st-glow  { animation: st-glow 2s ease-in-out infinite; }
+      .st-float { animation: st-float 2.5s ease-in-out infinite; }
+    `}</style>
+    <defs>
+      <linearGradient id="st_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFFBEB"/><stop offset="100%" stopColor="#FEF9C3"/></linearGradient>
+      <linearGradient id="st_trophy" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FCD34D"/><stop offset="100%" stopColor="#F59E0B"/></linearGradient>
+      <linearGradient id="st_shine_g" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="rgba(255,255,255,0)"/><stop offset="50%" stopColor="rgba(255,255,255,0.6)"/><stop offset="100%" stopColor="rgba(255,255,255,0)"/></linearGradient>
+      <clipPath id="st_clip"><path d="M 38 25 Q 38 75 60 82 Q 82 75 82 25 Z"/></clipPath>
+    </defs>
+    <circle cx="60" cy="60" r="57" fill="url(#st_bg)"/>
+    {/* Glow behind trophy */}
+    <circle cx="60" cy="58" fill="rgba(251,191,36,0.2)" stroke="rgba(251,191,36,0.3)" strokeWidth="1" className="st-glow" r="28"/>
+    {/* Trophy body */}
+    <g className="st-float">
+      {/* Cup */}
+      <path d="M 38 25 Q 36 55 60 68 Q 84 55 82 25 Z" fill="url(#st_trophy)"/>
+      {/* Inner cup shadow */}
+      <path d="M 44 25 Q 43 50 60 62 Q 77 50 76 25 Z" fill="rgba(0,0,0,0.06)"/>
+      {/* Handles */}
+      <path d="M 38 35 Q 24 35 24 48 Q 24 58 38 56" stroke="#F59E0B" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      <path d="M 82 35 Q 96 35 96 48 Q 96 58 82 56" stroke="#F59E0B" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      {/* Stem */}
+      <rect x="55" y="68" width="10" height="18" rx="3" fill="#F59E0B"/>
+      {/* Base */}
+      <rect x="42" y="84" width="36" height="9" rx="4" fill="#F59E0B"/>
+      <rect x="38" y="91" width="44" height="7" rx="3" fill="#D97706"/>
+      {/* 90+ badge on cup */}
+      <circle cx="60" cy="46" r="14" fill="rgba(255,255,255,0.25)"/>
+      <text x="60" y="51" textAnchor="middle" fill="white" fontSize="11" fontWeight="900" fontFamily="Arial">90+</text>
+      {/* Shine sweep */}
+      <rect x="0" y="0" width="30" height="120" fill="url(#st_shine_g)" clipPath="url(#st_clip)" className="st-shine"/>
+    </g>
+    {/* Stars */}
+    <g className="st-star1"><path d="M25 25 L27 19 L29 25 L35 27 L29 29 L27 35 L25 29 L19 27Z" fill="#FBBF24"/></g>
+    <g className="st-star2"><path d="M95 20 L97 15 L99 20 L104 22 L99 24 L97 29 L95 24 L90 22Z" fill="#FCD34D"/></g>
+    <g className="st-star3"><path d="M15 70 L16.5 65 L18 70 L23 72 L18 74 L16.5 79 L15 74 L10 72Z" fill="#F59E0B" opacity="0.8"/></g>
+  </svg>
+);
+
+// ── Interactive situation section ─────────────────────────────────────────────
+const SITUATIONS = [
+  {
+    id:      'fast',
+    label:   'Need to improve fast?',
+    title:   'Focus on the highest-impact areas first',
+    body:    'Stop covering everything. Target what will move your score the most in the time you have left.',
+    cta:     'Start — I need results fast',
+    detail:  'Most students see score improvement after 2–3 focused sessions.',
+    Svg:     SvgFast,
+    color:   '#F97316',
+  },
+  {
+    id:      'stuck',
+    label:   'Stuck at the same score?',
+    title:   'Find exactly what is holding you back',
+    body:    'Identify the specific gaps keeping your score flat and fix them one by one — systematically.',
+    cta:     'Start — I keep hitting a wall',
+    detail:  'Students who target specific gaps improve faster than those who study broadly.',
+    Svg:     SvgStuck,
+    color:   '#3B82F6',
+  },
+  {
+    id:      'top',
+    label:   'Aiming for 90+?',
+    title:   'Eliminate the last weak areas at the top of your range',
+    body:    'Push past your current ceiling by fixing the small gaps that separate good from excellent.',
+    cta:     'Start — I want 90+',
+    detail:  'The final 10 points require precision. DrFahm shows you exactly where they are.',
+    Svg:     SvgTrophy,
+    color:   '#F59E0B',
+  },
+];
+
+function SituationSection({ onStart, selectedExam }) {
+  const [active, setActive] = useState(0);
+  const current = SITUATIONS[active];
+
+  return (
+    <section className="sit-section">
+      <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
+        <div className="sit-header">
+          <div className="sit-eyebrow">Which one is you?</div>
+          <h2 className="sit-headline">
+            Built for <span className="sit-headline-accent">your</span> situation
+          </h2>
+          <p className="sit-subhead">
+            Whether your exam is in 2 weeks or 2 months — DrFahm adapts to where you are.
+          </p>
+        </div>
+
+        {/* Selector tabs */}
+        <div className="sit-tabs">
+          {SITUATIONS.map((s, i) => (
+            <button
+              key={s.id}
+              className={`sit-tab ${active === i ? 'active' : ''}`}
+              style={active === i ? { borderColor: s.color, color: s.color } : {}}
+              onClick={() => setActive(i)}
+            >
+              <span className="sit-tab-dot" style={{ background: active === i ? s.color : '#CBD5E1' }} />
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Active card — full width reveal */}
+        <div className="sit-card" style={{ borderColor: current.color + '40' }}>
+          <div className="sit-card-left">
+            <div className="sit-card-label" style={{ color: current.color, background: current.color + '18', border: `1px solid ${current.color}40` }}>
+              {current.label}
+            </div>
+            <h3 className="sit-card-title">{current.title}</h3>
+            <p className="sit-card-body">{current.body}</p>
+            <div className="sit-card-detail">
+              <span className="sit-card-detail-icon">💡</span>
+              {current.detail}
+            </div>
+            <button
+              className="sit-card-cta"
+              style={{ background: current.color }}
+              onClick={() => onStart(selectedExam)}
+            >
+              {current.cta} →
+            </button>
+          </div>
+          <div className="sit-card-right">
+            <div className="sit-card-svg">
+              <current.Svg />
+            </div>
+            {/* Dots for other situations as mini previews */}
+            <div className="sit-mini-dots">
+              {SITUATIONS.map((s, i) => (
+                <button
+                  key={s.id}
+                  className={`sit-mini-dot ${active === i ? 'active' : ''}`}
+                  style={{ background: active === i ? s.color : '#CBD5E1' }}
+                  onClick={() => setActive(i)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Home() {
   const { user } = useAuth();
@@ -1064,29 +1337,7 @@ export default function Home() {
       </section>
 
       {/* ── 5. BUILT FOR YOUR SITUATION ──────────────────────────────────── */}
-      <section className="home-section">
-        <div className="home-container">
-          <div className="home-section-header">
-            <h2 className="home-section-title">Built for your situation</h2>
-          </div>
-          <div className="home-situation-grid">
-            {SITUATION_CARDS.map((card, i) => (
-              <AnimatedCard
-                key={card.title}
-                className="home-situation-card"
-                style={{ transitionDelay: `${i * 80}ms` }}
-              >
-                <div className="home-situation-label">{card.label}</div>
-                <h3 className="home-situation-title">{card.title}</h3>
-                <p className="home-situation-body">{card.body}</p>
-              </AnimatedCard>
-            ))}
-          </div>
-          <p className="home-situation-support">
-            Whether your exam is in 2 weeks or 2 months, focus matters more than volume.
-          </p>
-        </div>
-      </section>
+      <SituationSection onStart={handleStart} selectedExam={selectedExam} />
 
       {/* ── 6. COMPARISON ────────────────────────────────────────────────── */}
       <section className="home-section home-section-alt">
