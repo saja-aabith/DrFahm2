@@ -515,10 +515,10 @@ export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [heroVisible, setHeroVisible] = useState(false);
+  const [heroVisible,  setHeroVisible]  = useState(false);
   const [selectedExam, setSelectedExam] = useState('qudurat');
   const [demoFinished, setDemoFinished] = useState(false);
-  const [demoAnswers, setDemoAnswers] = useState([]);
+  const [demoAnswers,  setDemoAnswers]  = useState([]);
 
   const [ctaRef, ctaInView] = useInView(0.2);
 
@@ -527,6 +527,7 @@ export default function Home() {
     return () => clearTimeout(t);
   }, []);
 
+  // Reset demo when exam toggle changes
   const handleExamChange = (exam) => {
     setSelectedExam(exam);
     setDemoFinished(false);
@@ -536,7 +537,7 @@ export default function Home() {
   const handleStart = (exam) => {
     const target = exam || selectedExam;
     if (user) navigate(`/exam/${target}`);
-    else navigate(`/register?exam=${target}`);
+    else      navigate(`/register?exam=${target}`);
   };
 
   const handleDemoFinish = (answers) => {
@@ -544,155 +545,109 @@ export default function Home() {
     setDemoFinished(true);
   };
 
-  const demoQuestions =
-    selectedExam === 'tahsili' ? TAHSILI_DEMO_QUESTIONS : QUDURAT_DEMO_QUESTIONS;
-  const demoLabel =
-    selectedExam === 'tahsili' ? 'Tahsili · Science' : 'Qudurat · Math';
+  const demoQuestions = selectedExam === 'tahsili' ? TAHSILI_DEMO_QUESTIONS : QUDURAT_DEMO_QUESTIONS;
+  const demoLabel     = selectedExam === 'tahsili' ? 'Tahsili · Science' : 'Qudurat · Math';
 
   return (
     <>
       <Navbar />
 
-      <section className="home-hero home-hero-premium">
-        <div className="home-hero-bg-orb orb-1" />
-        <div className="home-hero-bg-orb orb-2" />
-        <div className="home-hero-grid">
-          <div className={`home-hero-content ${heroVisible ? 'anim-in' : ''}`}>
-            <div className="home-hero-eyebrow premium-eyebrow">
-              <span className="home-hero-dot" />
-              Qudurat &amp; Tahsili preparation for Saudi students
-            </div>
-
-            <h1 className="home-hero-title premium-title">
-              Prepare smarter.
-              <br />
-              Raise your score with a clear, structured path.
-            </h1>
-
-            <p className="home-hero-sub premium-sub">
-              DrFahm helps students focus on the topics that matter most, track
-              progress clearly, and stop wasting time on random prep.
-            </p>
-
-            <div className="home-hero-exam-toggle premium-toggle">
-              <button
-                className={`home-hero-exam-btn ${selectedExam === 'qudurat' ? 'active' : ''}`}
-                onClick={() => handleExamChange('qudurat')}
-              >
-                Qudurat
-              </button>
-              <button
-                className={`home-hero-exam-btn ${selectedExam === 'tahsili' ? 'active' : ''}`}
-                onClick={() => handleExamChange('tahsili')}
-              >
-                Tahsili
-              </button>
-            </div>
-
-            <div className="home-hero-actions premium-actions">
-              <button className="btn btn-green btn-lg hero-primary-btn" onClick={() => handleStart(selectedExam)}>
-                Start free trial
-              </button>
-
-              <Link to="/pricing" className="hero-secondary-link">
-                View pricing
-              </Link>
-            </div>
-
-            <div className="home-hero-trust premium-trust">
-              <span>7-day free trial</span>
-              <span>No credit card required</span>
-              <span>Cancel anytime</span>
-            </div>
-
-            <div className="hero-proof-row">
-              <div className="hero-proof-card">
-                <div className="hero-proof-number">6,000+</div>
-                <div className="hero-proof-label">exam-style questions</div>
-              </div>
-              <div className="hero-proof-card">
-                <div className="hero-proof-number">300</div>
-                <div className="hero-proof-label">mastery levels</div>
-              </div>
-              <div className="hero-proof-card">
-                <div className="hero-proof-number">2</div>
-                <div className="hero-proof-label">core exams covered</div>
-              </div>
-            </div>
+      {/* ── 1. HERO ──────────────────────────────────────────────────────── */}
+      <section className="home-hero">
+        <div className={`home-hero-content ${heroVisible ? 'anim-in' : ''}`}>
+          <div className="home-hero-eyebrow">
+            <span className="home-hero-dot" />
+            Qudurat &amp; Tahsili preparation for Saudi students
           </div>
 
-          <div className={`home-hero-visual premium-hero-visual ${heroVisible ? 'anim-in-delayed' : ''}`}>
-            <div className="hero-demo-shell">
-              <div className="hero-demo-shell-top">
-                <span className="hero-demo-pill">
-                  Live practice preview
-                </span>
-                <span className="hero-demo-note">
-                  Instant feedback feel
-                </span>
-              </div>
+          <h1 className="home-hero-title">
+            Stop wasting time on random prep. Improve your score with a clear plan.
+          </h1>
 
-              {demoFinished ? (
-                <DemoResult answers={demoAnswers} onStart={handleStart} exam={selectedExam} />
-              ) : (
-                <DemoWidget
-                  key={selectedExam}
-                  questions={demoQuestions}
-                  examLabel={demoLabel}
-                  onFinish={handleDemoFinish}
-                />
-              )}
-            </div>
+          <p className="home-hero-sub">
+            DrFahm shows you exactly what to focus on so every hour you study actually improves your score.
+          </p>
+
+          <div className="home-hero-exam-toggle">
+            <button
+              className={`home-hero-exam-btn ${selectedExam === 'qudurat' ? 'active' : ''}`}
+              onClick={() => handleExamChange('qudurat')}
+            >
+              Qudurat
+            </button>
+            <button
+              className={`home-hero-exam-btn ${selectedExam === 'tahsili' ? 'active' : ''}`}
+              onClick={() => handleExamChange('tahsili')}
+            >
+              Tahsili
+            </button>
           </div>
+
+          {/* ── Single universal CTA ── */}
+          <div className="home-hero-actions">
+            <button className="btn btn-green btn-lg" onClick={() => handleStart(selectedExam)}>
+              Start free trial
+            </button>
+          </div>
+
+          <div className="home-hero-trust">
+            <span>✓ 7-day free trial</span>
+            <span>✓ No credit card required</span>
+            <span>✓ Cancel anytime</span>
+          </div>
+
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 14 }}>
+            Start seeing what to fix from your first session.
+          </p>
+        </div>
+
+        {/* Right: exam-aware demo widget */}
+        <div className={`home-hero-visual ${heroVisible ? 'anim-in-delayed' : ''}`}>
+          {demoFinished ? (
+            <DemoResult answers={demoAnswers} onStart={handleStart} exam={selectedExam} />
+          ) : (
+            <DemoWidget
+              key={selectedExam}
+              questions={demoQuestions}
+              examLabel={demoLabel}
+              onFinish={handleDemoFinish}
+            />
+          )}
         </div>
       </section>
 
+      {/* ── 2. STATS ─────────────────────────────────────────────────────── */}
       <section className="home-section home-section-stats">
         <StatsSection />
       </section>
 
+      {/* ── 3. PROBLEM + REFRAME ─────────────────────────────────────────── */}
       <section className="prob-section">
+        {/* Decorative background orbs */}
         <div className="prob-orb prob-orb-1" />
         <div className="prob-orb prob-orb-2" />
         <div className="prob-orb prob-orb-3" />
+        {/* 3D floating cube */}
         <Cube3D />
 
         <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
+
           <div className="prob-header">
-            <div className="prob-eyebrow">Why scores stay stuck</div>
+            <div className="prob-eyebrow">Why most students don't improve</div>
             <h2 className="prob-headline">
-              The issue is not
-              {' '}
-              <span className="prob-headline-accent">hard work</span>.
-              <br />
-              It is lack of structure.
+              The problem isn't <span className="prob-headline-accent">effort</span>.<br />It's structure.
             </h2>
             <p className="prob-subhead">
-              Many students put in real effort, but without a focused system,
-              progress stays unclear and improvement stays inconsistent.
+              Most students prepare the same way and wonder why their score stays flat.
             </p>
           </div>
 
+          {/* Three problem cards — DrFrost large-icon style */}
           <div className="prob-cards">
             {[
-              {
-                num: '01',
-                Illustration: IllustrationNoPath,
-                title: 'No clear path',
-                text: 'Random prep creates motion, but not real direction. Students keep working without knowing what comes next.',
-              },
-              {
-                num: '02',
-                Illustration: IllustrationNoVisibility,
-                title: 'No visibility',
-                text: 'Weak areas remain hidden, so students repeat what feels familiar instead of fixing what limits their score.',
-              },
-              {
-                num: '03',
-                Illustration: IllustrationWastedEffort,
-                title: 'Wasted effort',
-                text: 'More hours alone do not guarantee improvement. Quality of focus matters more than volume of practice.',
-              },
+              { num: '01', Illustration: IllustrationNoPath,        title: 'No clear path',   text: "Random prep with no structure means every session starts from scratch." },
+              { num: '02', Illustration: IllustrationNoVisibility,  title: 'No visibility',   text: "You can't see which topics are actually holding your score back." },
+              { num: '03', Illustration: IllustrationWastedEffort,  title: 'Wasted effort',   text: 'More hours studied does not automatically mean a better score.' },
             ].map((item, i) => (
               <div key={item.num} className="prob-card" style={{ animationDelay: `${i * 120}ms` }}>
                 <div className="prob-card-svg-wrap">
@@ -704,41 +659,43 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Transform divider */}
           <div className="prob-divider">
             <div className="prob-divider-line" />
-            <div className="prob-divider-badge">What students actually need</div>
+            <div className="prob-divider-badge">The result</div>
             <div className="prob-divider-line" />
           </div>
 
+          {/* Solution callout */}
           <div className="prob-solution">
             <div className="prob-solution-border" />
             <div className="prob-solution-inner">
               <div className="prob-solution-icon">→</div>
               <div>
                 <p className="prob-solution-main">
-                  A structured preparation path that tells them exactly what to do next.
+                  Scores don't improve — even with real effort.
                 </p>
                 <p className="prob-solution-sub">
-                  That is where DrFahm changes the experience.
+                  You don't need more questions. You need the right focus.
                 </p>
               </div>
             </div>
           </div>
+
         </div>
       </section>
 
+      {/* ── 4. CORE VALUE ────────────────────────────────────────────────── */}
       <section className="home-section home-section-alt">
         <div className="home-container">
           <div className="home-section-header">
-            <div className="home-section-tag">Why DrFahm works</div>
-            <h2 className="home-section-title">Built to turn effort into measurable progress</h2>
+            <h2 className="home-section-title">What makes DrFahm different</h2>
           </div>
-
           <div className="home-value-grid">
             {VALUE_CARDS.map((card, i) => (
               <AnimatedCard
                 key={card.title}
-                className="home-value-card premium-surface-card"
+                className="home-value-card"
                 style={{ transitionDelay: `${i * 80}ms` }}
               >
                 <div className="home-value-icon">{card.icon}</div>
@@ -747,7 +704,6 @@ export default function Home() {
               </AnimatedCard>
             ))}
           </div>
-
           <div className="home-micro-cta">
             <button onClick={() => handleStart(selectedExam)}>
               Start your free trial now →
@@ -756,41 +712,38 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── 5. BUILT FOR YOUR SITUATION ──────────────────────────────────── */}
       <section className="home-section">
         <div className="home-container">
           <div className="home-section-header">
-            <div className="home-section-tag">Use case fit</div>
-            <h2 className="home-section-title">Built for the way students actually prepare</h2>
+            <h2 className="home-section-title">Built for your situation</h2>
           </div>
-
           <div className="home-situation-grid">
             {SITUATION_CARDS.map((card, i) => (
               <AnimatedCard
                 key={card.title}
-                className="home-situation-card premium-surface-card"
+                className="home-situation-card"
                 style={{ transitionDelay: `${i * 80}ms` }}
               >
-                <div className="home-value-icon">{card.icon}</div>
                 <div className="home-situation-label">{card.label}</div>
                 <h3 className="home-situation-title">{card.title}</h3>
                 <p className="home-situation-body">{card.body}</p>
               </AnimatedCard>
             ))}
           </div>
-
           <p className="home-situation-support">
-            Whether the exam is soon or still months away, clarity beats random repetition.
+            Whether your exam is in 2 weeks or 2 months, focus matters more than volume.
           </p>
         </div>
       </section>
 
+      {/* ── 6. COMPARISON ────────────────────────────────────────────────── */}
       <section className="home-section home-section-alt">
         <div className="home-container">
           <div className="home-section-header">
-            <div className="home-section-tag">Comparison</div>
-            <h2 className="home-section-title">Better than random prep and generic crash courses</h2>
+            <h2 className="home-section-title">Better than random prep and crash courses</h2>
             <p style={{ color: 'var(--text-muted)', marginTop: 8, fontSize: '0.95rem' }}>
-              DrFahm is designed to make every session feel purposeful.
+              Students across Saudi Arabia are using DrFahm to prepare for their next attempt.
             </p>
           </div>
 
@@ -821,7 +774,7 @@ export default function Home() {
           </div>
 
           <p className="home-comparison-closing">
-            Doing more is not the same as improving more. Focus is what changes the result.
+            Doing more isn't the same as improving. Focus is what moves your score.
           </p>
 
           <div className="home-micro-cta">
@@ -832,31 +785,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── 7. FINAL CTA ─────────────────────────────────────────────────── */}
       <section className="home-section">
         <div className="home-container">
-          <div ref={ctaRef} className={`home-cta-strip premium-final-cta ${ctaInView ? 'anim-in' : ''}`}>
+          <div ref={ctaRef} className={`home-cta-strip ${ctaInView ? 'anim-in' : ''}`}>
             <div className="home-cta-strip-glow" />
             <h2 className="home-cta-strip-title">
-              Start your free trial and see what to improve from your very first session.
+              Start your free trial and see what to fix from your first session.
             </h2>
             <p className="home-cta-strip-sub">
-              Choose your exam, follow a structured path, and prepare with far more clarity.
+              Choose your exam, follow a structured plan, and start improving from day one.
             </p>
 
+            {/* Single primary + text secondary */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-              <button className="btn btn-green btn-lg hero-primary-btn" onClick={() => handleStart(selectedExam)}>
+              <button className="btn btn-green btn-lg" onClick={() => handleStart(selectedExam)}>
                 Start free — {selectedExam === 'tahsili' ? 'Tahsili' : 'Qudurat'}
               </button>
-
               <button
                 onClick={() => handleStart(selectedExam === 'tahsili' ? 'qudurat' : 'tahsili')}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--cta-green)',
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#15803D', fontSize: '0.875rem', fontWeight: 600,
                   fontFamily: 'Tajawal, sans-serif',
                 }}
               >
@@ -867,31 +817,30 @@ export default function Home() {
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 12 }}>
               No credit card required
             </p>
-
             <p className="home-cta-strip-footnote">
-              Already have an account? <Link to="/login" className="link">Log in</Link>
+              Already have an account?{' '}
+              <Link to="/login" className="link">Log in</Link>
             </p>
           </div>
         </div>
       </section>
 
+      {/* ── 8. FOOTER ────────────────────────────────────────────────────── */}
       <footer className="home-footer">
         <div className="home-container">
           <div className="home-footer-inner">
             <div className="home-footer-brand">
               <span className="navbar-logo">
-                <span className="logo-dr">Dr</span>
-                <span className="logo-fahm">Fahm</span>
+                <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
               </span>
               <p className="home-footer-tagline">
-                Premium exam preparation for Saudi students preparing for Qudurat and Tahsili.
+                Built for Saudi students preparing for Qudurat &amp; Tahsili.
               </p>
             </div>
-
             <div className="home-footer-links">
               <Link to="/pricing" className="home-footer-link">Pricing</Link>
               <Link to="/schools" className="home-footer-link">For Schools</Link>
-              <Link to="/login" className="home-footer-link">Log In</Link>
+              <Link to="/login"   className="home-footer-link">Log In</Link>
               <a
                 href={`https://wa.me/${WA_NUMBER}?text=${WA_MESSAGE}`}
                 className="home-footer-link"
@@ -905,12 +854,13 @@ export default function Home() {
               </a>
             </div>
           </div>
-
           <div className="home-footer-bottom">
             © {new Date().getFullYear()} DrFahm. All rights reserved.
           </div>
         </div>
       </footer>
+
+      {/* WhatsApp float is rendered globally in App.jsx */}
     </>
   );
 }

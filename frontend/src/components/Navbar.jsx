@@ -9,34 +9,37 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
-
-  const isActive = (path) => location.pathname === path;
   const isHome = location.pathname === '/';
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  const isActive = (path) => location.pathname === path;
 
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 14);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
+  const navClass = [
+    'navbar',
+    isHome ? 'navbar-home' : '',
+    scrolled ? 'scrolled' : '',
+  ].join(' ').trim();
+
   return (
-    <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''} ${isHome ? 'navbar-home' : ''}`}>
+    <nav className={navClass}>
       <div className="navbar-inner">
         <Link to={user ? '/dashboard' : '/'} className="navbar-logo" aria-label="DrFahm home">
-          <span className="navbar-logo-mark">
-            <span className="logo-dr">Dr</span>
-            <span className="logo-fahm">Fahm</span>
-          </span>
-          <span className="navbar-logo-tag">Saudi exam prep</span>
+          <span className="logo-dr">Dr</span>
+          <span className="logo-fahm">Fahm</span>
         </Link>
 
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
@@ -47,7 +50,7 @@ export default function Navbar() {
                 className={`nav-link ${isActive('/schools') ? 'active' : ''}`}
                 onClick={() => setMenuOpen(false)}
               >
-                Schools
+                For Schools
               </Link>
 
               <Link
@@ -70,18 +73,18 @@ export default function Navbar() {
                 <>
                   <Link
                     to="/login"
-                    className="nav-link"
+                    className="nav-link nav-link-login"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Log in
+                    Log In
                   </Link>
 
                   <Link
                     to="/register"
-                    className="btn btn-green btn-sm navbar-try-btn navbar-primary-cta"
+                    className="btn btn-green btn-sm navbar-try-btn"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Start free
+                    Start Free
                   </Link>
                 </>
               )}
