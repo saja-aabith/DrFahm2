@@ -395,111 +395,159 @@ function Cube3D() {
 const IllustrationNoPath = () => (
   <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="bg1" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="rgba(239,68,68,0.15)"/>
-        <stop offset="100%" stopColor="rgba(239,68,68,0.02)"/>
-      </radialGradient>
-      <linearGradient id="arr1" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stopColor="#EF4444"/>
-        <stop offset="100%" stopColor="#F97316"/>
+      <linearGradient id="np_bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#FFF7ED"/>
+        <stop offset="100%" stopColor="#FEE2E2"/>
+      </linearGradient>
+      <linearGradient id="np_road" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#6366F1"/>
+        <stop offset="100%" stopColor="#8B5CF6"/>
+      </linearGradient>
+      <linearGradient id="np_sign" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#F59E0B"/>
+        <stop offset="100%" stopColor="#EF4444"/>
       </linearGradient>
     </defs>
-    <circle cx="65" cy="65" r="60" fill="url(#bg1)"/>
-    {/* Chaotic arrows pointing every direction */}
-    {/* Right arrow — then blocked */}
-    <path d="M22 50 L52 50" stroke="url(#arr1)" strokeWidth="3.5" strokeLinecap="round"/>
-    <path d="M47 44 L54 50 L47 56" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    <line x1="58" y1="43" x2="58" y2="57" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
-    <line x1="54" y1="43" x2="62" y2="57" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
-    {/* Down arrow */}
-    <path d="M85 22 L85 52" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round"/>
-    <path d="M79 47 L85 54 L91 47" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Left arrow — going backward */}
-    <path d="M108 80 L78 80" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
-    <path d="M83 74 L76 80 L83 86" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Looping arrow — going in circles */}
-    <path d="M38 72 Q20 72 20 88 Q20 104 38 104 L55 104" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
-    <path d="M51 99 L57 105 L51 111" stroke="#F97316" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Diagonal confused arrow */}
-    <path d="M65 62 L95 92" stroke="#FCA5A5" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="5 4"/>
-    <path d="M91 88 L96 93 L91 98" stroke="#FCA5A5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Central question mark */}
-    <circle cx="65" cy="65" r="14" fill="rgba(239,68,68,0.15)" stroke="#EF4444" strokeWidth="2"/>
-    <text x="65" y="71" textAnchor="middle" fill="#EF4444" fontSize="16" fontWeight="900" fontFamily="Arial">?</text>
+    {/* Background circle */}
+    <circle cx="65" cy="65" r="62" fill="url(#np_bg)"/>
+    {/* Ground */}
+    <ellipse cx="65" cy="108" rx="48" ry="8" fill="rgba(0,0,0,0.06)"/>
+    {/* Forking road — 3 paths going different directions */}
+    {/* Main road */}
+    <path d="M65 100 L65 72" stroke="url(#np_road)" strokeWidth="10" strokeLinecap="round"/>
+    {/* Left fork */}
+    <path d="M65 72 Q40 66 22 48" stroke="#6366F1" strokeWidth="8" strokeLinecap="round" fill="none"/>
+    {/* Right fork */}
+    <path d="M65 72 Q90 66 108 48" stroke="#8B5CF6" strokeWidth="8" strokeLinecap="round" fill="none"/>
+    {/* Middle fork straight */}
+    <path d="M65 72 L65 40" stroke="#A78BFA" strokeWidth="8" strokeLinecap="round"/>
+    {/* Road dashes */}
+    <line x1="65" y1="100" x2="65" y2="94" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="65" y1="88" x2="65" y2="82" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    {/* Sign post */}
+    <rect x="58" y="52" width="4" height="22" rx="2" fill="#92400E"/>
+    {/* Three conflicting direction signs */}
+    <rect x="42" y="44" width="26" height="12" rx="3" fill="url(#np_sign)"/>
+    <path d="M42 50 L37 44 L42 38" fill="url(#np_sign)"/>
+    <rect x="62" y="32" width="24" height="12" rx="3" fill="#EF4444"/>
+    <path d="M86 38 L91 32 L86 26" fill="#EF4444"/>
+    <rect x="50" y="20" width="22" height="11" rx="3" fill="#10B981"/>
+    <path d="M72 25.5 L77 20 L72 14.5" fill="#10B981"/>
+    {/* Question marks floating */}
+    <text x="18" y="38" fill="#F59E0B" fontSize="18" fontWeight="900" fontFamily="Arial" opacity="0.8">?</text>
+    <text x="100" y="32" fill="#EF4444" fontSize="14" fontWeight="900" fontFamily="Arial" opacity="0.7">?</text>
+    <text x="108" y="72" fill="#6366F1" fontSize="12" fontWeight="900" fontFamily="Arial" opacity="0.6">?</text>
   </svg>
 );
 
 const IllustrationNoVisibility = () => (
   <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="bg2" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="rgba(239,68,68,0.15)"/>
-        <stop offset="100%" stopColor="rgba(239,68,68,0.02)"/>
-      </radialGradient>
-      <linearGradient id="bar1" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stopColor="#EF4444"/>
-        <stop offset="100%" stopColor="#F87171"/>
+      <linearGradient id="nv_bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#EFF6FF"/>
+        <stop offset="100%" stopColor="#F0FDF4"/>
       </linearGradient>
-      <linearGradient id="bar2" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stopColor="#DC2626"/>
-        <stop offset="100%" stopColor="#EF4444"/>
+      <linearGradient id="nv_bar1" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#3B82F6"/>
+        <stop offset="100%" stopColor="#60A5FA"/>
+      </linearGradient>
+      <linearGradient id="nv_bar2" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#10B981"/>
+        <stop offset="100%" stopColor="#34D399"/>
+      </linearGradient>
+      <linearGradient id="nv_bar3" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#F59E0B"/>
+        <stop offset="100%" stopColor="#FCD34D"/>
+      </linearGradient>
+      <linearGradient id="nv_bar4" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#8B5CF6"/>
+        <stop offset="100%" stopColor="#A78BFA"/>
+      </linearGradient>
+      <linearGradient id="nv_fog" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="rgba(241,245,249,0.97)"/>
+        <stop offset="100%" stopColor="rgba(226,232,240,0.92)"/>
       </linearGradient>
     </defs>
-    <circle cx="65" cy="65" r="60" fill="url(#bg2)"/>
-    {/* Bar chart bars underneath */}
-    <rect x="20" y="85" width="16" height="28" rx="3" fill="url(#bar1)" opacity="0.4"/>
-    <rect x="42" y="68" width="16" height="45" rx="3" fill="url(#bar1)" opacity="0.4"/>
-    <rect x="64" y="52" width="16" height="61" rx="3" fill="url(#bar2)" opacity="0.4"/>
-    <rect x="86" y="38" width="16" height="75" rx="3" fill="url(#bar2)" opacity="0.4"/>
-    {/* Fog block covering everything */}
-    <rect x="14" y="30" width="100" height="72" rx="10" fill="rgba(13,31,53,0.82)"/>
-    {/* Large eye shape */}
-    <path d="M25 66 Q65 36 105 66 Q65 96 25 66Z" stroke="rgba(252,165,165,0.5)" strokeWidth="2" fill="rgba(252,165,165,0.06)"/>
-    {/* Iris */}
-    <circle cx="65" cy="66" r="14" fill="rgba(239,68,68,0.12)" stroke="#F87171" strokeWidth="1.5"/>
-    <circle cx="65" cy="66" r="7" fill="rgba(239,68,68,0.2)" stroke="#EF4444" strokeWidth="1.5"/>
-    <circle cx="65" cy="66" r="3" fill="#EF4444"/>
-    {/* Bold diagonal slash */}
-    <line x1="24" y1="25" x2="106" y2="107" stroke="#EF4444" strokeWidth="4" strokeLinecap="round"/>
-    <line x1="22" y1="23" x2="108" y2="109" stroke="rgba(239,68,68,0.25)" strokeWidth="8" strokeLinecap="round"/>
-    {/* Question marks floating */}
-    <text x="32" y="55" fill="rgba(252,165,165,0.5)" fontSize="13" fontWeight="700" fontFamily="Arial">?</text>
-    <text x="88" y="50" fill="rgba(252,165,165,0.5)" fontSize="11" fontWeight="700" fontFamily="Arial">?</text>
-    <text x="58" y="48" fill="rgba(252,165,165,0.35)" fontSize="9" fontWeight="700" fontFamily="Arial">?</text>
+    <circle cx="65" cy="65" r="62" fill="url(#nv_bg)"/>
+    {/* Chart frame */}
+    <rect x="16" y="28" width="98" height="72" rx="8" fill="white" stroke="#E2E8F0" strokeWidth="1.5"/>
+    {/* Colorful bars */}
+    <rect x="26" y="72" width="16" height="20" rx="3" fill="url(#nv_bar1)"/>
+    <rect x="47" y="56" width="16" height="36" rx="3" fill="url(#nv_bar2)"/>
+    <rect x="68" y="44" width="16" height="48" rx="3" fill="url(#nv_bar3)"/>
+    <rect x="89" y="34" width="16" height="58" rx="3" fill="url(#nv_bar4)"/>
+    {/* Fog cloud covering bars */}
+    <rect x="16" y="28" width="98" height="72" rx="8" fill="url(#nv_fog)"/>
+    {/* Fog wisp shapes */}
+    <ellipse cx="42" cy="58" rx="24" ry="14" fill="rgba(203,213,225,0.7)"/>
+    <ellipse cx="80" cy="52" rx="28" ry="16" fill="rgba(203,213,225,0.65)"/>
+    <ellipse cx="60" cy="72" rx="30" ry="12" fill="rgba(203,213,225,0.6)"/>
+    <ellipse cx="95" cy="70" rx="18" ry="11" fill="rgba(203,213,225,0.55)"/>
+    {/* Locked padlock icon */}
+    <rect x="50" y="54" width="30" height="24" rx="5" fill="#475569" stroke="#334155" strokeWidth="1"/>
+    <path d="M57 54 L57 47 Q57 40 65 40 Q73 40 73 47 L73 54" stroke="#475569" strokeWidth="4" strokeLinecap="round" fill="none"/>
+    <circle cx="65" cy="64" r="5" fill="#94A3B8"/>
+    <rect x="63.5" y="64" width="3" height="6" rx="1.5" fill="#94A3B8"/>
+    {/* Stars/sparkles outside suggesting hidden insight */}
+    <path d="M108 22 L110 17 L112 22 L117 24 L112 26 L110 31 L108 26 L103 24 Z" fill="#F59E0B" opacity="0.9"/>
+    <path d="M14 88 L15.5 84 L17 88 L21 89.5 L17 91 L15.5 95 L14 91 L10 89.5 Z" fill="#3B82F6" opacity="0.8"/>
+    <path d="M112 90 L113 87 L114 90 L117 91 L114 92 L113 95 L112 92 L109 91 Z" fill="#10B981" opacity="0.7"/>
   </svg>
 );
 
 const IllustrationWastedEffort = () => (
   <svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="bg3" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="rgba(239,68,68,0.15)"/>
-        <stop offset="100%" stopColor="rgba(239,68,68,0.02)"/>
-      </radialGradient>
-      <linearGradient id="hourGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#F87171"/>
+      <linearGradient id="we_bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#FFF7ED"/>
+        <stop offset="100%" stopColor="#FEF3C7"/>
+      </linearGradient>
+      <linearGradient id="we_wheel" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#F97316"/>
         <stop offset="100%" stopColor="#EF4444"/>
       </linearGradient>
+      <linearGradient id="we_arrow" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#F59E0B"/>
+        <stop offset="100%" stopColor="#EF4444"/>
+      </linearGradient>
+      <linearGradient id="we_person" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#FBBF24"/>
+        <stop offset="100%" stopColor="#F59E0B"/>
+      </linearGradient>
     </defs>
-    <circle cx="65" cy="65" r="60" fill="url(#bg3)"/>
-    {/* Hourglass outline */}
-    <path d="M38 18 L92 18 L92 22 L70 50 L70 80 L92 108 L92 112 L38 112 L38 108 L60 80 L60 50 L38 22 Z" stroke="#F87171" strokeWidth="2.5" fill="rgba(239,68,68,0.06)" strokeLinejoin="round"/>
-    {/* Top sand (almost empty) */}
-    <path d="M42 24 L88 24 L72 46 L58 46 Z" fill="rgba(239,68,68,0.18)"/>
-    <path d="M80 24 L88 24 L72 46 L68 46 Z" fill="rgba(239,68,68,0.35)"/>
-    {/* Sand stream falling */}
-    <line x1="65" y1="50" x2="65" y2="80" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="3 3"/>
-    {/* Bottom sand (filling up) */}
-    <path d="M58 84 L72 84 L88 106 L42 106 Z" fill="rgba(239,68,68,0.25)"/>
-    <path d="M58 84 L72 84 L80 98 L50 98 Z" fill="rgba(239,68,68,0.35)"/>
-    {/* X badge — effort wasted */}
-    <circle cx="96" cy="26" r="16" fill="#1a0a0a" stroke="#EF4444" strokeWidth="2"/>
-    <line x1="88" y1="18" x2="104" y2="34" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
-    <line x1="104" y1="18" x2="88" y2="34" stroke="#EF4444" strokeWidth="3.5" strokeLinecap="round"/>
-    {/* Urgency lines beside hourglass */}
-    <line x1="20" y1="38" x2="30" y2="38" stroke="rgba(249,115,22,0.6)" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="16" y1="50" x2="28" y2="50" stroke="rgba(249,115,22,0.4)" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="20" y1="62" x2="30" y2="62" stroke="rgba(249,115,22,0.3)" strokeWidth="2" strokeLinecap="round"/>
+    <circle cx="65" cy="65" r="62" fill="url(#we_bg)"/>
+    {/* Hamster wheel / treadmill circle */}
+    <circle cx="65" cy="72" r="40" stroke="url(#we_wheel)" strokeWidth="6" fill="rgba(249,115,22,0.06)"/>
+    <circle cx="65" cy="72" r="33" stroke="rgba(249,115,22,0.25)" strokeWidth="2" fill="none"/>
+    {/* Wheel spokes */}
+    <line x1="65" y1="32" x2="65" y2="112" stroke="rgba(249,115,22,0.2)" strokeWidth="2"/>
+    <line x1="25" y1="72" x2="105" y2="72" stroke="rgba(249,115,22,0.2)" strokeWidth="2"/>
+    <line x1="37" y1="44" x2="93" y2="100" stroke="rgba(249,115,22,0.15)" strokeWidth="2"/>
+    <line x1="93" y1="44" x2="37" y2="100" stroke="rgba(249,115,22,0.15)" strokeWidth="2"/>
+    {/* Running figure */}
+    {/* Body */}
+    <ellipse cx="65" cy="63" rx="7" ry="9" fill="url(#we_person)"/>
+    {/* Head */}
+    <circle cx="65" cy="51" r="7" fill="#FBBF24" stroke="#F59E0B" strokeWidth="1.5"/>
+    {/* Running legs */}
+    <path d="M60 71 L54 84 L58 85 L63 76 L67 85 L71 83 L66 71Z" fill="#F59E0B"/>
+    {/* Running arms */}
+    <path d="M58 60 L48 54" stroke="#FBBF24" strokeWidth="4" strokeLinecap="round"/>
+    <path d="M72 60 L80 66" stroke="#FBBF24" strokeWidth="4" strokeLinecap="round"/>
+    {/* Sweat drops */}
+    <ellipse cx="44" cy="48" rx="3" ry="4" fill="#60A5FA" opacity="0.8"/>
+    <ellipse cx="38" cy="40" rx="2" ry="3" fill="#60A5FA" opacity="0.6"/>
+    <ellipse cx="50" cy="38" rx="2" ry="2.5" fill="#60A5FA" opacity="0.5"/>
+    {/* Flat score line — no improvement */}
+    <rect x="88" y="18" width="32" height="22" rx="5" fill="white" stroke="#E2E8F0" strokeWidth="1.5"/>
+    <polyline points="93,33 98,28 103,33 108,28 113,28" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <text x="100" y="24" fill="#64748B" fontSize="6" fontWeight="700" fontFamily="Arial" textAnchor="middle">SCORE</text>
+    {/* Down trend arrow beside chart */}
+    <path d="M122 26 L122 36" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M119 33 L122 37 L125 33" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    {/* Circular arrow showing no progress */}
+    <path d="M14 65 Q8 55 14 45 Q20 35 30 38" stroke="url(#we_arrow)" strokeWidth="3" strokeLinecap="round" fill="none"/>
+    <path d="M26 34 L31 39 L27 44" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
   </svg>
 );
 
