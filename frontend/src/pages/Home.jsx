@@ -762,28 +762,224 @@ export default function Home() {
       </section>
 
       {/* ── 4. CORE VALUE ────────────────────────────────────────────────── */}
-      <section className="home-section home-section-alt">
-        <div className="home-container">
-          <div className="home-section-header">
-            <h2 className="home-section-title">What makes DrFahm different</h2>
+      <section className="val-section">
+        <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="val-header">
+            <div className="val-eyebrow">How DrFahm works</div>
+            <h2 className="val-headline">
+              The <span className="val-headline-accent">structured</span> way to improve your score
+            </h2>
+            <p className="val-subhead">
+              Every feature is designed around one goal: moving your score forward, efficiently.
+            </p>
           </div>
-          <div className="home-value-grid">
-            {VALUE_CARDS.map((card, i) => (
-              <AnimatedCard
-                key={card.title}
-                className="home-value-card"
-                style={{ transitionDelay: `${i * 80}ms` }}
-              >
-                <div className="home-value-icon">{card.icon}</div>
-                <h3 className="home-value-title">{card.title}</h3>
-                <p className="home-value-body">{card.body}</p>
-              </AnimatedCard>
-            ))}
+
+          <div className="val-cards">
+            {/* Card 1 — Structured path */}
+            <div className="val-card">
+              <div className="val-card-svg-wrap">
+                <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <style>{`
+                    @keyframes dot-travel {
+                      0%   { offset-distance: 0%;   opacity: 1; }
+                      90%  { offset-distance: 100%; opacity: 1; }
+                      95%  { opacity: 0; }
+                      100% { offset-distance: 100%; opacity: 0; }
+                    }
+                    @keyframes path-draw {
+                      from { stroke-dashoffset: 400; }
+                      to   { stroke-dashoffset: 0; }
+                    }
+                    @keyframes node-pop {
+                      0%,80%  { transform: scale(0.7); opacity: 0.3; }
+                      85%     { transform: scale(1.2); opacity: 1; }
+                      100%    { transform: scale(1);   opacity: 1; }
+                    }
+                    @keyframes checkmark-in {
+                      0%,75%  { opacity: 0; transform: scale(0); }
+                      85%     { opacity: 1; transform: scale(1.2); }
+                      100%    { opacity: 1; transform: scale(1); }
+                    }
+                    @keyframes glow-pulse {
+                      0%,100% { opacity: 0.4; r: 8px; }
+                      50%     { opacity: 0.9; r: 12px; }
+                    }
+                    .val-road { animation: path-draw 2s ease forwards; stroke-dasharray: 400; }
+                    .val-dot  {
+                      offset-path: path('M 30 120 Q 50 90 75 75 Q 100 60 110 40');
+                      animation: dot-travel 3s ease-in-out infinite;
+                    }
+                    .val-node1 { animation: node-pop 3s ease infinite 0.5s; transform-origin: 30px 120px; }
+                    .val-node2 { animation: node-pop 3s ease infinite 1s;   transform-origin: 75px 75px; }
+                    .val-node3 { animation: node-pop 3s ease infinite 1.8s; transform-origin: 110px 40px; }
+                    .val-check { animation: checkmark-in 3s ease infinite 1.8s; transform-origin: 110px 40px; }
+                    .val-glow  { animation: glow-pulse 1.5s ease-in-out infinite; }
+                  `}</style>
+                  <defs>
+                    <linearGradient id="v1_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#F0FDF4"/><stop offset="100%" stopColor="#DCFCE7"/></linearGradient>
+                    <linearGradient id="v1_road" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#86EFAC"/><stop offset="100%" stopColor="#15803D"/></linearGradient>
+                  </defs>
+                  <circle cx="75" cy="75" r="72" fill="url(#v1_bg)"/>
+                  {/* Shadow */}
+                  <ellipse cx="75" cy="138" rx="40" ry="6" fill="rgba(0,0,0,0.06)"/>
+                  {/* Road path */}
+                  <path d="M 30 120 Q 50 90 75 75 Q 100 60 110 40" stroke="url(#v1_road)" strokeWidth="5" strokeLinecap="round" fill="none" className="val-road"/>
+                  {/* Dashes on road */}
+                  <path d="M 30 120 Q 50 90 75 75 Q 100 60 110 40" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 8" fill="none" opacity="0.6"/>
+                  {/* Step nodes */}
+                  <g className="val-node1">
+                    <circle cx="30" cy="120" r="10" fill="#15803D" stroke="white" strokeWidth="2.5"/>
+                    <text x="30" y="124" textAnchor="middle" fill="white" fontSize="10" fontWeight="800" fontFamily="Arial">1</text>
+                  </g>
+                  <g className="val-node2">
+                    <circle cx="75" cy="75" r="10" fill="#15803D" stroke="white" strokeWidth="2.5"/>
+                    <text x="75" y="79" textAnchor="middle" fill="white" fontSize="10" fontWeight="800" fontFamily="Arial">2</text>
+                  </g>
+                  <g className="val-node3">
+                    <circle cx="110" cy="40" r="12" fill="#15803D" stroke="#4ADE80" strokeWidth="3"/>
+                    <text x="110" y="44" textAnchor="middle" fill="white" fontSize="10" fontWeight="800" fontFamily="Arial" className="val-check">✓</text>
+                  </g>
+                  {/* Glow at destination */}
+                  <circle cx="110" cy="40" className="val-glow" fill="rgba(74,222,128,0.3)" r="8"/>
+                  {/* Travelling dot */}
+                  <circle className="val-dot" r="7" fill="#FBBF24" stroke="white" strokeWidth="2.5"/>
+                  {/* Start label */}
+                  <rect x="8" y="128" width="40" height="14" rx="4" fill="#15803D"/>
+                  <text x="28" y="139" textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="Arial">START</text>
+                  {/* End label */}
+                  <rect x="92" y="22" width="40" height="14" rx="4" fill="#FBBF24"/>
+                  <text x="112" y="33" textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="Arial">GOAL</text>
+                </svg>
+              </div>
+              <h3 className="val-card-title">Know exactly what to study next</h3>
+              <p className="val-card-text">Follow a clear structured path based on your level — no guessing, no wasted sessions.</p>
+            </div>
+
+            {/* Card 2 — Focus on weak areas */}
+            <div className="val-card val-card-featured">
+              <div className="val-card-svg-wrap">
+                <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <style>{`
+                    @keyframes dart-fly {
+                      0%   { transform: translate(-60px, 60px) rotate(-45deg); opacity: 0; }
+                      40%  { opacity: 1; }
+                      70%  { transform: translate(0px, 0px) rotate(-45deg); opacity: 1; }
+                      85%  { transform: translate(0px, 0px) rotate(-45deg) scale(0.95); }
+                      100% { transform: translate(0px, 0px) rotate(-45deg) scale(1); opacity: 1; }
+                    }
+                    @keyframes ring-pulse1 { 0%,100%{opacity:0.5} 50%{opacity:1} }
+                    @keyframes ring-pulse2 { 0%,100%{opacity:0.4} 50%{opacity:0.9} }
+                    @keyframes ring-pulse3 { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
+                    @keyframes bullseye-spin { from{transform-origin:75px 75px;transform:rotate(0)} to{transform-origin:75px 75px;transform:rotate(360deg)} }
+                    @keyframes impact-flash  { 0%,90%{opacity:0} 92%{opacity:0.8} 100%{opacity:0} }
+                    .dart       { animation: dart-fly 2.5s cubic-bezier(0.25,0.46,0.45,0.94) infinite; transform-origin: 75px 75px; }
+                    .ring1      { animation: ring-pulse1 2s ease-in-out infinite; }
+                    .ring2      { animation: ring-pulse2 2s ease-in-out infinite 0.2s; }
+                    .ring3      { animation: ring-pulse3 2s ease-in-out infinite 0.4s; }
+                    .bs-spin    { animation: bullseye-spin 12s linear infinite; }
+                    .impact     { animation: impact-flash 2.5s ease infinite; }
+                  `}</style>
+                  <defs>
+                    <linearGradient id="v2_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFF7ED"/><stop offset="100%" stopColor="#FEF3C7"/></linearGradient>
+                  </defs>
+                  <circle cx="75" cy="75" r="72" fill="url(#v2_bg)"/>
+                  <ellipse cx="75" cy="138" rx="40" ry="6" fill="rgba(0,0,0,0.06)"/>
+                  {/* Bullseye rings */}
+                  <circle cx="75" cy="75" r="58" fill="rgba(239,68,68,0.08)" stroke="#FCA5A5" strokeWidth="1.5" className="ring3"/>
+                  <circle cx="75" cy="75" r="44" fill="rgba(239,68,68,0.1)"  stroke="#F87171" strokeWidth="2"   className="ring2"/>
+                  <circle cx="75" cy="75" r="30" fill="rgba(239,68,68,0.18)" stroke="#EF4444" strokeWidth="2.5" className="ring1"/>
+                  <circle cx="75" cy="75" r="16" fill="rgba(239,68,68,0.35)" stroke="#DC2626" strokeWidth="3"/>
+                  <circle cx="75" cy="75" r="6"  fill="#DC2626"/>
+                  {/* Cross hairs */}
+                  <g className="bs-spin" opacity="0.2">
+                    <line x1="75" y1="10" x2="75" y2="140" stroke="#EF4444" strokeWidth="1" strokeDasharray="4 4"/>
+                    <line x1="10" y1="75" x2="140" y2="75" stroke="#EF4444" strokeWidth="1" strokeDasharray="4 4"/>
+                  </g>
+                  {/* Dart */}
+                  <g className="dart">
+                    <line x1="68" y1="82" x2="92" y2="58" stroke="#1E293B" strokeWidth="4" strokeLinecap="round"/>
+                    <polygon points="92,58 86,60 90,64" fill="#EF4444"/>
+                    <polygon points="68,82 72,76 66,76" fill="#F59E0B"/>
+                    <line x1="70" y1="80" x2="66" y2="84" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
+                    <line x1="67" y1="77" x2="63" y2="81" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
+                  </g>
+                  {/* Impact sparkle */}
+                  <g className="impact">
+                    <circle cx="75" cy="75" r="20" fill="none" stroke="#FBBF24" strokeWidth="3"/>
+                    <circle cx="75" cy="75" r="30" fill="none" stroke="#F59E0B" strokeWidth="1.5"/>
+                  </g>
+                </svg>
+              </div>
+              <h3 className="val-card-title">Focus on what actually moves your score</h3>
+              <p className="val-card-text">Target weak areas instead of spending time on topics you already understand.</p>
+              <div className="val-card-badge">Most impactful</div>
+            </div>
+
+            {/* Card 3 — See progress */}
+            <div className="val-card">
+              <div className="val-card-svg-wrap">
+                <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <style>{`
+                    @keyframes bar1-grow { 0%,10%{height:0;y:110} 40%,100%{height:30;y:80} }
+                    @keyframes bar2-grow { 0%,25%{height:0;y:110} 55%,100%{height:50;y:60} }
+                    @keyframes bar3-grow { 0%,40%{height:0;y:110} 70%,100%{height:68;y:42} }
+                    @keyframes bar4-grow { 0%,55%{height:0;y:110} 85%,100%{height:85;y:25} }
+                    @keyframes trend-draw { from{stroke-dashoffset:200} to{stroke-dashoffset:0} }
+                    @keyframes star-bounce { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-8px) scale(1.1)} }
+                    @keyframes score-count { 0%,50%{opacity:0} 70%,100%{opacity:1} }
+                    .vb1 { animation: bar1-grow 3s ease-in-out infinite; }
+                    .vb2 { animation: bar2-grow 3s ease-in-out infinite; }
+                    .vb3 { animation: bar3-grow 3s ease-in-out infinite; }
+                    .vb4 { animation: bar4-grow 3s ease-in-out infinite; }
+                    .vtrend { animation: trend-draw 3s ease-in-out infinite; stroke-dasharray: 200; }
+                    .vstar  { animation: star-bounce 2s ease-in-out infinite; transform-origin: 110px 32px; }
+                    .vscore { animation: score-count 3s ease-in-out infinite; }
+                  `}</style>
+                  <defs>
+                    <linearGradient id="v3_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#EFF6FF"/><stop offset="100%" stopColor="#DBEAFE"/></linearGradient>
+                    <linearGradient id="v3_b1" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#3B82F6"/><stop offset="100%" stopColor="#93C5FD"/></linearGradient>
+                    <linearGradient id="v3_b2" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#2563EB"/><stop offset="100%" stopColor="#60A5FA"/></linearGradient>
+                    <linearGradient id="v3_b3" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#1D4ED8"/><stop offset="100%" stopColor="#3B82F6"/></linearGradient>
+                    <linearGradient id="v3_b4" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#15803D"/><stop offset="100%" stopColor="#4ADE80"/></linearGradient>
+                  </defs>
+                  <circle cx="75" cy="75" r="72" fill="url(#v3_bg)"/>
+                  <ellipse cx="75" cy="138" rx="40" ry="6" fill="rgba(0,0,0,0.06)"/>
+                  {/* Chart frame */}
+                  <rect x="18" y="20" width="110" height="96" rx="8" fill="white" stroke="#BFDBFE" strokeWidth="1.5"/>
+                  {/* Grid lines */}
+                  <line x1="28" y1="110" x2="118" y2="110" stroke="#E2E8F0" strokeWidth="1"/>
+                  <line x1="28" y1="90"  x2="118" y2="90"  stroke="#E2E8F0" strokeWidth="1" strokeDasharray="3 3"/>
+                  <line x1="28" y1="70"  x2="118" y2="70"  stroke="#E2E8F0" strokeWidth="1" strokeDasharray="3 3"/>
+                  <line x1="28" y1="50"  x2="118" y2="50"  stroke="#E2E8F0" strokeWidth="1" strokeDasharray="3 3"/>
+                  {/* Animated bars */}
+                  <rect x="30" y="80" width="16" height="30" rx="4" fill="url(#v3_b1)" className="vb1"/>
+                  <rect x="52" y="60" width="16" height="50" rx="4" fill="url(#v3_b2)" className="vb2"/>
+                  <rect x="74" y="42" width="16" height="68" rx="4" fill="url(#v3_b3)" className="vb3"/>
+                  <rect x="96" y="25" width="16" height="85" rx="4" fill="url(#v3_b4)" className="vb4"/>
+                  {/* Trend line */}
+                  <polyline points="38,94 60,78 82,55 104,32" stroke="#FBBF24" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" className="vtrend"/>
+                  {/* Trend dots */}
+                  <circle cx="38"  cy="94" r="4" fill="#FBBF24"/>
+                  <circle cx="60"  cy="78" r="4" fill="#FBBF24"/>
+                  <circle cx="82"  cy="55" r="4" fill="#FBBF24"/>
+                  <circle cx="104" cy="32" r="5" fill="#FBBF24" stroke="white" strokeWidth="2"/>
+                  {/* Score badge */}
+                  <g className="vstar">
+                    <rect x="92" y="18" width="36" height="18" rx="6" fill="#FBBF24"/>
+                    <text x="110" y="30" textAnchor="middle" fill="white" fontSize="9" fontWeight="800" fontFamily="Arial" className="vscore">+42 pts</text>
+                  </g>
+                </svg>
+              </div>
+              <h3 className="val-card-title">See your progress clearly</h3>
+              <p className="val-card-text">Track improvement step by step and build confidence as you prepare for exam day.</p>
+            </div>
           </div>
-          <div className="home-micro-cta">
-            <button onClick={() => handleStart(selectedExam)}>
+
+          <div className="val-cta">
+            <button className="btn btn-green btn-lg" onClick={() => handleStart(selectedExam)}>
               Start your free trial now →
             </button>
+            <p className="val-cta-sub">7-day free trial · No credit card required</p>
           </div>
         </div>
       </section>

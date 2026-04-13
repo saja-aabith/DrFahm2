@@ -859,6 +859,80 @@ body {
 @media (max-width: 560px) {
   .prob-solution-inner { flex-direction: column; text-align: center; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   VALUE SECTION — white cards on deep green
+   ════════════════════════════════════════════════════════════════════════════ */
+.val-section {
+  position: relative;
+  background: #0B3D2E;
+  padding: 90px 0 100px;
+  overflow: hidden;
+}
+.val-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 10% 20%, rgba(74,222,128,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 90% 80%, rgba(21,128,61,0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+.val-header {
+  text-align: center;
+  margin-bottom: 60px;
+  position: relative;
+  z-index: 1;
+}
+.val-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase; color: #4ADE80;
+  background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3);
+  padding: 6px 18px; border-radius: 20px; margin-bottom: 22px;
+}
+.val-headline {
+  font-size: clamp(2.4rem, 5vw, 3.4rem); font-weight: 800;
+  line-height: 1.12; color: #FFFFFF; margin-bottom: 18px; letter-spacing: -0.5px;
+}
+.val-headline-accent { color: #4ADE80; }
+.val-subhead {
+  font-size: 1.1rem; color: rgba(255,255,255,0.55);
+  max-width: 480px; margin: 0 auto; line-height: 1.65;
+}
+.val-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; margin-bottom: 56px;
+  position: relative; z-index: 1;
+}
+@media (max-width: 768px) { .val-cards { grid-template-columns: 1fr; } }
+.val-card {
+  background: #FFFFFF; border-radius: 20px; padding: 36px 28px 32px;
+  text-align: center; position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.val-card:hover { transform: translateY(-10px); box-shadow: 0 32px 64px rgba(0,0,0,0.3); }
+.val-card-featured {
+  border: 3px solid #4ADE80;
+  transform: scale(1.04);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.25), 0 0 0 1px rgba(74,222,128,0.3);
+}
+.val-card-featured:hover { transform: scale(1.04) translateY(-10px); }
+.val-card-svg-wrap {
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 24px; width: 150px; height: 150px;
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.val-card:hover .val-card-svg-wrap { transform: scale(1.06) translateY(-4px); }
+.val-card-title { font-size: 1.2rem; font-weight: 800; color: #0F172A; margin-bottom: 12px; line-height: 1.3; }
+.val-card-text  { font-size: 0.95rem; color: #475569; line-height: 1.65; }
+.val-card-badge {
+  display: inline-block; margin-top: 16px; background: #15803D; color: white;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; padding: 4px 12px; border-radius: 20px;
+}
+.val-cta { text-align: center; position: relative; z-index: 1; }
+.val-cta-sub { margin-top: 10px; font-size: 0.85rem; color: rgba(255,255,255,0.4); }
 .home-problem-highlight { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); padding: 16px 20px; background: rgba(21,128,61,0.05); border-left: 3px solid var(--cta-green); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 24px 0; line-height: 1.5; }
 .home-problem-closing { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 4px; }
 
@@ -1079,4 +1153,3 @@ body {
   .whatsapp-float-btn { padding: 13px; border-radius: 50%; }
   .whatsapp-float-label { display: none; }
 }
-
