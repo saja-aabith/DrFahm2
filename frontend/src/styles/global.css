@@ -1205,6 +1205,140 @@ body {
   max-width: 500px;
 }
 .cmp-closing strong { color: #FFFFFF; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FINAL CTA SECTION
+   ════════════════════════════════════════════════════════════════════════════ */
+.fcta-section {
+  position: relative;
+  background: linear-gradient(135deg, #052E16 0%, #14532D 40%, #052E16 100%);
+  padding: 110px 0 120px;
+  overflow: hidden;
+}
+
+/* Glow orbs */
+.fcta-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(80px); pointer-events: none;
+}
+.fcta-orb-1 {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(74,222,128,0.18) 0%, transparent 70%);
+  top: -200px; left: -100px;
+  animation: prob-drift 8s ease-in-out infinite alternate;
+}
+.fcta-orb-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(21,128,61,0.25) 0%, transparent 70%);
+  bottom: -150px; right: -80px;
+  animation: prob-drift 10s ease-in-out infinite alternate-reverse;
+}
+
+/* Floating particles */
+.fcta-particles { position: absolute; inset: 0; pointer-events: none; }
+.fcta-particle {
+  position: absolute;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: rgba(74,222,128,0.5);
+  animation: fcta-float-up 6s ease-in-out infinite;
+}
+@keyframes fcta-float-up {
+  0%   { transform: translateY(0) scale(1);   opacity: 0; }
+  10%  { opacity: 0.8; }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(-120px) scale(0.3); opacity: 0; }
+}
+/* Stagger and position each particle */
+.fcta-p1  { left: 8%;  bottom: 20%; animation-delay: 0s;    animation-duration: 5s; }
+.fcta-p2  { left: 15%; bottom: 10%; animation-delay: 0.8s;  animation-duration: 7s; width: 3px; height: 3px; }
+.fcta-p3  { left: 25%; bottom: 30%; animation-delay: 1.6s;  animation-duration: 6s; }
+.fcta-p4  { left: 35%; bottom: 5%;  animation-delay: 0.4s;  animation-duration: 8s; width: 5px; height: 5px; }
+.fcta-p5  { left: 48%; bottom: 15%; animation-delay: 2s;    animation-duration: 5.5s; }
+.fcta-p6  { left: 58%; bottom: 8%;  animation-delay: 1.2s;  animation-duration: 7.5s; width: 3px; height: 3px; }
+.fcta-p7  { left: 65%; bottom: 25%; animation-delay: 0.6s;  animation-duration: 6.5s; }
+.fcta-p8  { left: 72%; bottom: 12%; animation-delay: 2.4s;  animation-duration: 5s; width: 6px; height: 6px; background: rgba(250,204,21,0.4); }
+.fcta-p9  { left: 80%; bottom: 20%; animation-delay: 1.8s;  animation-duration: 7s; }
+.fcta-p10 { left: 88%; bottom: 8%;  animation-delay: 0.2s;  animation-duration: 6s; }
+.fcta-p11 { left: 92%; bottom: 35%; animation-delay: 3s;    animation-duration: 8s; width: 3px; height: 3px; }
+.fcta-p12 { left: 5%;  bottom: 40%; animation-delay: 1.4s;  animation-duration: 9s; width: 5px; height: 5px; background: rgba(250,204,21,0.3); }
+
+/* Inner content */
+.fcta-inner {
+  text-align: center;
+  max-width: 700px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+}
+
+.fcta-eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: #4ADE80;
+  margin-bottom: 28px;
+}
+.fcta-eyebrow-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #4ADE80;
+  animation: pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(74,222,128,0.6);
+}
+
+.fcta-headline {
+  font-size: clamp(2.4rem, 5vw, 3.8rem);
+  font-weight: 800; color: #FFFFFF;
+  line-height: 1.1; letter-spacing: -1px;
+  margin-bottom: 20px;
+}
+.fcta-headline-accent {
+  color: #4ADE80;
+  display: block;
+}
+
+.fcta-sub {
+  font-size: 1.1rem; color: rgba(255,255,255,0.55);
+  line-height: 1.65; margin-bottom: 32px;
+  max-width: 520px;
+}
+
+/* Trust pills row */
+.fcta-trust-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 40px;
+}
+.fcta-trust-pill {
+  font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+  padding: 6px 14px; border-radius: 20px;
+}
+
+/* Buttons */
+.fcta-buttons {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  margin-bottom: 24px;
+}
+.fcta-btn-primary {
+  background: #4ADE80; color: #052E16;
+  border: none; border-radius: 12px;
+  padding: 18px 48px; font-family: 'Tajawal', sans-serif;
+  font-size: 1.15rem; font-weight: 800; cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 40px rgba(74,222,128,0.35), 0 4px 16px rgba(0,0,0,0.3);
+  letter-spacing: -0.2px;
+}
+.fcta-btn-primary:hover {
+  background: #86EFAC; transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 0 60px rgba(74,222,128,0.5), 0 8px 24px rgba(0,0,0,0.35);
+}
+.fcta-btn-secondary {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.5); font-family: 'Tajawal', sans-serif;
+  font-size: 0.9rem; font-weight: 600;
+  transition: color 0.2s ease;
+}
+.fcta-btn-secondary:hover { color: rgba(255,255,255,0.85); }
+
+.fcta-login { font-size: 0.875rem; color: rgba(255,255,255,0.35); }
+.fcta-login-link { color: #4ADE80; text-decoration: none; font-weight: 600; }
+.fcta-login-link:hover { text-decoration: underline; }
 .home-problem-highlight { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); padding: 16px 20px; background: rgba(21,128,61,0.05); border-left: 3px solid var(--cta-green); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 24px 0; line-height: 1.5; }
 .home-problem-closing { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 4px; }
 

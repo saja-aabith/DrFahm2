@@ -1408,40 +1408,56 @@ export default function Home() {
       </section>
 
       {/* ── 7. FINAL CTA ─────────────────────────────────────────────────── */}
-      <section className="home-section">
-        <div className="home-container">
-          <div ref={ctaRef} className={`home-cta-strip ${ctaInView ? 'anim-in' : ''}`}>
-            <div className="home-cta-strip-glow" />
-            <h2 className="home-cta-strip-title">
-              Start your free trial and see what to fix from your first session.
+      <section className="fcta-section" ref={ctaRef}>
+        {/* Animated background particles */}
+        <div className="fcta-particles" aria-hidden="true">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className={`fcta-particle fcta-p${i + 1}`} />
+          ))}
+        </div>
+        {/* Glow orbs */}
+        <div className="fcta-orb fcta-orb-1" />
+        <div className="fcta-orb fcta-orb-2" />
+
+        <div className="home-container" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="fcta-inner">
+            {/* Eyebrow */}
+            <div className="fcta-eyebrow">
+              <span className="fcta-eyebrow-dot" />
+              Free 7-day trial — no credit card required
+            </div>
+
+            {/* Headline */}
+            <h2 className="fcta-headline">
+              Start your free trial.<br />
+              <span className="fcta-headline-accent">See what to fix from session one.</span>
             </h2>
-            <p className="home-cta-strip-sub">
+
+            <p className="fcta-sub">
               Choose your exam, follow a structured plan, and start improving from day one.
             </p>
 
-            {/* Single primary + text secondary */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-              <button className="btn btn-green btn-lg" onClick={() => handleStart(selectedExam)}>
+            {/* Trust pills */}
+            <div className="fcta-trust-row">
+              {['✓ 7-day free trial', '✓ No credit card', '✓ Cancel anytime', '✓ Instant access'].map((t) => (
+                <span key={t} className="fcta-trust-pill">{t}</span>
+              ))}
+            </div>
+
+            {/* CTAs */}
+            <div className="fcta-buttons">
+              <button className="fcta-btn-primary" onClick={() => handleStart(selectedExam)}>
                 Start free — {selectedExam === 'tahsili' ? 'Tahsili' : 'Qudurat'}
               </button>
-              <button
-                onClick={() => handleStart(selectedExam === 'tahsili' ? 'qudurat' : 'tahsili')}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#15803D', fontSize: '0.875rem', fontWeight: 600,
-                  fontFamily: 'Tajawal, sans-serif',
-                }}
-              >
+              <button className="fcta-btn-secondary"
+                onClick={() => handleStart(selectedExam === 'tahsili' ? 'qudurat' : 'tahsili')}>
                 or start with {selectedExam === 'tahsili' ? 'Qudurat' : 'Tahsili'} →
               </button>
             </div>
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 12 }}>
-              No credit card required
-            </p>
-            <p className="home-cta-strip-footnote">
+            <p className="fcta-login">
               Already have an account?{' '}
-              <Link to="/login" className="link">Log in</Link>
+              <Link to="/login" className="fcta-login-link">Log in</Link>
             </p>
           </div>
         </div>
