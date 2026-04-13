@@ -1,45 +1,55 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const navigate         = useNavigate();
-  const location         = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  // Sign out → home page, not login
   const handleLogout = async () => {
     await logout();
     navigate('/');
   };
 
   const isActive = (path) => location.pathname === path;
-
-  // On the homepage, always show the public (marketing) nav.
-  // Logged-in users on / get a single "Dashboard →" button instead of
-  // the full internal nav — avoids destroying homepage trust signals.
   const isHome = location.pathname === '/';
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   return (
-    <nav className="navbar">
+    <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''} ${isHome ? 'navbar-home' : ''}`}>
       <div className="navbar-inner">
-        <Link to={user ? '/dashboard' : '/'} className="navbar-logo">
-          <span className="logo-dr">Dr</span>
-          <span className="logo-fahm">Fahm</span>
+        <Link to={user ? '/dashboard' : '/'} className="navbar-logo" aria-label="DrFahm home">
+          <span className="navbar-logo-mark">
+            <span className="logo-dr">Dr</span>
+            <span className="logo-fahm">Fahm</span>
+          </span>
+          <span className="navbar-logo-tag">Saudi exam prep</span>
         </Link>
 
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
           {!user || isHome ? (
-            /* ── Public / homepage nav ── */
             <>
               <Link
                 to="/schools"
                 className={`nav-link ${isActive('/schools') ? 'active' : ''}`}
                 onClick={() => setMenuOpen(false)}
               >
-                We are a School
+                Schools
               </Link>
+
               <Link
                 to="/pricing"
                 className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
@@ -49,7 +59,6 @@ export default function Navbar() {
               </Link>
 
               {user ? (
-                /* Logged-in user visiting homepage: one clean button */
                 <Link
                   to="/dashboard"
                   className="btn btn-green btn-sm navbar-try-btn"
@@ -64,20 +73,20 @@ export default function Navbar() {
                     className="nav-link"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Log In
+                    Log in
                   </Link>
+
                   <Link
                     to="/register"
-                    className="btn btn-green btn-sm navbar-try-btn"
+                    className="btn btn-green btn-sm navbar-try-btn navbar-primary-cta"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Try Now
+                    Start free
                   </Link>
                 </>
               )}
             </>
           ) : (
-            /* ── Authenticated app nav (non-homepage) ── */
             <>
               <Link
                 to="/dashboard"
@@ -86,6 +95,7 @@ export default function Navbar() {
               >
                 Dashboard
               </Link>
+
               {user.role === 'drfahm_admin' && (
                 <Link
                   to="/admin"
@@ -95,7 +105,9 @@ export default function Navbar() {
                   Admin
                 </Link>
               )}
+
               <span className="nav-username">{user.username}</span>
+
               <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
                 Log out
               </button>
@@ -104,11 +116,14 @@ export default function Navbar() {
         </div>
 
         <button
-          className="nav-hamburger"
+          className={`nav-hamburger ${menuOpen ? 'open' : ''}`}
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Toggle menu"
+          aria-expanded={menuOpen}
         >
-          <span /><span /><span />
+          <span />
+          <span />
+          <span />
         </button>
       </div>
     </nav>
