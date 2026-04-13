@@ -83,9 +83,10 @@ def register():
     data = request.get_json(silent=True) or {}
 
     # ── Validate required fields ──
-    username = (data.get("username") or "").strip()
-    password = (data.get("password") or "").strip()
-    email    = (data.get("email") or "").strip() or None
+    username     = (data.get("username") or "").strip()
+    password     = (data.get("password") or "").strip()
+    email        = (data.get("email") or "").strip() or None
+    phone_number = (data.get("phone_number") or "").strip() or None
 
     if not username:
         return bad_request("validation_error", "username is required.")
@@ -99,6 +100,8 @@ def register():
                            "password must be at least 8 characters.")
     if email and len(email) > 255:
         return bad_request("validation_error", "email is too long.")
+    if phone_number and len(phone_number) > 30:
+        return bad_request("validation_error", "phone_number is too long.")
 
     # ── Uniqueness checks ──
     if User.query.filter_by(username=username).first():
@@ -109,6 +112,7 @@ def register():
     # ── Create user ──
     user = User(username=username, email=email, role=UserRole.STUDENT)
     user.set_password(password)
+    user.phone_number = phone_number
     db.session.add(user)
     db.session.commit()
 

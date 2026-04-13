@@ -19,6 +19,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role          = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.STUDENT)
     is_active     = db.Column(db.Boolean, nullable=False, default=True)
+    phone_number  = db.Column(db.String(30), nullable=True)
 
     # Org membership — null for direct (B2C) students and admins
     org_id        = db.Column(db.Integer, db.ForeignKey("orgs.id",
@@ -55,11 +56,12 @@ class User(db.Model):
 
     def to_dict(self):
         return {
-            "id":         self.id,
-            "username":   self.username,
-            "email":      self.email,
-            "role":       self.role.value,
-            "is_active":  self.is_active,
-            "org_id":     self.org_id,
-            "created_at": self.created_at.isoformat(),
+            "id":           self.id,
+            "username":     self.username,
+            "email":        self.email,
+            "role":         self.role.value,
+            "is_active":    self.is_active,
+            "org_id":       self.org_id,
+            "phone_number": self.phone_number,
+            "created_at":   self.created_at.isoformat(),
         }
