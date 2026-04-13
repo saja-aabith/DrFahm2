@@ -860,53 +860,132 @@ export default function Home() {
               <div className="val-card-svg-wrap">
                 <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <style>{`
-                    @keyframes dart-fly {
-                      0%   { transform: translate(-60px, 60px) rotate(-45deg); opacity: 0; }
-                      40%  { opacity: 1; }
-                      70%  { transform: translate(0px, 0px) rotate(-45deg); opacity: 1; }
-                      85%  { transform: translate(0px, 0px) rotate(-45deg) scale(0.95); }
-                      100% { transform: translate(0px, 0px) rotate(-45deg) scale(1); opacity: 1; }
+                    @keyframes glass-scan {
+                      0%   { transform: translate(0px,  0px);  }
+                      20%  { transform: translate(10px, 8px);  }
+                      40%  { transform: translate(4px,  22px); }
+                      60%  { transform: translate(14px, 36px); }
+                      75%  { transform: translate(6px,  36px); }
+                      90%  { transform: translate(6px,  36px); }
+                      100% { transform: translate(0px,  0px);  }
                     }
-                    @keyframes ring-pulse1 { 0%,100%{opacity:0.5} 50%{opacity:1} }
-                    @keyframes ring-pulse2 { 0%,100%{opacity:0.4} 50%{opacity:0.9} }
-                    @keyframes ring-pulse3 { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
-                    @keyframes bullseye-spin { from{transform-origin:75px 75px;transform:rotate(0)} to{transform-origin:75px 75px;transform:rotate(360deg)} }
-                    @keyframes impact-flash  { 0%,90%{opacity:0} 92%{opacity:0.8} 100%{opacity:0} }
-                    .dart       { animation: dart-fly 2.5s cubic-bezier(0.25,0.46,0.45,0.94) infinite; transform-origin: 75px 75px; }
-                    .ring1      { animation: ring-pulse1 2s ease-in-out infinite; }
-                    .ring2      { animation: ring-pulse2 2s ease-in-out infinite 0.2s; }
-                    .ring3      { animation: ring-pulse3 2s ease-in-out infinite 0.4s; }
-                    .bs-spin    { animation: bullseye-spin 12s linear infinite; }
-                    .impact     { animation: impact-flash 2.5s ease infinite; }
+                    @keyframes topic-weak1 {
+                      0%,30%  { fill: #E2E8F0; }
+                      35%,85% { fill: #FEE2E2; }
+                      90%,100%{ fill: #E2E8F0; }
+                    }
+                    @keyframes topic-weak2 {
+                      0%,55%  { fill: #E2E8F0; }
+                      62%,85% { fill: #FEE2E2; }
+                      90%,100%{ fill: #E2E8F0; }
+                    }
+                    @keyframes topic-found {
+                      0%,58%  { fill: #E2E8F0; stroke: transparent; stroke-width:0; }
+                      65%,85% { fill: #FEE2E2; stroke: #EF4444; stroke-width: 2; }
+                      90%,100%{ fill: #DCFCE7; stroke: #15803D; stroke-width: 2; }
+                    }
+                    @keyframes label-weak1 { 0%,30%{fill:#94A3B8} 35%,85%{fill:#EF4444} 90%,100%{fill:#94A3B8} }
+                    @keyframes label-weak2 { 0%,55%{fill:#94A3B8} 62%,85%{fill:#EF4444} 90%,100%{fill:#94A3B8} }
+                    @keyframes label-found { 0%,58%{fill:#94A3B8} 65%,84%{fill:#EF4444} 85%,100%{fill:#15803D} }
+                    @keyframes check-appear { 0%,84%{opacity:0} 90%,100%{opacity:1} }
+                    @keyframes exclaim-pulse {
+                      0%,30%  { opacity:0 }
+                      35%,50% { opacity:1; transform:scale(1.2); transform-origin:108px 56px; }
+                      55%,84% { opacity:1; transform:scale(1);   transform-origin:108px 56px; }
+                      90%,100%{ opacity:0 }
+                    }
+                    @keyframes exclaim2-pulse {
+                      0%,55%  { opacity:0 }
+                      62%,75% { opacity:1; transform:scale(1.2); transform-origin:108px 86px; }
+                      80%,84% { opacity:1; transform:scale(1);   transform-origin:108px 86px; }
+                      90%,100%{ opacity:0 }
+                    }
+                    @keyframes glow-ring {
+                      0%,58%  { opacity:0; r:28; }
+                      65%,75% { opacity:0.6; r:32; }
+                      82%,84% { opacity:0.3; r:36; }
+                      90%,100%{ opacity:0; r:28; }
+                    }
+                    @keyframes score-jump {
+                      0%,85% { opacity:0; transform:translateY(0); }
+                      90%    { opacity:1; transform:translateY(-6px); }
+                      100%   { opacity:0; transform:translateY(-14px); }
+                    }
+                    .mg-glass   { animation: glass-scan 4s cubic-bezier(0.4,0,0.2,1) infinite; }
+                    .t-row1     { animation: topic-weak1 4s ease infinite; }
+                    .t-row2     { animation: topic-weak2 4s ease infinite; }
+                    .t-row3     { animation: topic-found 4s ease infinite; }
+                    .l-row1     { animation: label-weak1 4s ease infinite; }
+                    .l-row2     { animation: label-weak2 4s ease infinite; }
+                    .l-row3     { animation: label-found 4s ease infinite; }
+                    .chk        { animation: check-appear 4s ease infinite; }
+                    .exc1       { animation: exclaim-pulse  4s ease infinite; }
+                    .exc2       { animation: exclaim2-pulse 4s ease infinite; }
+                    .glow-r     { animation: glow-ring 4s ease infinite; }
+                    .score-pop  { animation: score-jump 4s ease infinite; }
                   `}</style>
                   <defs>
-                    <linearGradient id="v2_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFF7ED"/><stop offset="100%" stopColor="#FEF3C7"/></linearGradient>
+                    <linearGradient id="v2b_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFF7ED"/><stop offset="100%" stopColor="#FFFBEB"/></linearGradient>
+                    <linearGradient id="mg_handle" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#92400E"/><stop offset="100%" stopColor="#B45309"/></linearGradient>
+                    <linearGradient id="mg_lens" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="rgba(219,234,254,0.85)"/><stop offset="100%" stopColor="rgba(191,219,254,0.6)"/></linearGradient>
+                    <filter id="mg_shadow"><feDropShadow dx="2" dy="4" stdDeviation="4" floodColor="rgba(0,0,0,0.18)"/></filter>
                   </defs>
-                  <circle cx="75" cy="75" r="72" fill="url(#v2_bg)"/>
+
+                  <circle cx="75" cy="75" r="72" fill="url(#v2b_bg)"/>
                   <ellipse cx="75" cy="138" rx="40" ry="6" fill="rgba(0,0,0,0.06)"/>
-                  {/* Bullseye rings */}
-                  <circle cx="75" cy="75" r="58" fill="rgba(239,68,68,0.08)" stroke="#FCA5A5" strokeWidth="1.5" className="ring3"/>
-                  <circle cx="75" cy="75" r="44" fill="rgba(239,68,68,0.1)"  stroke="#F87171" strokeWidth="2"   className="ring2"/>
-                  <circle cx="75" cy="75" r="30" fill="rgba(239,68,68,0.18)" stroke="#EF4444" strokeWidth="2.5" className="ring1"/>
-                  <circle cx="75" cy="75" r="16" fill="rgba(239,68,68,0.35)" stroke="#DC2626" strokeWidth="3"/>
-                  <circle cx="75" cy="75" r="6"  fill="#DC2626"/>
-                  {/* Cross hairs */}
-                  <g className="bs-spin" opacity="0.2">
-                    <line x1="75" y1="10" x2="75" y2="140" stroke="#EF4444" strokeWidth="1" strokeDasharray="4 4"/>
-                    <line x1="10" y1="75" x2="140" y2="75" stroke="#EF4444" strokeWidth="1" strokeDasharray="4 4"/>
+
+                  {/* Topic list panel */}
+                  <rect x="22" y="28" width="100" height="92" rx="10" fill="white" stroke="#E2E8F0" strokeWidth="1.5"/>
+                  {/* Header */}
+                  <rect x="22" y="28" width="100" height="22" rx="10" fill="#F8FAFC"/>
+                  <rect x="22" y="39"  width="100" height="11" fill="#F8FAFC"/>
+                  <text x="72" y="43" textAnchor="middle" fill="#64748B" fontSize="8" fontWeight="700" fontFamily="Arial">TOPIC PERFORMANCE</text>
+
+                  {/* Row 1 */}
+                  <rect x="30" y="58" width="84" height="16" rx="4" className="t-row1"/>
+                  <rect x="34" y="62" width="44" height="8" rx="3" fill="#CBD5E1"/>
+                  <rect x="84" y="62" width="24" height="8" rx="3" fill="#CBD5E1"/>
+                  <text x="96" y="69" textAnchor="middle" fontSize="7" fontWeight="700" fontFamily="Arial" className="l-row1">62%</text>
+                  <text x="36" y="69" fontSize="7" fontFamily="Arial" fill="#64748B">Algebra</text>
+                  <text x="108" y="62" fontSize="11" fontWeight="900" fontFamily="Arial" className="exc1">!</text>
+
+                  {/* Row 2 */}
+                  <rect x="30" y="80" width="84" height="16" rx="4" className="t-row2"/>
+                  <rect x="34" y="84" width="52" height="8" rx="3" fill="#CBD5E1"/>
+                  <rect x="92" y="84" width="16" height="8" rx="3" fill="#CBD5E1"/>
+                  <text x="100" y="91" textAnchor="middle" fontSize="7" fontWeight="700" fontFamily="Arial" className="l-row2">44%</text>
+                  <text x="36" y="91" fontSize="7" fontFamily="Arial" fill="#64748B">Geometry</text>
+                  <text x="108" y="84" fontSize="11" fontWeight="900" fontFamily="Arial" className="exc2">!</text>
+
+                  {/* Row 3 — weakest, found & fixed */}
+                  <rect x="30" y="102" width="84" height="16" rx="4" className="t-row3"/>
+                  <rect x="34" y="106" width="28" height="8" rx="3" fill="#CBD5E1"/>
+                  <rect x="68" y="106" width="40" height="8" rx="3" fill="#CBD5E1"/>
+                  <text x="88" y="113" textAnchor="middle" fontSize="7" fontWeight="700" fontFamily="Arial" className="l-row3">38%</text>
+                  <text x="36" y="113" fontSize="7" fontFamily="Arial" fill="#64748B">Fractions</text>
+                  {/* Checkmark appears when fixed */}
+                  <text x="109" y="114" fontSize="11" fontWeight="900" fontFamily="Arial" fill="#15803D" className="chk">✓</text>
+
+                  {/* Glow ring behind magnifier when locked on target */}
+                  <circle cx="75" cy="113" fill="rgba(239,68,68,0.15)" stroke="rgba(239,68,68,0.4)" strokeWidth="1.5" className="glow-r" r="28"/>
+
+                  {/* Score pop */}
+                  <g className="score-pop">
+                    <rect x="52" y="90" width="46" height="16" rx="6" fill="#15803D"/>
+                    <text x="75" y="101" textAnchor="middle" fill="white" fontSize="9" fontWeight="800" fontFamily="Arial">+18 pts!</text>
                   </g>
-                  {/* Dart */}
-                  <g className="dart">
-                    <line x1="68" y1="82" x2="92" y2="58" stroke="#1E293B" strokeWidth="4" strokeLinecap="round"/>
-                    <polygon points="92,58 86,60 90,64" fill="#EF4444"/>
-                    <polygon points="68,82 72,76 66,76" fill="#F59E0B"/>
-                    <line x1="70" y1="80" x2="66" y2="84" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
-                    <line x1="67" y1="77" x2="63" y2="81" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
-                  </g>
-                  {/* Impact sparkle */}
-                  <g className="impact">
-                    <circle cx="75" cy="75" r="20" fill="none" stroke="#FBBF24" strokeWidth="3"/>
-                    <circle cx="75" cy="75" r="30" fill="none" stroke="#F59E0B" strokeWidth="1.5"/>
+
+                  {/* Magnifying glass */}
+                  <g className="mg-glass" filter="url(#mg_shadow)">
+                    {/* Handle */}
+                    <line x1="87" y1="87" x2="98" y2="98" stroke="url(#mg_handle)" strokeWidth="7" strokeLinecap="round"/>
+                    {/* Frame ring */}
+                    <circle cx="72" cy="72" r="22" stroke="#3B82F6" strokeWidth="4" fill="none"/>
+                    {/* Lens */}
+                    <circle cx="72" cy="72" r="19" fill="url(#mg_lens)"/>
+                    {/* Lens shine */}
+                    <circle cx="65" cy="65" r="5" fill="rgba(255,255,255,0.5)"/>
+                    <circle cx="63" cy="63" r="2" fill="rgba(255,255,255,0.7)"/>
                   </g>
                 </svg>
               </div>
