@@ -1310,7 +1310,7 @@ body {
 .pricing-card:hover    { box-shadow: var(--shadow-lg); }
 .pricing-card.ghost    { border-style: dashed; }
 .pricing-card.highlight { border-color: rgba(21,128,61,0.4); background: rgba(21,128,61,0.03); }
-.pricing-card.gold { border-color: rgba(198,168,91,0.45); border-width: 1.5px; background: rgba(198,168,91,0.025); box-shadow: 0 4px 20px rgba(198,168,91,0.1), 0 1px 4px rgba(28,39,51,0.05); }
+.pricing-card.gold { border-color: rgba(198,168,91,0.6); border-width: 2px; background: #FFFFFF; box-shadow: 0 4px 28px rgba(198,168,91,0.25), 0 1px 4px rgba(28,39,51,0.08); }
 .pricing-card.gold:hover { box-shadow: 0 6px 28px rgba(198,168,91,0.18), 0 2px 8px rgba(28,39,51,0.06); }
 .pricing-card.gold .pricing-price-amount { font-size: 2.4rem; }
 .pricing-card.active { border-color: rgba(21,128,61,0.35); background: rgba(21,128,61,0.02); }
