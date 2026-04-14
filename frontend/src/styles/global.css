@@ -773,17 +773,15 @@ body {
 .hero-section {
   position: relative;
   background: #0A1628;
-  min-height: calc(92vh + 70px);
   display: flex;
   align-items: flex-start;
   overflow: hidden;
   margin-top: -70px;
-  padding: 110px 48px 80px;   /* 70px navbar + 40px breathing room */
+  padding: 110px 48px 90px;
 }
 @media (max-width: 768px) {
   .hero-section {
-    padding: 106px 24px 60px;
-    min-height: auto;
+    padding: 106px 24px 72px;
     margin-top: -66px;
   }
 }
