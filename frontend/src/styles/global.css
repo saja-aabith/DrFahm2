@@ -775,14 +775,14 @@ body {
   background: #0A1628;
   min-height: calc(92vh + 70px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   overflow: hidden;
-  margin-top: -70px;        /* pull hero behind the sticky navbar */
-  padding: 170px 48px 80px; /* top = original 100px + 70px navbar height */
+  margin-top: -70px;
+  padding: 110px 48px 80px;   /* 70px navbar + 40px breathing room */
 }
 @media (max-width: 768px) {
   .hero-section {
-    padding: 146px 24px 60px; /* 80px + 66px mobile navbar */
+    padding: 106px 24px 60px;
     min-height: auto;
     margin-top: -66px;
   }
