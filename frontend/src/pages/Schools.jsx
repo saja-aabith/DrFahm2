@@ -463,7 +463,7 @@ export default function Schools() {
           </div>
           <h2 className="sch-section-title">Prefer to talk first?</h2>
           <p className="sch-section-sub" style={{ margin: '0 auto 32px' }}>
-            Book a free 15-minute call with our team. We will answer your questions
+            Book a free 30-minute call with our team. We will answer your questions
             and walk you through the platform.
           </p>
 
@@ -476,7 +476,7 @@ export default function Schools() {
                 className="fcta-btn-primary"
                 style={{ textDecoration: 'none' }}
               >
-                Book a 15-min call →
+                Book a 30-min call →
               </a>
             ) : (
               <a
