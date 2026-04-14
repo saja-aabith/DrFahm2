@@ -1,20 +1,34 @@
 /**
  * LogoSVG.jsx
- * Inline SVG recreation of the DrFahm logo.
- * No external image dependency — works on any background.
+ * Inline SVG recreation of the DrFahm DF mark.
+ * Uses SVG arc commands for geometrically precise letterforms.
+ * No external dependency — works on any background.
  *
  * Exports:
- *   LogoMark  — the DF monogram only
+ *   LogoMark  — DF monogram only
  *   LogoFull  — DF mark + "Dr.Fahm" wordmark (default export)
  */
 
 import React from 'react';
 
-// ── DF monogram ───────────────────────────────────────────────────────────────
-// ViewBox 0 0 84 46
-//   D: x 0–37,  even-odd hollow letterform
-//   F: x 43–77, solid letterform
+/**
+ * DF monogram — viewBox "0 0 84 46"
+ *
+ * D (x 0–38, h 46)
+ *   Outer: left bar top → arc CW to bottom → close  (rx=20, ry=23 → max x = 18+20 = 38)
+ *   Counter (evenodd cutout): inner top → arc CW to inner bottom → close (rx=11, ry=15)
+ *
+ * F (x 44–80, h 46)
+ *   Single outline path tracing top bar + middle bar + vertical stroke.
+ */
+const D_PATH =
+  'M0,0 H18 A20,23 0 0 1 18,46 H0 Z ' +
+  'M9,8 H16 A11,15 0 0 1 16,38 H9 Z';
 
+const F_PATH =
+  'M44,0 H80 V9 H54 V20 H70 V29 H54 V46 H44 Z';
+
+// ── DF monogram mark ──────────────────────────────────────────────────────────
 export function LogoMark({ height = 36, color = '#15803D', className = '' }) {
   const width = Math.round((84 / 46) * height);
   return (
@@ -28,59 +42,48 @@ export function LogoMark({ height = 36, color = '#15803D', className = '' }) {
       aria-hidden="true"
       focusable="false"
     >
-      {/* D — outer shape minus counter = hollow letterform */}
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M0 0L0 46L17 46Q38 46 38 23Q38 0 17 0Z
-           M8 7L15 7Q29 7 29 23Q29 39 15 39L8 39Z"
-        fill={color}
-      />
-      {/* F — solid */}
-      <path
-        d="M43 0L43 46L52 46L52 28L69 28L69 21L52 21L52 9L77 9L77 0Z"
-        fill={color}
-      />
+      <path fillRule="evenodd" clipRule="evenodd" d={D_PATH} fill={color} />
+      <path d={F_PATH} fill={color} />
     </svg>
   );
 }
 
-// ── Full logo: mark + wordmark ────────────────────────────────────────────────
+// ── Full logo: mark + "Dr.Fahm" wordmark ─────────────────────────────────────
 export function LogoFull({
-  height     = 34,
-  markColor  = '#15803D',   // DF icon color
-  textColor  = '#0F172A',   // "DrFahm" wordmark color
-  dotColor   = '#15803D',   // the dot between Dr and Fahm
-  className  = '',
-  style      = {},
+  height    = 34,
+  markColor = '#15803D',
+  textColor = '#0F172A',
+  dotColor  = '#15803D',
+  className = '',
+  style     = {},
 }) {
   const gap      = Math.round(height * 0.38);
-  const fontSize = Math.round(height * 0.74);
+  const fontSize = Math.round(height * 0.76);
 
   return (
     <span
       className={`logo-full-wrap ${className}`}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: `${gap}px`,
+        display:        'inline-flex',
+        alignItems:     'center',
+        gap:            `${gap}px`,
         textDecoration: 'none',
-        lineHeight: 1,
-        userSelect: 'none',
+        lineHeight:     1,
+        userSelect:     'none',
         ...style,
       }}
     >
       <LogoMark height={height} color={markColor} />
+      {/* All colors set as inline styles — no CSS can override */}
       <span
-        className="logo-full-text"
         style={{
-          fontSize:    `${fontSize}px`,
-          fontWeight:  800,
-          letterSpacing: '-0.4px',
-          fontFamily:  "'Tajawal', sans-serif",
-          color:       textColor,
-          lineHeight:  1,
-          whiteSpace:  'nowrap',
+          fontSize:      `${fontSize}px`,
+          fontWeight:    800,
+          letterSpacing: '-0.5px',
+          fontFamily:    "'Tajawal', sans-serif",
+          color:         textColor,
+          lineHeight:    1,
+          whiteSpace:    'nowrap',
         }}
       >
         Dr<span style={{ color: dotColor }}>.</span>Fahm

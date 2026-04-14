@@ -13,15 +13,22 @@ export default function Navbar() {
   const isHome   = location.pathname === '/';
   const isActive = (path) => location.pathname === path;
 
-  // On the home page: transparent until user scrolls 40px
-  const isDark = isHome && !scrolled;
+  /**
+   * isDark = true whenever the navbar sits over a dark background.
+   *
+   * Home page: ALWAYS dark — whether transparent (unscrolled) or dark-frosted
+   * (scrolled). Both states have a dark background so we always need white text.
+   *
+   * All other pages: always light frosted — dark text.
+   */
+  const isDark = isHome;
 
   // Close menu on route change
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
 
-  // Scroll listener — only active on home page
+  // Scroll listener — drives CSS classes for background transition
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
@@ -29,7 +36,7 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Lock body scroll when mobile menu is open
+  // Lock body scroll when mobile menu open
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -42,11 +49,12 @@ export default function Navbar() {
 
   const navClass = [
     'navbar',
-    isHome   ? 'navbar-home'   : '',
-    scrolled ? 'navbar-scrolled' : '',
+    isHome             ? 'navbar-home'     : '',
+    isHome && scrolled ? 'navbar-scrolled' : '',
+    !isHome            ? 'navbar-scrolled' : '',   // always show shadow on other pages
   ].filter(Boolean).join(' ');
 
-  // Logo colors driven by dark/light context
+  // Logo colors
   const markColor = isDark ? '#4ADE80' : '#15803D';
   const textColor = isDark ? '#FFFFFF' : '#0F172A';
   const dotColor  = isDark ? '#4ADE80' : '#15803D';
@@ -166,7 +174,6 @@ export default function Navbar() {
           onClick={() => setMenuOpen((v) => !v)}
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={menuOpen}
-          aria-controls="navbar-links"
         >
           <span aria-hidden="true" />
           <span aria-hidden="true" />
