@@ -773,14 +773,19 @@ body {
 .hero-section {
   position: relative;
   background: #0A1628;
-  min-height: 92vh;
+  min-height: calc(92vh + 70px);
   display: flex;
   align-items: center;
   overflow: hidden;
-  padding: 100px 48px 80px;
+  margin-top: -70px;        /* pull hero behind the sticky navbar */
+  padding: 170px 48px 80px; /* top = original 100px + 70px navbar height */
 }
 @media (max-width: 768px) {
-  .hero-section { padding: 80px 24px 60px; min-height: auto; }
+  .hero-section {
+    padding: 146px 24px 60px; /* 80px + 66px mobile navbar */
+    min-height: auto;
+    margin-top: -66px;
+  }
 }
 
 .hero-grid {
