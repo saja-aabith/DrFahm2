@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import MathText from '../components/MathText';
 import { BookOpen, Target, TrendingUp, Zap, BarChart2, Award, Check, Minus } from 'lucide-react';
+import { LogoFull } from '../components/LogoSVG';
 
 const WA_NUMBER  = '447346463512';
 const WA_MESSAGE = encodeURIComponent('Hi, I have a question about DrFahm');

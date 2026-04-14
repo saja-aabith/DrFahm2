@@ -1,27 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { LogoFull } from './LogoSVG';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  const isHome = location.pathname === '/';
+  const isHome   = location.pathname === '/';
   const isActive = (path) => location.pathname === path;
 
+  // On the home page: transparent until user scrolls 40px
+  const isDark = isHome && !scrolled;
+
+  // Close menu on route change
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  // Scroll listener — only active on home page
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 14);
+    const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
 
   const handleLogout = async () => {
     await logout();
@@ -30,33 +42,55 @@ export default function Navbar() {
 
   const navClass = [
     'navbar',
-    isHome ? 'navbar-home' : '',
-    scrolled ? 'scrolled' : '',
-  ].join(' ').trim();
+    isHome   ? 'navbar-home'   : '',
+    scrolled ? 'navbar-scrolled' : '',
+  ].filter(Boolean).join(' ');
+
+  // Logo colors driven by dark/light context
+  const markColor = isDark ? '#4ADE80' : '#15803D';
+  const textColor = isDark ? '#FFFFFF' : '#0F172A';
+  const dotColor  = isDark ? '#4ADE80' : '#15803D';
 
   return (
-    <nav className={navClass}>
+    <nav className={navClass} aria-label="Main navigation">
       <div className="navbar-inner">
-        <Link to={user ? '/dashboard' : '/'} className="navbar-logo" aria-label="DrFahm home">
-          <span className="logo-dr">Dr</span>
-          <span className="logo-fahm">Fahm</span>
+
+        {/* ── Logo ─────────────────────────────────────────────────── */}
+        <Link
+          to={user ? '/dashboard' : '/'}
+          className="navbar-logo-link"
+          aria-label="DrFahm — go to homepage"
+        >
+          <LogoFull
+            height={30}
+            markColor={markColor}
+            textColor={textColor}
+            dotColor={dotColor}
+          />
         </Link>
 
-        <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-          {!user || isHome ? (
+        {/* ── Links ────────────────────────────────────────────────── */}
+        <div
+          className={`navbar-links ${menuOpen ? 'open' : ''}`}
+          role="menu"
+        >
+          {/* Public / home nav */}
+          {(!user || isHome) ? (
             <>
               <Link
                 to="/schools"
-                className={`nav-link ${isActive('/schools') ? 'active' : ''}`}
+                className={`nav-link ${isDark ? 'nav-link-dark' : ''} ${isActive('/schools') ? 'active' : ''}`}
                 onClick={() => setMenuOpen(false)}
+                role="menuitem"
               >
                 For Schools
               </Link>
 
               <Link
                 to="/pricing"
-                className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
+                className={`nav-link ${isDark ? 'nav-link-dark' : ''} ${isActive('/pricing') ? 'active' : ''}`}
                 onClick={() => setMenuOpen(false)}
+                role="menuitem"
               >
                 Pricing
               </Link>
@@ -64,8 +98,9 @@ export default function Navbar() {
               {user ? (
                 <Link
                   to="/dashboard"
-                  className="btn btn-green btn-sm navbar-try-btn"
+                  className={`nav-cta-btn ${isDark ? 'nav-cta-dark' : ''}`}
                   onClick={() => setMenuOpen(false)}
+                  role="menuitem"
                 >
                   Dashboard →
                 </Link>
@@ -73,28 +108,32 @@ export default function Navbar() {
                 <>
                   <Link
                     to="/login"
-                    className="nav-link nav-link-login"
+                    className={`nav-link ${isDark ? 'nav-link-dark' : ''}`}
                     onClick={() => setMenuOpen(false)}
+                    role="menuitem"
                   >
                     Log In
                   </Link>
 
                   <Link
                     to="/register"
-                    className="btn btn-green btn-sm navbar-try-btn"
+                    className={`nav-cta-btn ${isDark ? 'nav-cta-dark' : ''}`}
                     onClick={() => setMenuOpen(false)}
+                    role="menuitem"
                   >
-                    Start Free
+                    Start Free →
                   </Link>
                 </>
               )}
             </>
           ) : (
+            /* Authenticated internal nav */
             <>
               <Link
                 to="/dashboard"
                 className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}
                 onClick={() => setMenuOpen(false)}
+                role="menuitem"
               >
                 Dashboard
               </Link>
@@ -104,31 +143,45 @@ export default function Navbar() {
                   to="/admin"
                   className={`nav-link ${isActive('/admin') ? 'active' : ''}`}
                   onClick={() => setMenuOpen(false)}
+                  role="menuitem"
                 >
                   Admin
                 </Link>
               )}
 
-              <span className="nav-username">{user.username}</span>
+              <span className="nav-username" aria-label={`Logged in as ${user.username}`}>
+                {user.username}
+              </span>
 
-              <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
+              <button className="nav-logout-btn" onClick={handleLogout}>
                 Log out
               </button>
             </>
           )}
         </div>
 
+        {/* ── Hamburger ────────────────────────────────────────────── */}
         <button
-          className={`nav-hamburger ${menuOpen ? 'open' : ''}`}
+          className={`nav-hamburger ${menuOpen ? 'open' : ''} ${isDark ? 'nav-hamburger-dark' : ''}`}
           onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Toggle menu"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={menuOpen}
+          aria-controls="navbar-links"
         >
-          <span />
-          <span />
-          <span />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </button>
       </div>
+
+      {/* Mobile backdrop */}
+      {menuOpen && (
+        <div
+          className="nav-backdrop"
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
     </nav>
   );
 }
