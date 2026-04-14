@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 // ── Config (unchanged) ────────────────────────────────────────────────────────
-const CALENDLY_URL       = 'YOUR_CALENDLY_LINK';
+const CALENDLY_URL       = 'https://calendly.com/drfahm-info/30min';
 const WA_NUMBER          = '447346463512';
 const WA_SCHOOLS_MESSAGE = encodeURIComponent('Hi, I am interested in DrFahm for schools');
 
