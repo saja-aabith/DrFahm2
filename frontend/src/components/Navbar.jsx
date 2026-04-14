@@ -14,21 +14,13 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   /**
-   * isDark = true whenever the navbar sits over a dark background.
-   *
-   * Home page: ALWAYS dark — whether transparent (unscrolled) or dark-frosted
-   * (scrolled). Both states have a dark background so we always need white text.
-   *
-   * All other pages: always light frosted — dark text.
+   * Home page always has a dark background (transparent or dark-frosted).
+   * All other pages: white frosted.
    */
   const isDark = isHome;
 
-  // Close menu on route change
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
-  // Scroll listener — drives CSS classes for background transition
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
@@ -36,7 +28,6 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Lock body scroll when mobile menu open
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -51,13 +42,15 @@ export default function Navbar() {
     'navbar',
     isHome             ? 'navbar-home'     : '',
     isHome && scrolled ? 'navbar-scrolled' : '',
-    !isHome            ? 'navbar-scrolled' : '',   // always show shadow on other pages
+    !isHome            ? 'navbar-scrolled' : '',
   ].filter(Boolean).join(' ');
 
-  // Logo colors
-  const markColor = isDark ? '#4ADE80' : '#15803D';
-  const textColor = isDark ? '#FFFFFF' : '#0F172A';
-  const dotColor  = isDark ? '#4ADE80' : '#15803D';
+  // ── Logo colors ─────────────────────────────────────────────────────────────
+  // Dark (home): D = bright #4ADE80, F = white, text = white, dot = #4ADE80
+  // Light (other pages): D = brand green, F = navy, text = navy, dot = brand green
+  const logoProps = isDark
+    ? { dColor: '#4ADE80', fColor: '#FFFFFF', textColor: '#FFFFFF', dotColor: '#4ADE80' }
+    : { dColor: '#1F7A3E', fColor: '#0F2233', textColor: '#0F2233', dotColor: '#1F7A3E' };
 
   return (
     <nav className={navClass} aria-label="Main navigation">
@@ -69,20 +62,12 @@ export default function Navbar() {
           className="navbar-logo-link"
           aria-label="DrFahm — go to homepage"
         >
-          <LogoFull
-            height={30}
-            markColor={markColor}
-            textColor={textColor}
-            dotColor={dotColor}
-          />
+          <LogoFull height={30} {...logoProps} />
         </Link>
 
         {/* ── Links ────────────────────────────────────────────────── */}
-        <div
-          className={`navbar-links ${menuOpen ? 'open' : ''}`}
-          role="menu"
-        >
-          {/* Public / home nav */}
+        <div className={`navbar-links ${menuOpen ? 'open' : ''}`} role="menu">
+
           {(!user || isHome) ? (
             <>
               <Link
@@ -122,7 +107,6 @@ export default function Navbar() {
                   >
                     Log In
                   </Link>
-
                   <Link
                     to="/register"
                     className={`nav-cta-btn ${isDark ? 'nav-cta-dark' : ''}`}
@@ -135,7 +119,6 @@ export default function Navbar() {
               )}
             </>
           ) : (
-            /* Authenticated internal nav */
             <>
               <Link
                 to="/dashboard"
@@ -157,9 +140,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              <span className="nav-username" aria-label={`Logged in as ${user.username}`}>
-                {user.username}
-              </span>
+              <span className="nav-username">{user.username}</span>
 
               <button className="nav-logout-btn" onClick={handleLogout}>
                 Log out
@@ -181,7 +162,6 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile backdrop */}
       {menuOpen && (
         <div
           className="nav-backdrop"
