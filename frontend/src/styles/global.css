@@ -1612,3 +1612,106 @@ body {
 }
 .sch-success-title { font-size: 1.5rem; font-weight: 800; color: #FFFFFF; margin-bottom: 12px; }
 .sch-success-sub   { font-size: 0.95rem; color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 8px; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   TESTIMONIALS MARQUEE STRIP
+   ════════════════════════════════════════════════════════════════════════════ */
+.testi-strip {
+  background: #060F1E;   /* slightly darker than hero so it reads as a band */
+  border-top:    1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Fade masks on left and right edges */
+.testi-strip::before,
+.testi-strip::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 120px;
+  z-index: 2;
+  pointer-events: none;
+}
+.testi-strip::before { left:  0; background: linear-gradient(90deg,  #060F1E 0%, transparent 100%); }
+.testi-strip::after  { right: 0; background: linear-gradient(270deg, #060F1E 0%, transparent 100%); }
+
+/* The scrolling track */
+.testi-track {
+  display: flex;
+  width: max-content;
+  animation: testi-scroll 28s linear infinite;
+  padding: 28px 0;
+}
+.testi-track:hover { animation-play-state: paused; }
+
+@keyframes testi-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Individual card */
+.testi-card {
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin: 0 12px;
+  width: 320px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  cursor: default;
+}
+.testi-card:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(74,222,128,0.3);
+}
+
+.testi-quote {
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.82);
+  line-height: 1.65;
+  margin-bottom: 14px;
+  font-style: italic;
+}
+.testi-quote::before { content: '\201C'; color: #4ADE80; font-style: normal; font-size: 1.1rem; }
+.testi-quote::after  { content: '\201D'; color: #4ADE80; font-style: normal; font-size: 1.1rem; }
+
+.testi-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.testi-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+.testi-role {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.45);
+  margin-top: 1px;
+}
+.testi-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.testi-badge-qudurat {
+  background: rgba(21,128,61,0.2);
+  border: 1px solid rgba(21,128,61,0.4);
+  color: #4ADE80;
+}
+.testi-badge-tahsili {
+  background: rgba(99,102,241,0.2);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: #A5B4FC;
+}

@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import MathText from '../components/MathText';
 import { BookOpen, Target, TrendingUp, Zap, BarChart2, Award, Check, Minus } from 'lucide-react';
-import { LogoFull } from '../components/LogoSVG';
 
 const WA_NUMBER  = '447346463512';
 const WA_MESSAGE = encodeURIComponent('Hi, I have a question about DrFahm');
@@ -290,6 +289,48 @@ function StatsSection() {
       <div className="home-stat">
         <span className="home-stat-num">{levels}</span>
         <span className="home-stat-label">structured mastery levels</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Testimonials ──────────────────────────────────────────────────────────────
+const TESTIMONIALS = [
+  {
+    quote: 'Very useful for practice, it helps students improve performance and aim for high scores, even up to 100%.',
+    name:  'Ibrahim',
+    role:  'Student',
+    exam:  'qudurat',
+  },
+  {
+    quote: 'This is the blueprint to achieve 100% in Qudurat and Tahsili.',
+    name:  'Mohamed',
+    role:  'High school teacher',
+    exam:  'tahsili',
+  },
+];
+
+// Duplicate set so the marquee loops seamlessly
+const TESTI_LOOP = [...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS];
+
+function TestimonialsStrip() {
+  return (
+    <div className="testi-strip" aria-label="Student testimonials">
+      <div className="testi-track">
+        {TESTI_LOOP.map((t, i) => (
+          <div key={i} className="testi-card">
+            <p className="testi-quote">{t.quote}</p>
+            <div className="testi-footer">
+              <div>
+                <div className="testi-name">{t.name}</div>
+                <div className="testi-role">{t.role}</div>
+              </div>
+              <span className={`testi-badge testi-badge-${t.exam}`}>
+                {t.exam === 'qudurat' ? 'Qudurat' : 'Tahsili'}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1150,7 +1191,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 2. STATS ─────────────────────────────────────────────────────── */}
+      {/* ── 2. TESTIMONIALS ──────────────────────────────────────────────── */}
+      <TestimonialsStrip />
+
+      {/* ── 3. STATS ─────────────────────────────────────────────────────── */}
       <section className="home-section home-section-stats">
         <StatsSection />
       </section>
@@ -1594,9 +1638,13 @@ export default function Home() {
         <div className="home-container">
           <div className="home-footer-inner">
             <div className="home-footer-brand">
-              <span className="navbar-logo">
-                <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
-              </span>
+              <LogoFull
+                height={26}
+                markColor="var(--brand-sand)"
+                fColor="rgba(245,242,236,0.85)"
+                textColor="rgba(245,242,236,0.85)"
+                dotColor="var(--brand-sand)"
+              />
               <p className="home-footer-tagline">
                 Built for Saudi students preparing for Qudurat &amp; Tahsili.
               </p>
