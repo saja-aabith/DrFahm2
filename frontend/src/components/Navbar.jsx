@@ -17,7 +17,7 @@ export default function Navbar() {
    * Home page always has a dark background (transparent or dark-frosted).
    * All other pages: white frosted.
    */
-  const isDark = isHome;
+  const isDark = false;
 
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 

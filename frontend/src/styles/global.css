@@ -75,13 +75,13 @@ body {
   background: transparent;
   border-bottom: 1px solid rgba(255,255,255,0.07);
 }
-/* Scrolled past 40px on home — dark frosted */
+/* Scrolled past 40px on home — light frosted (hero is now light) */
 .navbar.navbar-home.navbar-scrolled {
-  background: rgba(8,18,34,0.88);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.35);
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(214,219,224,0.8);
+  box-shadow: 0 2px 24px rgba(28,39,51,0.08);
 }
 
 .navbar-inner {
@@ -1715,3 +1715,181 @@ body {
   border: 1px solid rgba(99,102,241,0.4);
   color: #A5B4FC;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   HOMEPAGE LIGHT THEME
+   All dark section backgrounds flipped to bright/light equivalents.
+   Text inverted to dark. Contrast maintained throughout.
+   Layout, content, and component structure unchanged.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+.hero-section { background: #EEF4FF; }
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(15,23,42,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,0.04) 1px, transparent 1px);
+}
+.hero-orb-1 { background: radial-gradient(circle, rgba(21,128,61,0.14) 0%, transparent 70%); }
+.hero-orb-2 { background: radial-gradient(circle, rgba(74,222,128,0.1) 0%, transparent 70%); }
+.hero-orb-3 { background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%); }
+
+.hero-eyebrow      { color: #15803D; }
+.hero-eyebrow-dot  { background: #15803D; box-shadow: 0 0 10px rgba(21,128,61,0.4); }
+.hero-title        { color: #0F172A; }
+.hero-sub          { color: #3E444B; }
+
+.hero-toggle {
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(28,39,51,0.15);
+}
+.hero-toggle-btn              { color: #3E444B; }
+.hero-toggle-btn.active       { background: #15803D; box-shadow: none; }
+.hero-toggle-btn:not(.active):hover { color: #0F172A; }
+
+.hero-cta {
+  background: #15803D; color: #FFFFFF;
+  box-shadow: 0 4px 20px rgba(21,128,61,0.28), 0 2px 8px rgba(0,0,0,0.06);
+}
+.hero-cta:hover {
+  background: #166534;
+  box-shadow: 0 8px 32px rgba(21,128,61,0.38), 0 4px 12px rgba(0,0,0,0.08);
+}
+.hero-trust span { color: #3E444B; }
+
+/* Demo frame — restore to light widget styles */
+.hero-demo-glow {
+  background: radial-gradient(ellipse, rgba(21,128,61,0.1) 0%, transparent 70%);
+}
+.hero-demo-frame {
+  background: rgba(255,255,255,0.95);
+  border: 1.5px solid rgba(21,128,61,0.2);
+  box-shadow: 0 0 0 1px rgba(21,128,61,0.06), 0 24px 48px rgba(28,39,51,0.1);
+}
+.hero-demo-frame .demo-widget,
+.hero-demo-frame .demo-result {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg);
+}
+.hero-demo-frame .demo-question { color: var(--brand-navy) !important; }
+.hero-demo-frame .demo-option {
+  background: var(--bg-card-2) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+}
+.hero-demo-frame .demo-option:not(.locked):hover {
+  border-color: rgba(21,128,61,0.4) !important;
+  background: rgba(21,128,61,0.06) !important;
+  color: var(--brand-navy) !important;
+}
+.hero-demo-frame .demo-option.correct {
+  border-color: var(--cta-green) !important;
+  background: rgba(21,128,61,0.1) !important;
+  color: var(--cta-green) !important;
+}
+.hero-demo-frame .demo-option.wrong {
+  border-color: var(--red) !important;
+  background: var(--red-dim) !important;
+  color: var(--red) !important;
+}
+.hero-demo-frame .demo-sub        { color: var(--text-muted) !important; }
+.hero-demo-frame .demo-result-msg { color: var(--brand-navy) !important; }
+.hero-demo-frame .demo-result-sub { color: var(--text-secondary) !important; }
+
+/* ── Testimonials strip — keep as dark navy accent band ───────────────────── */
+.testi-strip {
+  background: #1C2733;
+  border-top: none; border-bottom: none;
+}
+.testi-strip::before { background: linear-gradient(90deg,  #1C2733 0%, transparent 100%); }
+.testi-strip::after  { background: linear-gradient(270deg, #1C2733 0%, transparent 100%); }
+
+/* ── Problem section ──────────────────────────────────────────────────────── */
+.prob-section { background: #FDF8F3; }
+.prob-orb-1 { background: radial-gradient(circle, rgba(220,38,38,0.09) 0%, transparent 70%); }
+.prob-orb-2 { background: radial-gradient(circle, rgba(21,128,61,0.07) 0%, transparent 70%); }
+.prob-orb-3 { background: radial-gradient(circle, rgba(198,168,91,0.06) 0%, transparent 70%); }
+
+.prob-eyebrow        { color: #DC2626; background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.2); }
+.prob-headline       { color: #0F172A; }
+.prob-headline-accent { color: #15803D; }
+.prob-subhead        { color: #475569; }
+
+.prob-card { box-shadow: 0 4px 20px rgba(28,39,51,0.08), 0 1px 4px rgba(28,39,51,0.04); }
+.prob-card:hover { box-shadow: 0 20px 48px rgba(28,39,51,0.12); }
+
+.prob-divider-badge { color: #64748B; }
+.prob-divider-line  { background: linear-gradient(90deg, transparent, rgba(28,39,51,0.1), transparent); }
+
+.prob-solution-inner { background: #FDF8F3; }
+.prob-solution-main  { color: #0F172A; }
+.prob-solution-sub   { color: #475569; }
+.prob-solution-icon  {
+  background: rgba(21,128,61,0.1); border-color: rgba(21,128,61,0.3);
+  color: #15803D; box-shadow: 0 0 20px rgba(21,128,61,0.1);
+}
+
+/* ── Value section ────────────────────────────────────────────────────────── */
+.val-section { background: #F0FDF4; }
+.val-section::before {
+  background:
+    radial-gradient(ellipse 60% 50% at 10% 20%, rgba(74,222,128,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 90% 80%, rgba(21,128,61,0.07) 0%, transparent 70%);
+}
+.val-eyebrow         { color: #15803D; background: rgba(21,128,61,0.08); border-color: rgba(21,128,61,0.2); }
+.val-headline        { color: #0F172A; }
+.val-headline-accent { color: #15803D; }
+.val-subhead         { color: #475569; }
+.val-cta-sub         { color: #475569; }
+.val-card:hover { box-shadow: 0 20px 40px rgba(28,39,51,0.1); }
+.val-card-featured   { box-shadow: 0 12px 36px rgba(28,39,51,0.1), 0 0 0 1px rgba(21,128,61,0.2); }
+
+/* ── Situation section ────────────────────────────────────────────────────── */
+.sit-section { background: #FAFAF8; }
+.sit-section::before {
+  background:
+    radial-gradient(ellipse 55% 50% at 80% 20%, rgba(249,115,22,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 55% at 20% 80%, rgba(59,130,246,0.05) 0%, transparent 70%);
+}
+.sit-eyebrow         { color: #C6A85B; background: rgba(198,168,91,0.1); border-color: rgba(198,168,91,0.25); }
+.sit-headline        { color: #0F172A; }
+.sit-headline-accent { color: #C6A85B; }
+.sit-subhead         { color: #475569; }
+
+.sit-tab { background: white; border-color: rgba(28,39,51,0.15); color: #3E444B; }
+.sit-tab:hover { background: rgba(28,39,51,0.04); color: #0F172A; }
+.sit-tab.active { background: rgba(28,39,51,0.05); color: #0F172A; }
+
+.sit-card {
+  background: white;
+  border-color: rgba(28,39,51,0.1);
+  box-shadow: 0 4px 24px rgba(28,39,51,0.06);
+}
+.sit-card-title  { color: #0F172A; }
+.sit-card-body   { color: #475569; }
+.sit-card-detail { background: rgba(28,39,51,0.04); color: #475569; }
+
+/* ── Comparison section ───────────────────────────────────────────────────── */
+.cmp-section { background: #F5F2EC; }
+.cmp-section::before {
+  background:
+    radial-gradient(ellipse 40% 60% at 0% 50%, rgba(239,68,68,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 100% 50%, rgba(21,128,61,0.07) 0%, transparent 70%);
+}
+.cmp-eyebrow   { color: #7C3AED; background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.2); }
+.cmp-headline  { color: #0F172A; }
+.cmp-subhead   { color: #475569; }
+
+.cmp-col-bad  { background: rgba(239,68,68,0.03); border-color: rgba(239,68,68,0.14); }
+.cmp-col-good { box-shadow: 0 0 40px rgba(21,128,61,0.08); }
+.cmp-col-header { border-bottom-color: rgba(28,39,51,0.08); }
+.cmp-col-title-bad { color: #64748B; }
+.cmp-item-bad  { background: rgba(239,68,68,0.02); color: #64748B; }
+.cmp-item-good { background: rgba(21,128,61,0.04); color: #0F172A; }
+
+.cmp-vs-line  { background: linear-gradient(180deg, transparent, rgba(28,39,51,0.1), transparent); }
+.cmp-vs-badge { background: #F5F2EC; border-color: rgba(28,39,51,0.15); color: #475569; }
+.cmp-closing  { color: #475569; }
+.cmp-closing strong { color: #0F172A; }
