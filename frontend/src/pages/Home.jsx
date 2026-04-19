@@ -309,6 +309,12 @@ const TESTIMONIALS = [
     role:  'High school teacher',
     exam:  'tahsili',
   },
+  {
+    quote: 'It\'s clear the questions have been carefully selected to deliver effective preparation for Qodurat and Tahsili.',
+    name:  'Abdullah',
+    role:  'School leader',
+    exam:  'qudurat',
+  },
 ];
 
 // Duplicate set so the marquee loops seamlessly
