@@ -301,7 +301,7 @@ const TESTIMONIALS = [
     quote: 'Very useful for practice, it helps students improve performance and aim for high scores, even up to 100%.',
     name:  'Ibrahim',
     role:  'Student',
-    exam:  'qudurat',
+    exam:  'tahsili',
   },
   {
     quote: 'This is the blueprint to achieve 100% in Qudurat and Tahsili.',
