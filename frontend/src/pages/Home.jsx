@@ -310,7 +310,7 @@ const TESTIMONIALS = [
     exam:  'tahsili',
   },
   {
-    quote: 'It\'s clear the questions have been carefully selected to deliver effective preparation for Qodurat and Tahsili.',
+    quote: 'Finally! We have needed a platform like this for a long time.',
     name:  'Abdullah',
     role:  'School leader',
     exam:  'qudurat',
