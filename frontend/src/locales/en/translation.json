@@ -1,0 +1,152 @@
+{
+  "common": {
+    "qudurat": "Qudurat",
+    "tahsili": "Tahsili",
+    "arrow": "→",
+    "trial_sub": "7-day free trial · No credit card required"
+  },
+  "nav": {
+    "for_schools": "For Schools",
+    "pricing": "Pricing",
+    "login": "Log In",
+    "start_free": "Start Free",
+    "dashboard": "Dashboard",
+    "admin": "Admin",
+    "logout": "Log out"
+  },
+  "hero": {
+    "eyebrow": "Qudurat & Tahsili preparation for Saudi students",
+    "title_1": "Stop wasting time",
+    "title_2": "on",
+    "title_accent": "random prep.",
+    "title_3": "Improve your score.",
+    "sub": "DrFahm shows you exactly what to focus on so every hour you study actually improves your score.",
+    "cta": "Start free trial — {{exam}}",
+    "trust_1": "✓ 7-day free trial",
+    "trust_2": "✓ No credit card",
+    "trust_3": "✓ Cancel anytime"
+  },
+  "demo": {
+    "label_qudurat": "Qudurat · Math",
+    "label_tahsili": "Tahsili · Science",
+    "question_label": "Question {{n}} of {{total}}",
+    "result_perfect": "Perfect. The full platform has a structured path to take you further.",
+    "result_good": "Good start. The full platform will show you exactly what to improve next.",
+    "result_low": "The full platform builds your skills from the ground up, step by step.",
+    "result_score": "{{score}}/{{total}} correct. Start the full structured path free.",
+    "start_btn": "Start free — {{exam}}",
+    "alt_btn": "or start with {{exam}}",
+    "trial_note": "7-day free trial · No credit card required"
+  },
+  "stats": {
+    "questions_label": "exam-style questions",
+    "levels_label": "structured mastery levels"
+  },
+  "prob": {
+    "eyebrow": "Why most students don't improve",
+    "headline_before": "The problem isn't ",
+    "headline_accent": "effort",
+    "headline_after": ".\nIt's structure.",
+    "subhead": "Most students prepare the same way and wonder why their score stays flat.",
+    "card1_title": "No clear path",
+    "card1_text": "Random prep with no structure means every session starts from scratch.",
+    "card2_title": "No visibility",
+    "card2_text": "You can't see which topics are actually holding your score back.",
+    "card3_title": "Wasted effort",
+    "card3_text": "More hours studied does not automatically mean a better score.",
+    "divider": "The result",
+    "solution_main": "Scores don't improve — even with real effort.",
+    "solution_sub": "You don't need more questions. You need the right focus."
+  },
+  "val": {
+    "eyebrow": "How DrFahm works",
+    "headline_before": "The ",
+    "headline_accent": "structured",
+    "headline_after": " way to improve your score",
+    "subhead": "Every feature is designed around one goal: moving your score forward, efficiently.",
+    "card1_title": "Know exactly what to study next",
+    "card1_text": "Follow a clear structured path based on your level — no guessing, no wasted sessions.",
+    "card2_title": "Focus on what actually moves your score",
+    "card2_text": "Target weak areas instead of spending time on topics you already understand.",
+    "card2_badge": "Most impactful",
+    "card3_title": "See your progress clearly",
+    "card3_text": "Track improvement step by step and build confidence as you prepare for exam day.",
+    "cta": "Start your free trial now →",
+    "cta_sub": "7-day free trial · No credit card required"
+  },
+  "sit": {
+    "eyebrow": "Which one is you?",
+    "headline_before": "Built for ",
+    "headline_accent": "your",
+    "headline_after": " situation",
+    "subhead": "Whether your exam is in 2 weeks or 2 months — DrFahm adapts to where you are.",
+    "fast": {
+      "label": "Need to improve fast?",
+      "title": "Focus on the highest-impact areas first",
+      "body": "Stop covering everything. Target what will move your score the most in the time you have left.",
+      "cta": "Start — I need results fast",
+      "detail": "Most students see score improvement after 2-3 focused sessions."
+    },
+    "stuck": {
+      "label": "Stuck at the same score?",
+      "title": "Find exactly what is holding you back",
+      "body": "Identify the specific gaps keeping your score flat and fix them one by one — systematically.",
+      "cta": "Start — I keep hitting a wall",
+      "detail": "Students who target specific gaps improve faster than those who study broadly."
+    },
+    "top": {
+      "label": "Aiming for 100%?",
+      "title": "Eliminate the last weak areas at the top of your range",
+      "body": "Push past your current ceiling by fixing the small gaps that separate good from perfect.",
+      "cta": "Start — I want 100%",
+      "detail": "The final points require precision. DrFahm shows you exactly where they are."
+    }
+  },
+  "cmp": {
+    "eyebrow": "The difference is clear",
+    "headline_1": "Better than random prep",
+    "headline_2": "and crash courses",
+    "subhead": "Students across Saudi Arabia are switching to DrFahm because structure beats volume every time.",
+    "bad_title": "Typical preparation",
+    "good_title": "DrFahm",
+    "bad": [
+      "Random questions with no clear structure",
+      "No path based on your actual level",
+      "Progress is hard to measure",
+      "Weak areas stay hidden",
+      "More time studied does not always mean better scores"
+    ],
+    "good": [
+      "Structured path built from your current level",
+      "Focus only on what will improve your score",
+      "Clear progress tracked at every step",
+      "Weak areas identified and directly targeted",
+      "Every session is directed at your result"
+    ],
+    "closing_1": "Doing more isn't the same as improving.",
+    "closing_2": "Focus is what moves your score.",
+    "cta": "Start your free trial now →"
+  },
+  "fcta": {
+    "eyebrow": "Free 7-day trial — no credit card required",
+    "headline_1": "Start your free trial.",
+    "headline_accent": "See what to fix from session one.",
+    "sub": "Choose your exam, follow a structured plan, and start improving from day one.",
+    "trust_1": "✓ 7-day free trial",
+    "trust_2": "✓ No credit card",
+    "trust_3": "✓ Cancel anytime",
+    "trust_4": "✓ Instant access",
+    "btn_primary": "Start free — {{exam}}",
+    "btn_secondary": "or start with {{exam}} →",
+    "login_text": "Already have an account?",
+    "login_link": "Log in"
+  },
+  "footer": {
+    "tagline": "Built for Saudi students preparing for Qudurat & Tahsili.",
+    "pricing": "Pricing",
+    "schools": "For Schools",
+    "login": "Log In",
+    "whatsapp": "WhatsApp",
+    "support": "Support"
+  }
+}

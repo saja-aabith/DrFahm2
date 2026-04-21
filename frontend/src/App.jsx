@@ -1,13 +1,8 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
-
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
-  return null;
-}
 
 import './styles/global.css';
 
@@ -26,10 +21,29 @@ import Home           from './pages/Home';
 // Global components
 import WhatsAppFloat  from './components/WhatsAppFloat';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
+// Syncs <html dir> and <html lang> whenever the language changes.
+// Lives inside BrowserRouter so it re-renders correctly.
+function LanguageSync() {
+  const { i18n } = useTranslation();
+  useEffect(() => {
+    const isAr = i18n.language === 'ar';
+    document.documentElement.dir  = isAr ? 'rtl' : 'ltr';
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <LanguageSync />
         <ScrollToTop />
         <Routes>
           {/* Public */}

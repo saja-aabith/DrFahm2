@@ -1893,3 +1893,89 @@ body {
 .cmp-vs-badge { background: #F5F2EC; border-color: rgba(28,39,51,0.15); color: #475569; }
 .cmp-closing  { color: #475569; }
 .cmp-closing strong { color: #0F172A; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LANGUAGE TOGGLE — EN / AR pill in navbar
+   ════════════════════════════════════════════════════════════════════════════ */
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(28,39,51,0.06);
+  border: 1px solid rgba(28,39,51,0.14);
+  border-radius: 20px;
+  padding: 4px 5px;
+  cursor: pointer;
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  transition: border-color 0.18s ease, background 0.18s ease;
+  margin: 0 4px;
+}
+.lang-toggle:hover {
+  border-color: rgba(21,128,61,0.35);
+  background: rgba(21,128,61,0.05);
+}
+.lang-toggle span {
+  padding: 3px 9px;
+  border-radius: 14px;
+  transition: background 0.18s ease, color 0.18s ease;
+  line-height: 1;
+}
+.lang-toggle .lang-active {
+  background: var(--cta-green);
+  color: #FFFFFF;
+}
+.lang-toggle .lang-sep {
+  width: 1px;
+  height: 12px;
+  background: rgba(28,39,51,0.15);
+  padding: 0;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RTL OVERRIDES — applied when <html dir="rtl">
+   Only fixes directional properties that CSS dir inheritance doesn't handle
+   automatically. Layout reversal is handled natively by the browser.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Slide direction for interactive elements flips in RTL */
+[dir="rtl"] .qcard-option:not(.locked):hover { transform: translateX(-3px); }
+[dir="rtl"] .qcard-option.selected           { transform: translateX(-3px); }
+[dir="rtl"] .demo-option:not(.locked):hover  { transform: translateX(-3px); }
+[dir="rtl"] .demo-option.selected            { transform: translateX(-3px); }
+
+/* Left-border accents become right-border in RTL */
+[dir="rtl"] .expanded-explanation     { border-left: none; border-right: 3px solid var(--cta-green); }
+[dir="rtl"] .home-problem-highlight   { border-left: none; border-right: 3px solid var(--cta-green); }
+[dir="rtl"] .prob-solution-inner      { border-left: none; border-right: 3px solid rgba(74,222,128,0.4); }
+
+/* CTA button margin flips */
+[dir="rtl"] .nav-cta-btn { margin-left: 0; margin-right: 6px; }
+
+/* Testimonials strip: pause direction fine as-is (scrolls horizontally regardless of dir) */
+
+/* Inline code / monospace stays LTR */
+[dir="rtl"] code,
+[dir="rtl"] .latex-cheatsheet-code,
+[dir="rtl"] .math-text { direction: ltr; unicode-bidi: embed; }
+
+/* Step numbers stay LTR (they are numeric) */
+[dir="rtl"] .schools-step-num { direction: ltr; }
+
+/* Expand icon rotation flips */
+[dir="rtl"] .expand-icon { transform: scaleX(-1); }
+
+/* Pagination arrows flip */
+[dir="rtl"] .btn-back { flex-direction: row-reverse; }
+
+/* Admin sidebar / tab scrollbar direction */
+[dir="rtl"] .admin-tab-bar { direction: rtl; }
+
+/* Ensure select/input placeholders align right in RTL */
+[dir="rtl"] .form-input,
+[dir="rtl"] .sch-form-input { text-align: right; }

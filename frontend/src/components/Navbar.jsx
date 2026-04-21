@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { LogoFull } from './LogoSVG';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { t, i18n }      = useTranslation();
   const navigate  = useNavigate();
   const location  = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -13,11 +15,11 @@ export default function Navbar() {
   const isHome   = location.pathname === '/';
   const isActive = (path) => location.pathname === path;
 
-  /**
-   * Home page always has a dark background (transparent or dark-frosted).
-   * All other pages: white frosted.
-   */
   const isDark = false;
+
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en');
+  };
 
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
@@ -45,12 +47,9 @@ export default function Navbar() {
     !isHome            ? 'navbar-scrolled' : '',
   ].filter(Boolean).join(' ');
 
-  // ── Logo colors ─────────────────────────────────────────────────────────────
-  // Dark (home): D = bright #4ADE80, F = white, text = white, dot = #4ADE80
-  // Light (other pages): D = brand green, F = navy, text = navy, dot = brand green
   const logoProps = isDark
-    ? { dColor: '#4ADE80', fColor: '#FFFFFF', textColor: '#FFFFFF', dotColor: '#4ADE80' }
-    : { dColor: '#1F7A3E', fColor: '#0F2233', textColor: '#0F2233', dotColor: '#1F7A3E' };
+    ? { dColor: '#4ADE80', fColor: '#FFFFFF',  textColor: '#FFFFFF',  dotColor: '#4ADE80' }
+    : { dColor: '#1F7A3E', fColor: '#0F2233',  textColor: '#0F2233',  dotColor: '#1F7A3E' };
 
   return (
     <nav className={navClass} aria-label="Main navigation">
@@ -76,7 +75,7 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 role="menuitem"
               >
-                For Schools
+                {t('nav.for_schools')}
               </Link>
 
               <Link
@@ -85,8 +84,15 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 role="menuitem"
               >
-                Pricing
+                {t('nav.pricing')}
               </Link>
+
+              {/* ── Language toggle pill ──────────────────────────── */}
+              <button className="lang-toggle" onClick={toggleLang} aria-label="Toggle language">
+                <span className={i18n.language === 'en' ? 'lang-active' : ''}>EN</span>
+                <span className="lang-sep" />
+                <span className={i18n.language === 'ar' ? 'lang-active' : ''}>AR</span>
+              </button>
 
               {user ? (
                 <Link
@@ -95,7 +101,7 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   role="menuitem"
                 >
-                  Dashboard →
+                  {t('nav.dashboard')} {t('common.arrow')}
                 </Link>
               ) : (
                 <>
@@ -105,7 +111,7 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                     role="menuitem"
                   >
-                    Log In
+                    {t('nav.login')}
                   </Link>
                   <Link
                     to="/register"
@@ -113,7 +119,7 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                     role="menuitem"
                   >
-                    Start Free →
+                    {t('nav.start_free')} {t('common.arrow')}
                   </Link>
                 </>
               )}
@@ -126,7 +132,7 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 role="menuitem"
               >
-                Dashboard
+                {t('nav.dashboard')}
               </Link>
 
               {user.role === 'drfahm_admin' && (
@@ -136,14 +142,21 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   role="menuitem"
                 >
-                  Admin
+                  {t('nav.admin')}
                 </Link>
               )}
+
+              {/* ── Language toggle pill ──────────────────────────── */}
+              <button className="lang-toggle" onClick={toggleLang} aria-label="Toggle language">
+                <span className={i18n.language === 'en' ? 'lang-active' : ''}>EN</span>
+                <span className="lang-sep" />
+                <span className={i18n.language === 'ar' ? 'lang-active' : ''}>AR</span>
+              </button>
 
               <span className="nav-username">{user.username}</span>
 
               <button className="nav-logout-btn" onClick={handleLogout}>
-                Log out
+                {t('nav.logout')}
               </button>
             </>
           )}
