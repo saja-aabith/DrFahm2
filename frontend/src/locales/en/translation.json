@@ -148,5 +148,122 @@
     "login": "Log In",
     "whatsapp": "WhatsApp",
     "support": "Support"
+  },
+  "pricing": {
+    "hero": {
+      "tag": "Pricing",
+      "title": "Simple, one-time pricing",
+      "sub": "No subscriptions. No auto-renewals. Pay once, study for the full period."
+    },
+    "exam": {
+      "qudurat": "Qudurat",
+      "tahsili": "Tahsili"
+    },
+    "plans": {
+      "free": {
+        "name": "Free",
+        "duration": "7 days",
+        "cta": "Start free"
+      },
+      "silver": {
+        "name": "Silver",
+        "duration": "90 days",
+        "cta": "Get Silver",
+        "doubt": "Most students need more than 90 days"
+      },
+      "gold": {
+        "name": "Gold",
+        "duration": "1 year",
+        "cta": "Get Gold",
+        "badge": "Best Value"
+      }
+    },
+    "features": {
+      "free": [
+        "World 1 in every track (10 levels per track)",
+        "Full question experience",
+        "Progress tracking",
+        "No credit card required"
+      ],
+      "silver": [
+        "All 5 worlds per track ({{totalLevels}} levels total)",
+        "90 days full access",
+        "Progress tracking",
+        "Level pass certificates"
+      ],
+      "premium": [
+        "All 5 worlds per track ({{totalLevels}} levels total)",
+        "12 months full access",
+        "Full exam coverage",
+        "Level pass certificates"
+      ]
+    },
+    "card": {
+      "currency_code": "SAR",
+      "price_free": "Free",
+      "period": "/ {{duration}}",
+      "worlds_free": "World 1 per track · {{exam}}",
+      "worlds_paid": "All 5 worlds per track · {{exam}}",
+      "worlds_bar_label": "{{filled}} of {{total}} worlds per track",
+      "your_plan": "Your plan",
+      "active_label": "Active plan",
+      "day_remaining": "1 day remaining",
+      "days_remaining": "{{count}} days remaining",
+      "expires": "Expires {{date}}",
+      "go_to": "Go to {{exam}} {{arrow}}",
+      "redirecting": "Redirecting…"
+    },
+    "trust": {
+      "one_time": "✓ One-time payment",
+      "no_card": "✓ No credit card for trial",
+      "secure": "✓ Secure Stripe checkout"
+    },
+    "compare": {
+      "title": "Compare plans",
+      "feature": "Feature",
+      "rows": {
+        "worlds": "Worlds per track",
+        "total_levels": "Total levels",
+        "duration": "Duration",
+        "progress": "Progress tracking",
+        "coverage": "Full coverage",
+        "price": "Price"
+      },
+      "footnote_qudurat": "Qudurat: 2 tracks (Math + Verbal) × 5 worlds × 10 levels = 100 total levels.",
+      "footnote_tahsili": "Tahsili: 4 tracks × 5 worlds × 10 levels = 200 total levels."
+    },
+    "schools": {
+      "title": "Preparing students at scale?",
+      "sub": "School licensing with bulk accounts and custom pricing.",
+      "cta": "Get school pricing {{arrow}}"
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "items": [
+        {
+          "q": "What happens after my free trial ends?",
+          "a": "Your progress is saved. Worlds beyond World 1 lock until you upgrade. Most students who start DrFahm upgrade — because the structure works. You'll see it from your first session."
+        },
+        {
+          "q": "Will I be charged automatically?",
+          "a": "No. DrFahm is one-time only. Pay once, use it for the full period. No subscriptions, no auto-renewals, no surprise charges. Ever."
+        },
+        {
+          "q": "How quickly will I see improvement?",
+          "a": "Most students have a clearer picture of their weak areas after session one. Score improvement depends on consistent use — but the direction is clear from day one."
+        },
+        {
+          "q": "Why Gold over Silver?",
+          "a": "Same content. Same structure. The only difference is time. Silver gives you 90 days — Gold gives you a full year. If your exam is more than 3 months away, Gold is the smarter investment."
+        },
+        {
+          "q": "Do I need a separate plan for each exam?",
+          "a": "Yes — each plan is exam-specific. If you're preparing for both Qudurat and Tahsili, get one plan for each. Start with the exam you're sitting first."
+        }
+      ]
+    },
+    "errors": {
+      "checkout_failed": "Could not start checkout. Please try again."
+    }
   }
 }

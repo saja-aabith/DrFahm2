@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { billing } from '../api';
 import Navbar from '../components/Navbar';
@@ -7,45 +8,48 @@ import Navbar from '../components/Navbar';
 // ── DISPLAY-NAME-ONLY RENAME ──────────────────────────────────────────────────
 // plan_id values ('free', 'basic', 'premium') are unchanged in all API calls,
 // Stripe config, DB rows, and entitlement checks.
+// Display strings (name, duration, cta, badge, doubt) are pulled from i18n.
 
-const PLAN_SHAPE = [
-  {
-    id:       'free',
-    name:     'Free',
-    price:    0,
-    duration: '7 days',
-    worldsNum: 1,
-    cta:      'Start free',
-    ghost:    true,
-    gold:     false,
-    badge:    null,
-    doubt:    null,
-  },
-  {
-    id:       'basic',       // plan_id sent to backend — do not change
-    name:     'Silver',      // display only
-    price:    199,
-    duration: '90 days',
-    worldsNum: 5,
-    cta:      'Get Silver',
-    ghost:    false,
-    gold:     false,
-    badge:    null,
-    doubt:    'Most students need more than 90 days',
-  },
-  {
-    id:       'premium',     // plan_id sent to backend — do not change
-    name:     'Gold',        // display only
-    price:    299,
-    duration: '1 year',
-    worldsNum: 5,
-    cta:      'Get Gold',
-    ghost:    false,
-    gold:     true,
-    badge:    'Best Value',
-    doubt:    null,
-  },
-];
+function getPlanShape(t) {
+  return [
+    {
+      id:        'free',
+      name:      t('pricing.plans.free.name'),
+      price:     0,
+      duration:  t('pricing.plans.free.duration'),
+      worldsNum: 1,
+      cta:       t('pricing.plans.free.cta'),
+      ghost:     true,
+      gold:      false,
+      badge:     null,
+      doubt:     null,
+    },
+    {
+      id:        'basic',       // plan_id sent to backend — do not change
+      name:      t('pricing.plans.silver.name'),
+      price:     199,
+      duration:  t('pricing.plans.silver.duration'),
+      worldsNum: 5,
+      cta:       t('pricing.plans.silver.cta'),
+      ghost:     false,
+      gold:      false,
+      badge:     null,
+      doubt:     t('pricing.plans.silver.doubt'),
+    },
+    {
+      id:        'premium',     // plan_id sent to backend — do not change
+      name:      t('pricing.plans.gold.name'),
+      price:     299,
+      duration:  t('pricing.plans.gold.duration'),
+      worldsNum: 5,
+      cta:       t('pricing.plans.gold.cta'),
+      ghost:     false,
+      gold:      true,
+      badge:     t('pricing.plans.gold.badge'),
+      doubt:     null,
+    },
+  ];
+}
 
 // Qudurat: 2 tracks × 5 worlds × 10 levels = 100 total levels
 // Tahsili: 4 tracks × 5 worlds × 10 levels = 200 total levels
@@ -54,65 +58,30 @@ const EXAM_META = {
   tahsili: { tracks: 4, totalLevels: 200, freeLevels: 40 },
 };
 
-function buildPlanFeatures(planId, exam) {
-  const { totalLevels } = EXAM_META[exam] || EXAM_META.qudurat;
-  switch (planId) {
-    case 'free':
-      return [
-        'World 1 in every track (10 levels per track)',
-        'Full question experience',
-        'Progress tracking',
-        'No credit card required',
-      ];
-    case 'basic':
-      return [
-        `All 5 worlds per track (${totalLevels} levels total)`,
-        '90 days full access',
-        'Progress tracking',
-        'Level pass certificates',
-      ];
-    case 'premium':
-      return [
-        `All 5 worlds per track (${totalLevels} levels total)`,
-        '12 months full access',
-        'Full exam coverage',
-        'Level pass certificates',
-      ];
-    default:
-      return [];
-  }
-}
-
-const EXAM_LABELS = {
-  qudurat: 'Qudurat — قدرات',
-  tahsili: 'Tahsili — تحصيلي',
-};
+const EXAM_IDS = ['qudurat', 'tahsili'];
 
 const WORLDS_PER_TRACK = 5;
 
-// ── Rainmaker FAQ — conversion-focused, objection-handling ───────────────────
-const FAQ = [
-  {
-    q: 'What happens after my free trial ends?',
-    a: 'Your progress is saved. Worlds beyond World 1 lock until you upgrade. Most students who start DrFahm upgrade — because the structure works. You\'ll see it from your first session.',
-  },
-  {
-    q: 'Will I be charged automatically?',
-    a: 'No. DrFahm is one-time only. Pay once, use it for the full period. No subscriptions, no auto-renewals, no surprise charges. Ever.',
-  },
-  {
-    q: 'How quickly will I see improvement?',
-    a: 'Most students have a clearer picture of their weak areas after session one. Score improvement depends on consistent use — but the direction is clear from day one.',
-  },
-  {
-    q: 'Why Gold over Silver?',
-    a: 'Same content. Same structure. The only difference is time. Silver gives you 90 days — Gold gives you a full year. If your exam is more than 3 months away, Gold is the smarter investment.',
-  },
-  {
-    q: 'Do I need a separate plan for each exam?',
-    a: 'Yes — each plan is exam-specific. If you\'re preparing for both Qudurat and Tahsili, get one plan for each. Start with the exam you\'re sitting first.',
-  },
-];
+function buildPlanFeatures(t, planId, exam) {
+  const { totalLevels } = EXAM_META[exam] || EXAM_META.qudurat;
+  let features;
+  switch (planId) {
+    case 'free':
+      features = t('pricing.features.free',    { returnObjects: true });
+      break;
+    case 'basic':
+      features = t('pricing.features.silver',  { returnObjects: true });
+      break;
+    case 'premium':
+      features = t('pricing.features.premium', { returnObjects: true });
+      break;
+    default:
+      return [];
+  }
+  if (!Array.isArray(features)) return [];
+  // Manual interpolation — avoids i18next returnObjects+interpolation edge cases
+  return features.map((f) => String(f).replace('{{totalLevels}}', totalLevels));
+}
 
 function FAQItem({ q, a }) {
   const [open, setOpen] = useState(false);
@@ -142,7 +111,18 @@ function daysRemaining(expiresAt) {
   return Math.max(0, Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24)));
 }
 
+function formatExpiry(dateStr, lang) {
+  const locale = lang === 'ar' ? 'ar' : 'en-GB';
+  return new Date(dateStr).toLocaleDateString(locale, {
+    day:      'numeric',
+    month:    'short',
+    year:     'numeric',
+    calendar: 'gregory',
+  });
+}
+
 export default function Pricing() {
+  const { t, i18n }    = useTranslation();
   const { user }       = useAuth();
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
@@ -151,6 +131,9 @@ export default function Pricing() {
   const [loading,      setLoading]      = useState(null);
   const [error,        setError]        = useState('');
   const [entitlements, setEntitlements] = useState([]);
+
+  // Rebuild plan shape when language changes
+  const planShape = useMemo(() => getPlanShape(t), [t]);
 
   useEffect(() => {
     if (!user) return;
@@ -166,6 +149,8 @@ export default function Pricing() {
   }, [user]);
 
   const { totalLevels, freeLevels } = EXAM_META[selectedExam];
+  const arrow    = t('common.arrow');
+  const examName = t(`common.${selectedExam}`);
 
   const handleCheckout = async (planId) => {
     if (planId === 'free') {
@@ -191,10 +176,14 @@ export default function Pricing() {
       if (!res.ok) throw data;
       window.location.href = data.checkout_url;
     } catch (err) {
-      setError(err?.error?.message || 'Could not start checkout. Please try again.');
+      setError(err?.error?.message || t('pricing.errors.checkout_failed'));
       setLoading(null);
     }
   };
+
+  // FAQ items from translations
+  const faqItemsRaw = t('pricing.faq.items', { returnObjects: true });
+  const faqItems    = Array.isArray(faqItemsRaw) ? faqItemsRaw : [];
 
   return (
     <>
@@ -202,20 +191,18 @@ export default function Pricing() {
 
       <div className="pricing-hero">
         <div className="home-section-tag" style={{ display: 'flex', justifyContent: 'center' }}>
-          Pricing
+          {t('pricing.hero.tag')}
         </div>
-        <h1 className="pricing-hero-title">Simple, one-time pricing</h1>
-        <p className="pricing-hero-sub">
-          No subscriptions. No auto-renewals. Pay once, study for the full period.
-        </p>
+        <h1 className="pricing-hero-title">{t('pricing.hero.title')}</h1>
+        <p className="pricing-hero-sub">{t('pricing.hero.sub')}</p>
         <div className="pricing-exam-toggle">
-          {Object.entries(EXAM_LABELS).map(([id, label]) => (
+          {EXAM_IDS.map((id) => (
             <button
               key={id}
               className={`pricing-exam-btn ${selectedExam === id ? 'active' : ''}`}
               onClick={() => setSelectedExam(id)}
             >
-              {label}
+              {t(`pricing.exam.${id}`)}
             </button>
           ))}
         </div>
@@ -228,21 +215,20 @@ export default function Pricing() {
 
         {/* Cards grid — padding-top added in CSS to clear badge overflow */}
         <div className="pricing-grid">
-          {PLAN_SHAPE.map((plan) => {
-            const features    = buildPlanFeatures(plan.id, selectedExam);
+          {planShape.map((plan) => {
+            const features    = buildPlanFeatures(t, plan.id, selectedExam);
             const worldsLabel = plan.id === 'free'
-              ? `World 1 per track · ${selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}`
-              : `All 5 worlds per track · ${selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'}`;
+              ? t('pricing.card.worlds_free', { exam: examName })
+              : t('pricing.card.worlds_paid', { exam: examName });
 
             const activeEnt = plan.id !== 'free'
               ? findActiveEnt(entitlements, plan.id, selectedExam)
               : null;
-            const days = activeEnt ? daysRemaining(activeEnt.entitlement_expires_at) : null;
-            const expiryStr = activeEnt
-              ? new Date(activeEnt.entitlement_expires_at).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                })
-              : null;
+            const days      = activeEnt ? daysRemaining(activeEnt.entitlement_expires_at) : null;
+            const expiryStr = activeEnt ? formatExpiry(activeEnt.entitlement_expires_at, i18n.language) : null;
+            const daysText  = days === 1
+              ? t('pricing.card.day_remaining')
+              : t('pricing.card.days_remaining', { count: days });
 
             return (
               <div
@@ -258,7 +244,7 @@ export default function Pricing() {
                   <div className="pricing-gold-badge">{plan.badge}</div>
                 )}
                 {activeEnt && (
-                  <div className="pricing-active-badge">Your plan</div>
+                  <div className="pricing-active-badge">{t('pricing.card.your_plan')}</div>
                 )}
 
                 <div className="pricing-card-header">
@@ -267,15 +253,15 @@ export default function Pricing() {
                   </div>
                   <div className="pricing-plan-price">
                     {plan.price === 0
-                      ? <span className="pricing-price-free">Free</span>
+                      ? <span className="pricing-price-free">{t('pricing.card.price_free')}</span>
                       : (
                         <>
-                          <span className="pricing-price-currency">SAR </span>
+                          <span className="pricing-price-currency">{t('pricing.card.currency_code')} </span>
                           <span className="pricing-price-amount">{plan.price}</span>
                         </>
                       )
                     }
-                    <span className="pricing-price-period"> / {plan.duration}</span>
+                    <span className="pricing-price-period"> {t('pricing.card.period', { duration: plan.duration })}</span>
                   </div>
                   <div className="pricing-plan-worlds">{worldsLabel}</div>
                 </div>
@@ -298,23 +284,25 @@ export default function Pricing() {
                   ))}
                 </div>
                 <div className="pricing-world-bar-label">
-                  {plan.worldsNum} of {WORLDS_PER_TRACK} worlds per track
+                  {t('pricing.card.worlds_bar_label', { filled: plan.worldsNum, total: WORLDS_PER_TRACK })}
                 </div>
 
                 {activeEnt ? (
                   <div className="pricing-card-actions">
                     <div className="pricing-active-state">
-                      <div className="pricing-active-label">Active plan</div>
+                      <div className="pricing-active-label">{t('pricing.card.active_label')}</div>
                       <div className="pricing-active-expiry">
-                        <span className="pricing-active-days">{days} day{days !== 1 ? 's' : ''} remaining</span>
-                        <span className="pricing-active-date">Expires {expiryStr}</span>
+                        <span className="pricing-active-days">{daysText}</span>
+                        <span className="pricing-active-date">
+                          {t('pricing.card.expires', { date: expiryStr })}
+                        </span>
                       </div>
                       <Link
                         to={`/exam/${selectedExam}`}
                         className="btn btn-ghost btn-full"
                         style={{ marginTop: 8 }}
                       >
-                        Go to {selectedExam === 'qudurat' ? 'Qudurat' : 'Tahsili'} →
+                        {t('pricing.card.go_to', { exam: examName, arrow })}
                       </Link>
                     </div>
                   </div>
@@ -330,7 +318,7 @@ export default function Pricing() {
                       onClick={() => handleCheckout(plan.id)}
                       disabled={loading === plan.id}
                     >
-                      {loading === plan.id ? 'Redirecting…' : plan.cta}
+                      {loading === plan.id ? t('pricing.card.redirecting') : plan.cta}
                     </button>
                     {/* Always rendered — hidden when empty so all buttons stay at same height */}
                     <p
@@ -348,35 +336,65 @@ export default function Pricing() {
 
         <div className="pricing-trust">
           {[
-            '✓ One-time payment',
-            '✓ No credit card for trial',
-            '✓ Secure Stripe checkout',
-          ].map((t) => (
-            <span key={t} className="pricing-trust-item">{t}</span>
+            t('pricing.trust.one_time'),
+            t('pricing.trust.no_card'),
+            t('pricing.trust.secure'),
+          ].map((item) => (
+            <span key={item} className="pricing-trust-item">{item}</span>
           ))}
         </div>
 
         {/* Compare plans table */}
         <div className="pricing-compare">
-          <h2 className="pricing-compare-title">Compare plans</h2>
+          <h2 className="pricing-compare-title">{t('pricing.compare.title')}</h2>
           <div className="pricing-table-wrap">
             <table className="pricing-table">
               <thead>
                 <tr>
-                  <th>Feature</th>
-                  <th>Free</th>
-                  <th>Silver</th>
-                  <th className="highlight-col">Gold</th>
+                  <th>{t('pricing.compare.feature')}</th>
+                  <th>{t('pricing.plans.free.name')}</th>
+                  <th>{t('pricing.plans.silver.name')}</th>
+                  <th className="highlight-col">{t('pricing.plans.gold.name')}</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  ['Worlds per track', '1',                  '5',                '5'],
-                  ['Total levels',     String(freeLevels),   String(totalLevels), String(totalLevels)],
-                  ['Duration',         '7 days',             '90 days',          '1 year'],
-                  ['Progress tracking','✓',                  '✓',                '✓'],
-                  ['Full coverage',    '—',                  '✓',                '✓'],
-                  ['Price',            'Free',               'SAR 199',          'SAR 299'],
+                  [
+                    t('pricing.compare.rows.worlds'),
+                    '1',
+                    '5',
+                    '5',
+                  ],
+                  [
+                    t('pricing.compare.rows.total_levels'),
+                    String(freeLevels),
+                    String(totalLevels),
+                    String(totalLevels),
+                  ],
+                  [
+                    t('pricing.compare.rows.duration'),
+                    t('pricing.plans.free.duration'),
+                    t('pricing.plans.silver.duration'),
+                    t('pricing.plans.gold.duration'),
+                  ],
+                  [
+                    t('pricing.compare.rows.progress'),
+                    '✓',
+                    '✓',
+                    '✓',
+                  ],
+                  [
+                    t('pricing.compare.rows.coverage'),
+                    '—',
+                    '✓',
+                    '✓',
+                  ],
+                  [
+                    t('pricing.compare.rows.price'),
+                    t('pricing.card.price_free'),
+                    `${t('pricing.card.currency_code')} ${planShape[1].price}`,
+                    `${t('pricing.card.currency_code')} ${planShape[2].price}`,
+                  ],
                 ].map(([feature, free, silver, gold]) => (
                   <tr key={feature}>
                     <td className="pricing-table-feature">{feature}</td>
@@ -389,9 +407,7 @@ export default function Pricing() {
             </table>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 10 }}>
-            {selectedExam === 'qudurat'
-              ? 'Qudurat: 2 tracks (Math + Verbal) × 5 worlds × 10 levels = 100 total levels.'
-              : 'Tahsili: 4 tracks × 5 worlds × 10 levels = 200 total levels.'}
+            {t(`pricing.compare.footnote_${selectedExam}`)}
           </p>
         </div>
 
@@ -400,23 +416,21 @@ export default function Pricing() {
           <div className="pricing-schools-left">
             <div className="pricing-schools-icon">🏫</div>
             <div>
-              <div className="pricing-schools-title">Preparing students at scale?</div>
-              <div className="pricing-schools-sub">
-                School licensing with bulk accounts and custom pricing.
-              </div>
+              <div className="pricing-schools-title">{t('pricing.schools.title')}</div>
+              <div className="pricing-schools-sub">{t('pricing.schools.sub')}</div>
             </div>
           </div>
           <Link to="/schools" className="btn btn-ghost">
-            Get school pricing →
+            {t('pricing.schools.cta', { arrow })}
           </Link>
         </div>
 
         {/* FAQ */}
         <div className="pricing-faq">
-          <h2 className="pricing-compare-title">Frequently asked questions</h2>
+          <h2 className="pricing-compare-title">{t('pricing.faq.title')}</h2>
           <div className="pricing-faq-list">
-            {FAQ.map((item) => (
-              <FAQItem key={item.q} {...item} />
+            {faqItems.map((item) => (
+              <FAQItem key={item.q} q={item.q} a={item.a} />
             ))}
           </div>
         </div>
