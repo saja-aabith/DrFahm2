@@ -320,5 +320,45 @@
       "switch_prompt": "لديك حساب بالفعل؟",
       "switch_link": "تسجيل الدخول"
     }
+  },
+  "dashboard": {
+    "welcome": "مرحباً بعودتك، {{username}} 👋",
+    "subtitle": "اختر اختباراً لمتابعة تحضيرك.",
+    "exam_desc": {
+      "qudurat": "الرياضيات والقدرة اللفظية — مطلوبان لجميع القبولات الجامعية السعودية.",
+      "tahsili": "تحصيل العلوم والرياضيات — مطلوب للتخصصات العلمية والطبية."
+    },
+    "admin_full_access": "مشرف — وصول كامل",
+    "plan_suffix": "خطة {{plan}}",
+    "trial_available": "تجربة مجانية 7 أيام متاحة",
+    "trial_expired_badge": "انتهت التجربة",
+    "trial_day_left": "⏱ يوم واحد متبقٍ في التجربة",
+    "trial_days_left": "⏱ {{count}} يوم متبقٍ في التجربة",
+    "progress_label": "{{completed}} من أصل {{total}} عوالم مكتملة",
+    "cta_continue": "تابع التحضير {{arrow}}",
+    "cta_unlock": "افتح الوصول {{arrow}}",
+    "cta_start_trial": "ابدأ التجربة المجانية {{arrow}}",
+    "topics_section_title": "مواضيع للمراجعة",
+    "topics_based_on_level": "بناءً على مستوى واحد مجتاز",
+    "topics_based_on_levels": "بناءً على {{count}} مستويات مجتازة",
+    "topics_levels_count": "{{struggled}}/{{total}} مستوى",
+    "priority_high": "أولوية عالية",
+    "priority_review": "للمراجعة",
+    "active_plans_title": "الخطط النشطة",
+    "ent_row_title": "{{exam}} — خطة {{plan}}",
+    "ent_row_detail": "تنتهي في {{date}} · العوالم 1–{{max}} لكل مسار",
+    "ent_row_day_left": "يوم واحد متبقٍ",
+    "ent_row_days_left": "{{count}} يوم متبقٍ",
+    "paywall": {
+      "expired_title": "انتهت تجربتك المجانية",
+      "expired_body": "قم بالترقية لمتابعة تحضيرك للاختبار واستعادة الوصول لجميع العوالم الخمسة لكل مسار.",
+      "expired_cta": "قم بالترقية الآن",
+      "active_title": "افتح جميع العوالم الخمسة لكل مسار",
+      "active_body": "تجربتك المجانية تغطي العالم الأول في كل مسار. قم بالترقية للوصول إلى رحلة الاختبار الكاملة.",
+      "active_cta": "اعرض الخطط",
+      "notrial_title": "ابدأ تجربتك المجانية لمدة 7 أيام",
+      "notrial_body": "انقر على أي اختبار أعلاه للبدء. العالم الأول مجاني — لا حاجة لبطاقة ائتمانية.",
+      "notrial_cta": "اعرض الخطط"
+    }
   }
 }

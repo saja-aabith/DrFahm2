@@ -320,5 +320,45 @@
       "switch_prompt": "Already have an account?",
       "switch_link": "Log in"
     }
+  },
+  "dashboard": {
+    "welcome": "Welcome back, {{username}} 👋",
+    "subtitle": "Pick an exam to continue your preparation.",
+    "exam_desc": {
+      "qudurat": "Math & Verbal aptitude — required for all Saudi university admissions.",
+      "tahsili": "Science & Math achievement — required for science/medicine tracks."
+    },
+    "admin_full_access": "Admin — Full Access",
+    "plan_suffix": "{{plan}} Plan",
+    "trial_available": "7-day free trial available",
+    "trial_expired_badge": "Trial Expired",
+    "trial_day_left": "⏱ 1 day left in trial",
+    "trial_days_left": "⏱ {{count}} days left in trial",
+    "progress_label": "{{completed}} of {{total}} worlds completed",
+    "cta_continue": "Continue prep {{arrow}}",
+    "cta_unlock": "Unlock access {{arrow}}",
+    "cta_start_trial": "Start free trial {{arrow}}",
+    "topics_section_title": "Topics to Review",
+    "topics_based_on_level": "based on 1 passed level",
+    "topics_based_on_levels": "based on {{count}} passed levels",
+    "topics_levels_count": "{{struggled}}/{{total}} levels",
+    "priority_high": "High priority",
+    "priority_review": "Review",
+    "active_plans_title": "Active Plans",
+    "ent_row_title": "{{exam}} — {{plan}} plan",
+    "ent_row_detail": "Expires {{date}} · Worlds 1–{{max}} per track",
+    "ent_row_day_left": "1 day left",
+    "ent_row_days_left": "{{count}} days left",
+    "paywall": {
+      "expired_title": "Your free trial has ended",
+      "expired_body": "Upgrade to continue your exam preparation and regain access to all 5 worlds per track.",
+      "expired_cta": "Upgrade now",
+      "active_title": "Unlock all 5 worlds per track",
+      "active_body": "Your free trial covers World 1 in each track. Upgrade to access the full exam journey.",
+      "active_cta": "View Plans",
+      "notrial_title": "Start your free 7-day trial",
+      "notrial_body": "Click any exam above to begin. World 1 is free — no credit card needed.",
+      "notrial_cta": "View Plans"
+    }
   }
 }
