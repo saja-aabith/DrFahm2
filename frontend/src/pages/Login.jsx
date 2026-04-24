@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const { t }     = useTranslation();
-  const { login } = useAuth();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const { t, i18n } = useTranslation();
+  const { login }   = useAuth();
+  const navigate    = useNavigate();
+  const location    = useLocation();
 
   const [identifier, setIdentifier] = useState('');
   const [password,   setPassword]   = useState('');
@@ -15,6 +15,10 @@ export default function Login() {
   const [loading,    setLoading]    = useState(false);
 
   const from = location.state?.from?.pathname || '/dashboard';
+
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +36,20 @@ export default function Login() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <div className="auth-card" style={{ position: 'relative' }}>
+
+        {/* Language toggle pill — top-right (top-left in RTL via auto flip) */}
+        <button
+          className="lang-toggle"
+          onClick={toggleLang}
+          aria-label={t('auth.lang_toggle_aria')}
+          style={{ position: 'absolute', top: 16, insetInlineEnd: 16 }}
+        >
+          <span className={i18n.language === 'en' ? 'lang-active' : ''}>EN</span>
+          <span className="lang-sep" />
+          <span className={i18n.language === 'ar' ? 'lang-active' : ''}>AR</span>
+        </button>
+
         <div className="auth-logo">
           <Link to="/" style={{ textDecoration: 'none' }}>
             <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
