@@ -267,6 +267,7 @@
     }
   },
   "auth": {
+    "lang_toggle_aria": "تبديل اللغة",
     "login": {
       "title": "مرحباً بعودتك",
       "subtitle": "سجِّل الدخول لمتابعة تحضيرك للاختبار",
@@ -279,6 +280,45 @@
       "error_generic": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
       "switch_prompt": "ليس لديك حساب؟",
       "switch_link": "سجِّل مجاناً"
+    },
+    "register": {
+      "title_with_exam": "ابدأ تجربتك المجانية لمدة 7 أيام — {{exam}}",
+      "title_no_exam": "ابدأ تجربتك المجانية لمدة 7 أيام",
+      "subtitle": "وصول كامل. لا حاجة لبطاقة ائتمانية. إلغاء في أي وقت.",
+      "features": {
+        "f1_bold": "أسئلة حقيقية من القدرات والتحصيل",
+        "f1_rest": "",
+        "f2_bold": "تلميحات وشروحات",
+        "f2_rest": " خطوة بخطوة",
+        "f3_bold": "تابع تقدُّمك",
+        "f3_rest": " في جميع العوالم"
+      },
+      "username_label": "اسم المستخدم",
+      "username_placeholder": "اختر اسم مستخدم",
+      "email_label": "البريد الإلكتروني",
+      "email_hint": "(اختياري — لحفظ تقدُّمك)",
+      "email_placeholder": "your@email.com",
+      "phone_label": "رقم الجوال",
+      "phone_hint": "(اختياري — لتحديثات واتساب)",
+      "phone_placeholder": "+966 5X XXX XXXX",
+      "password_label": "كلمة المرور",
+      "password_placeholder": "8 أحرف على الأقل",
+      "confirm_label": "تأكيد كلمة المرور",
+      "confirm_placeholder": "كرِّر كلمة المرور",
+      "show": "إظهار",
+      "hide": "إخفاء",
+      "submit": "ابدأ تجربتي المجانية",
+      "submitting": "جارِ إنشاء حسابك…",
+      "err_password_mismatch": "كلمتا المرور غير متطابقتين.",
+      "err_password_short": "يجب أن تكون كلمة المرور 8 أحرف على الأقل.",
+      "err_generic": "فشل التسجيل. يرجى المحاولة مرة أخرى.",
+      "trust_1": "أقل من 30 ثانية",
+      "trust_2": "لا حاجة لبطاقة ائتمانية",
+      "trust_3": "إلغاء في أي وقت",
+      "terms_prompt": "بالتسجيل فإنك توافق على",
+      "terms_link": "شروط الخدمة",
+      "switch_prompt": "لديك حساب بالفعل؟",
+      "switch_link": "تسجيل الدخول"
     }
   }
 }

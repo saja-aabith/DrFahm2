@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
-const EXAM_LABELS = { qudurat: 'Qudurat', tahsili: 'Tahsili' };
-
-const FEATURES = [
-  { bold: 'Real Qudurat & Tahsili', rest: ' exam questions' },
-  { bold: 'Step-by-step', rest: ' hints & explanations' },
-  { bold: 'Track your', rest: ' progress across all worlds' },
-];
-
 export default function Register() {
+  const { t, i18n }    = useTranslation();
   const { register }   = useAuth();
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
 
   const examParam = searchParams.get('exam');
-  const examLabel = EXAM_LABELS[examParam] || null;
+  const validExam = examParam && ['qudurat', 'tahsili'].includes(examParam) ? examParam : null;
+  const examLabel = validExam ? t(`common.${validExam}`) : null;
+
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en');
+  };
+
+  const features = [
+    { bold: t('auth.register.features.f1_bold'), rest: t('auth.register.features.f1_rest') },
+    { bold: t('auth.register.features.f2_bold'), rest: t('auth.register.features.f2_rest') },
+    { bold: t('auth.register.features.f3_bold'), rest: t('auth.register.features.f3_rest') },
+  ];
 
   const [form, setForm] = useState({
     username: '', email: '', phone: '', password: '', confirm: '',
@@ -31,8 +36,8 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.password !== form.confirm) { setError('Passwords do not match.');             return; }
-    if (form.password.length < 8)       { setError('Password must be at least 8 characters.'); return; }
+    if (form.password !== form.confirm) { setError(t('auth.register.err_password_mismatch')); return; }
+    if (form.password.length < 8)       { setError(t('auth.register.err_password_short'));    return; }
     setLoading(true);
     try {
       await register(
@@ -41,13 +46,13 @@ export default function Register() {
         form.password,
         form.phone.trim()   || undefined,   // optional — backend stores for WhatsApp contact
       );
-      if (examParam && ['qudurat', 'tahsili'].includes(examParam)) {
-        navigate(`/exam/${examParam}`, { replace: true });
+      if (validExam) {
+        navigate(`/exam/${validExam}`, { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      setError(err?.error?.message || 'Registration failed. Please try again.');
+      setError(err?.error?.message || t('auth.register.err_generic'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +60,19 @@ export default function Register() {
 
   return (
     <div className="auth-page" style={{ alignItems: 'flex-start', paddingTop: 48 }}>
-      <div className="auth-card" style={{ maxWidth: 460 }}>
+      <div className="auth-card" style={{ maxWidth: 460, position: 'relative' }}>
+
+        {/* Language toggle pill — top-right (top-left in RTL via auto flip) */}
+        <button
+          className="lang-toggle"
+          onClick={toggleLang}
+          aria-label={t('auth.lang_toggle_aria')}
+          style={{ position: 'absolute', top: 16, insetInlineEnd: 16 }}
+        >
+          <span className={i18n.language === 'en' ? 'lang-active' : ''}>EN</span>
+          <span className="lang-sep" />
+          <span className={i18n.language === 'ar' ? 'lang-active' : ''}>AR</span>
+        </button>
 
         {/* Logo — no home link; registration is a conversion dead-end */}
         <div className="auth-logo" style={{ marginBottom: 20 }}>
@@ -68,14 +85,14 @@ export default function Register() {
           color: 'var(--brand-navy)', marginBottom: 6, lineHeight: 1.2,
         }}>
           {examLabel
-            ? `Start your free 7-day ${examLabel} trial`
-            : 'Start your 7-day free trial'}
+            ? t('auth.register.title_with_exam', { exam: examLabel })
+            : t('auth.register.title_no_exam')}
         </h1>
         <p style={{
           textAlign: 'center', color: 'var(--text-secondary)',
           fontSize: '0.9rem', marginBottom: 20,
         }}>
-          Full access. No credit card. Cancel anytime.
+          {t('auth.register.subtitle')}
         </p>
 
         {/* Feature checklist */}
@@ -83,7 +100,7 @@ export default function Register() {
           background: 'var(--bg-card-2)', border: '1px solid var(--border)',
           borderRadius: 10, padding: '14px 18px', marginBottom: 24,
         }}>
-          {FEATURES.map((f, i) => (
+          {features.map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
               <span style={{
                 width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
@@ -103,10 +120,10 @@ export default function Register() {
         <form style={{ display: 'flex', flexDirection: 'column', gap: 14 }} onSubmit={handleSubmit}>
 
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label">{t('auth.register.username_label')}</label>
             <input
               className="form-input" type="text"
-              placeholder="Choose a username"
+              placeholder={t('auth.register.username_placeholder')}
               value={form.username} onChange={set('username')}
               autoComplete="username" minLength={3} maxLength={80} required
             />
@@ -114,14 +131,14 @@ export default function Register() {
 
           <div className="form-group">
             <label className="form-label">
-              Email{' '}
+              {t('auth.register.email_label')}{' '}
               <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem' }}>
-                (optional — for progress saving)
+                {t('auth.register.email_hint')}
               </span>
             </label>
             <input
               className="form-input" type="email"
-              placeholder="your@email.com"
+              placeholder={t('auth.register.email_placeholder')}
               value={form.email} onChange={set('email')}
               autoComplete="email"
             />
@@ -130,65 +147,66 @@ export default function Register() {
           {/* ── Phone number — optional, used for WhatsApp support ── */}
           <div className="form-group">
             <label className="form-label">
-              Phone{' '}
+              {t('auth.register.phone_label')}{' '}
               <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem' }}>
-                (optional — for WhatsApp updates)
+                {t('auth.register.phone_hint')}
               </span>
             </label>
             <input
               className="form-input" type="tel"
-              placeholder="+966 5X XXX XXXX"
+              placeholder={t('auth.register.phone_placeholder')}
               value={form.phone} onChange={set('phone')}
               autoComplete="tel"
+              dir="ltr"
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label">{t('auth.register.password_label')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 className="form-input"
                 type={showPass ? 'text' : 'password'}
-                placeholder="Minimum 8 characters"
+                placeholder={t('auth.register.password_placeholder')}
                 value={form.password} onChange={set('password')}
                 autoComplete="new-password" minLength={8} required
-                style={{ paddingRight: 64 }}
+                style={{ paddingInlineEnd: 64 }}
               />
               <button
                 type="button" onClick={() => setShowPass((v) => !v)}
                 style={{
-                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                  position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)',
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600,
                   fontFamily: 'Tajawal, sans-serif',
                 }}
               >
-                {showPass ? 'Hide' : 'Show'}
+                {showPass ? t('auth.register.hide') : t('auth.register.show')}
               </button>
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Confirm Password</label>
+            <label className="form-label">{t('auth.register.confirm_label')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 className="form-input"
                 type={showConfirm ? 'text' : 'password'}
-                placeholder="Repeat your password"
+                placeholder={t('auth.register.confirm_placeholder')}
                 value={form.confirm} onChange={set('confirm')}
                 autoComplete="new-password" required
-                style={{ paddingRight: 64 }}
+                style={{ paddingInlineEnd: 64 }}
               />
               <button
                 type="button" onClick={() => setShowConfirm((v) => !v)}
                 style={{
-                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                  position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)',
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600,
                   fontFamily: 'Tajawal, sans-serif',
                 }}
               >
-                {showConfirm ? 'Hide' : 'Show'}
+                {showConfirm ? t('auth.register.hide') : t('auth.register.show')}
               </button>
             </div>
           </div>
@@ -209,7 +227,7 @@ export default function Register() {
             onMouseEnter={(e) => { if (!loading) e.target.style.background = '#166534'; }}
             onMouseLeave={(e) => { if (!loading) e.target.style.background = '#15803D'; }}
           >
-            {loading ? 'Creating your account…' : 'Start My Free Trial'}
+            {loading ? t('auth.register.submitting') : t('auth.register.submit')}
           </button>
         </form>
 
@@ -217,13 +235,17 @@ export default function Register() {
           display: 'flex', justifyContent: 'center', gap: 20,
           marginTop: 14, flexWrap: 'wrap',
         }}>
-          {['Takes 30 seconds', 'No credit card required', 'Cancel anytime'].map((t) => (
-            <span key={t} style={{
+          {[
+            t('auth.register.trust_1'),
+            t('auth.register.trust_2'),
+            t('auth.register.trust_3'),
+          ].map((tx) => (
+            <span key={tx} style={{
               display: 'flex', alignItems: 'center', gap: 5,
               fontSize: '0.78rem', color: 'var(--text-muted)',
             }}>
               <span style={{ color: '#15803D', fontWeight: 700, fontSize: '0.75rem' }}>✓</span>
-              {t}
+              {tx}
             </span>
           ))}
         </div>
@@ -233,15 +255,15 @@ export default function Register() {
           paddingTop: 14, textAlign: 'center',
         }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 10 }}>
-            By signing up you agree to our{' '}
+            {t('auth.register.terms_prompt')}{' '}
             <Link to="/terms" style={{ color: '#15803D', textDecoration: 'none' }}>
-              Terms of Service
+              {t('auth.register.terms_link')}
             </Link>.
           </p>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            Already have an account?{' '}
+            {t('auth.register.switch_prompt')}{' '}
             <Link to="/login" style={{ color: '#15803D', fontWeight: 700, textDecoration: 'none' }}>
-              Log in
+              {t('auth.register.switch_link')}
             </Link>
           </p>
         </div>

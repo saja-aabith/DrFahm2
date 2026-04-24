@@ -267,6 +267,7 @@
     }
   },
   "auth": {
+    "lang_toggle_aria": "Toggle language",
     "login": {
       "title": "Welcome back",
       "subtitle": "Log in to continue your exam prep",
@@ -279,6 +280,45 @@
       "error_generic": "Login failed. Please try again.",
       "switch_prompt": "Don't have an account?",
       "switch_link": "Sign up free"
+    },
+    "register": {
+      "title_with_exam": "Start your free 7-day {{exam}} trial",
+      "title_no_exam": "Start your 7-day free trial",
+      "subtitle": "Full access. No credit card. Cancel anytime.",
+      "features": {
+        "f1_bold": "Real Qudurat & Tahsili",
+        "f1_rest": " exam questions",
+        "f2_bold": "Step-by-step",
+        "f2_rest": " hints & explanations",
+        "f3_bold": "Track your",
+        "f3_rest": " progress across all worlds"
+      },
+      "username_label": "Username",
+      "username_placeholder": "Choose a username",
+      "email_label": "Email",
+      "email_hint": "(optional — for progress saving)",
+      "email_placeholder": "your@email.com",
+      "phone_label": "Phone",
+      "phone_hint": "(optional — for WhatsApp updates)",
+      "phone_placeholder": "+966 5X XXX XXXX",
+      "password_label": "Password",
+      "password_placeholder": "Minimum 8 characters",
+      "confirm_label": "Confirm Password",
+      "confirm_placeholder": "Repeat your password",
+      "show": "Show",
+      "hide": "Hide",
+      "submit": "Start My Free Trial",
+      "submitting": "Creating your account…",
+      "err_password_mismatch": "Passwords do not match.",
+      "err_password_short": "Password must be at least 8 characters.",
+      "err_generic": "Registration failed. Please try again.",
+      "trust_1": "Takes 30 seconds",
+      "trust_2": "No credit card required",
+      "trust_3": "Cancel anytime",
+      "terms_prompt": "By signing up you agree to our",
+      "terms_link": "Terms of Service",
+      "switch_prompt": "Already have an account?",
+      "switch_link": "Log in"
     }
   }
 }
