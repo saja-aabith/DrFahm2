@@ -265,5 +265,20 @@
     "errors": {
       "checkout_failed": "Could not start checkout. Please try again."
     }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Log in to continue your exam prep",
+      "identifier_label": "Username or Email",
+      "identifier_placeholder": "Enter your username or email",
+      "password_label": "Password",
+      "password_placeholder": "Enter your password",
+      "submit": "Log in",
+      "submitting": "Logging in...",
+      "error_generic": "Login failed. Please try again.",
+      "switch_prompt": "Don't have an account?",
+      "switch_link": "Sign up free"
+    }
   }
 }

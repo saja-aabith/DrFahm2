@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
+  const { t }     = useTranslation();
   const { login } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -22,7 +24,7 @@ export default function Login() {
       await login(identifier, password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err?.error?.message || 'Login failed. Please try again.');
+      setError(err?.error?.message || t('auth.login.error_generic'));
     } finally {
       setLoading(false);
     }
@@ -36,18 +38,18 @@ export default function Login() {
             <span className="logo-dr">Dr</span><span className="logo-fahm">Fahm</span>
           </Link>
         </div>
-        <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Log in to continue your exam prep</p>
+        <h1 className="auth-title">{t('auth.login.title')}</h1>
+        <p className="auth-subtitle">{t('auth.login.subtitle')}</p>
 
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Username or Email</label>
+            <label className="form-label">{t('auth.login.identifier_label')}</label>
             <input
               className="form-input"
               type="text"
-              placeholder="Enter your username or email"
+              placeholder={t('auth.login.identifier_placeholder')}
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               autoComplete="username"
@@ -56,11 +58,11 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label">{t('auth.login.password_label')}</label>
             <input
               className="form-input"
               type="password"
-              placeholder="Enter your password"
+              placeholder={t('auth.login.password_placeholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
@@ -73,12 +75,12 @@ export default function Login() {
             className="btn btn-primary btn-full"
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Log in'}
+            {loading ? t('auth.login.submitting') : t('auth.login.submit')}
           </button>
         </form>
 
         <p className="auth-switch" style={{ marginTop: 20 }}>
-          Don't have an account? <Link to="/register">Sign up free</Link>
+          {t('auth.login.switch_prompt')} <Link to="/register">{t('auth.login.switch_link')}</Link>
         </p>
       </div>
     </div>
