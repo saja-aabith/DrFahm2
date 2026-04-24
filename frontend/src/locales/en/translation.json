@@ -360,5 +360,52 @@
       "notrial_body": "Click any exam above to begin. World 1 is free — no credit card needed.",
       "notrial_cta": "View Plans"
     }
+  },
+  "level": {
+    "tier": {
+      "bidaya":  "Bidaya — البداية",
+      "suood":   "Su'ood — الصعود",
+      "tahadi":  "Tahadi — التحدي",
+      "itqan":   "Itqan — الإتقان",
+      "qimma":   "Qimma — القمة"
+    },
+    "breadcrumb_level": "Level {{n}}",
+    "breadcrumb_results": "Level {{n}} — Results",
+    "question_of": "Question",
+    "of": "of",
+    "unanswered_pill": "⚠ {{count}} unanswered",
+    "hint_title": "Hint",
+    "next": "Next {{arrow}}",
+    "prev_btn": "← Prev",
+    "next_btn": "Next →",
+    "dot_title": "Question {{n}}",
+    "submit_hint_incomplete": "You can submit with unanswered questions.",
+    "submit_all": "Submit ✓",
+    "submit_anyway": "Submit anyway",
+    "submitting": "Submitting…",
+    "submit_failed": "Submission failed. Please try again.",
+    "load_failed": "Failed to load questions.",
+    "load_failed_redirect_suffix": " Returning to map…",
+    "no_questions": "No questions available for this level yet.",
+    "back_to_map": "← Back to Map",
+    "correct_label": "Correct!",
+    "sparkle_correct": "Correct!",
+    "results": {
+      "world_complete_title": "World Complete!",
+      "level_passed_title": "Level Passed!",
+      "not_passed_title": "Not quite — try again",
+      "stat_correct": "{{score}} / {{total}} correct · pass threshold {{threshold}}%",
+      "stat_time": "Time taken",
+      "stat_score": "Score",
+      "stat_missed": "Missed",
+      "predicted_title": "🎯 Predicted {{exam}} Score",
+      "confidence_level": "{{confidence}} confidence · 1 level passed",
+      "confidence_levels": "{{confidence}} confidence · {{count}} levels passed",
+      "ranking_title": "🏅 Student Ranking",
+      "ranking_placeholder": "Coming soon — see how you compare to other students.",
+      "next_level_btn": "Level {{n}} {{arrow}}",
+      "back_to_map_btn": "Back to Map {{arrow}}",
+      "try_again": "Try Again"
+    }
   }
 }

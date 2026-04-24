@@ -2,6 +2,7 @@ import React, {
   useState, useEffect, useRef, useCallback,
 } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { exams as examsApi } from '../api';
 import Navbar from '../components/Navbar';
 import MathText from '../components/MathText';
@@ -29,7 +30,7 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
     .lp-dot.correct-dot.current { border-color: #4ade80; background: rgba(22,163,74,0.25); color: #4ade80; transform: scale(1.15); }
     .lp-dot.wrong-dot.current   { border-color: #f87171; background: rgba(220,38,38,0.2);  color: #f87171; transform: scale(1.15); }
 
-    .lp-option { display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg-card, rgba(255,255,255,0.03)); cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: left; width: 100%; margin-bottom: 10px; }
+    .lp-option { display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg-card, rgba(255,255,255,0.03)); cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: start; width: 100%; margin-bottom: 10px; }
     .lp-option:hover:not(.locked) { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.06); }
     .lp-option.selected  { border-color: rgba(59,130,246,0.6); background: rgba(59,130,246,0.1); }
     .lp-option.locked    { cursor: default; }
@@ -60,7 +61,7 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
       50%  { transform: rotate(25deg) scale(1.4); opacity: 1; }
       100% { transform: rotate(-10deg) scale(1); opacity: 0.8; }
     }
-    .lp-sparkle-badge { animation: sparkle-pop 0.4s cubic-bezier(.34,1.56,.64,1) forwards; display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; background: rgba(22,163,74,0.15); border: 1px solid rgba(22,163,74,0.4); color: #4ade80; font-weight: 700; font-size: 0.82rem; margin-left: auto; flex-shrink: 0; }
+    .lp-sparkle-badge { animation: sparkle-pop 0.4s cubic-bezier(.34,1.56,.64,1) forwards; display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; background: rgba(22,163,74,0.15); border: 1px solid rgba(22,163,74,0.4); color: #4ade80; font-weight: 700; font-size: 0.82rem; margin-inline-start: auto; flex-shrink: 0; }
     .lp-sparkle-star  { animation: star-spin 0.55s ease-out forwards; display: inline-block; }
 
     .lp-option-key { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; border: 1.5px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-muted); transition: all 0.15s; }
@@ -165,6 +166,14 @@ if (typeof document !== 'undefined' && !document.getElementById('level-page-styl
       from { opacity: 1; }
       to   { opacity: 0; }
     }
+
+    /* Floating in-game language toggle — bottom trailing edge, above timer, below submit overlay */
+    .lp-lang-toggle-float {
+      position: fixed;
+      bottom: 16px;
+      inset-inline-end: 16px;
+      z-index: 30;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -175,26 +184,26 @@ const OPTION_KEYS   = ['a', 'b', 'c', 'd'];
 const OPTION_LABELS = { a: 'A', b: 'B', c: 'C', d: 'D' };
 const SECONDS_PER_QUESTION = 60;
 
-const WORLD_TIER = {
-  100: 'Bidaya — البداية',
-  150: "Su'ood — الصعود",
-  200: 'Tahadi — التحدي',
-  250: 'Itqan — الإتقان',
-  300: 'Qimma — القمة',
+// Tier i18n key per band (matches level.tier.* in translation files)
+const WORLD_TIER_KEY = {
+  100: 'bidaya',
+  150: 'suood',
+  200: 'tahadi',
+  250: 'itqan',
+  300: 'qimma',
 };
 
-function worldLabel(wk) {
+function worldLabel(wk, t) {
   if (!wk) return wk;
-  const band = parseInt(wk.split('_')[1], 10);
-  return WORLD_TIER[band] || wk;
+  const band    = parseInt(wk.split('_')[1], 10);
+  const tierKey = WORLD_TIER_KEY[band];
+  return tierKey ? t(`level.tier.${tierKey}`) : wk;
 }
 
 function fmtTime(s) {
   if (s <= 0) return '0:00';
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
-
-const EXAM_SHORT = { qudurat: 'Qudurat', tahsili: 'Tahsili' };
 
 const CONF_COLOR = {
   high:   '#15803d',
@@ -208,11 +217,32 @@ function timerColor(pct) {
   return '#dc2626';
 }
 
+// ── Floating language toggle ──────────────────────────────────────────────────
+
+function LangToggleFloat() {
+  const { t, i18n } = useTranslation();
+  const toggle = () => i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en');
+  return (
+    <button
+      className="lang-toggle lp-lang-toggle-float"
+      onClick={toggle}
+      aria-label={t('auth.lang_toggle_aria')}
+    >
+      <span className={i18n.language === 'en' ? 'lang-active' : ''}>EN</span>
+      <span className="lang-sep" />
+      <span className={i18n.language === 'ar' ? 'lang-active' : ''}>AR</span>
+    </button>
+  );
+}
+
+// ── Sparkle correct badge ─────────────────────────────────────────────────────
+
 function SparkleCorrect() {
+  const { t } = useTranslation();
   return (
     <span className="lp-sparkle-badge">
       <span className="lp-sparkle-star">✦</span>
-      Correct!
+      {t('level.sparkle_correct')}
     </span>
   );
 }
@@ -271,6 +301,7 @@ const CONFETTI_POSITIONS = [
 ];
 
 function CorrectBurst({ onDone }) {
+  const { t } = useTranslation();
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
@@ -300,7 +331,7 @@ function CorrectBurst({ onDone }) {
 
       <div className="lp-burst-badge">
         <div className="lp-burst-checkmark">✓</div>
-        <div className="lp-burst-label">Correct!</div>
+        <div className="lp-burst-label">{t('level.correct_label')}</div>
       </div>
     </div>
   );
@@ -324,6 +355,7 @@ function ExamScreen({
   questions, answers, feedback, currentIdx, timeLeft, totalTime,
   onSelectAnswer, onNavigate, onSubmit,
 }) {
+  const { t } = useTranslation();
   const q             = questions[currentIdx];
   const totalQ        = questions.length;
   const answeredCount = Object.keys(answers).length;
@@ -339,6 +371,9 @@ function ExamScreen({
   const nextTarget        = nextUnansweredIdx !== -1 ? nextUnansweredIdx : currentIdx + 1;
   const showWrongNext     = isLocked && qFeedback === 'wrong' && currentIdx < totalQ - 1;
 
+  const arrow    = t('common.arrow');
+  const examName = t(`common.${exam}`);
+
   return (
     <>
       <Navbar />
@@ -349,25 +384,34 @@ function ExamScreen({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <Link to={`/exam/${exam}`} style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
-            ← {exam === 'qudurat' ? 'Qudurat' : 'Tahsili'}
+            ← {examName}
           </Link>
           <span style={{ color: 'var(--border)' }}>/</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{worldLabel(worldKey)}</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{worldLabel(worldKey, t)}</span>
           <span style={{ color: 'var(--border)' }}>/</span>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Level {levelNumber}</span>
-          <span className="lp-timer-text" style={{ marginLeft: 'auto', color }}>⏱ {fmtTime(timeLeft)}</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
+            {t('level.breadcrumb_level', { n: levelNumber })}
+          </span>
+          <span className="lp-timer-text" style={{ marginInlineStart: 'auto', color }}>⏱ {fmtTime(timeLeft)}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Question <strong style={{ color: 'var(--text-secondary)' }}>{currentIdx + 1}</strong> of {totalQ}
+            {t('level.question_of')}{' '}
+            <strong style={{ color: 'var(--text-secondary)' }}>{currentIdx + 1}</strong>
+            {' '}{t('level.of')} {totalQ}
           </span>
-          {unanswered > 0 && <span className="lp-unanswered-pill">⚠ {unanswered} unanswered</span>}
+          {unanswered > 0 && (
+            <span className="lp-unanswered-pill">
+              {t('level.unanswered_pill', { count: unanswered })}
+            </span>
+          )}
         </div>
 
         <div style={{ background: 'var(--bg-card, rgba(255,255,255,0.04))', border: '1px solid var(--border)', borderRadius: 12, padding: '22px 24px', marginBottom: 16 }}>
           {q.image_url && <img src={q.image_url} alt="" className="lp-question-image" />}
-          <div style={{ fontSize: '1.02rem', color: 'var(--text-primary)', lineHeight: 1.7, marginBottom: 20 }}>
+          {/* question_text is English-only per DB schema */}
+          <div style={{ fontSize: '1.02rem', color: 'var(--text-primary)', lineHeight: 1.7, marginBottom: 20 }} dir="ltr">
             <MathText text={q.question_text} />
           </div>
 
@@ -388,7 +432,8 @@ function ExamScreen({
                 aria-pressed={isSelected}
               >
                 <span className="lp-option-key">{OPTION_LABELS[key]}</span>
-                <span className="lp-option-text"><MathText text={text} /></span>
+                {/* option text is English-only per DB schema */}
+                <span className="lp-option-text" dir="ltr"><MathText text={text} /></span>
                 {isSelected && qFeedback === 'correct' && <SparkleCorrect />}
               </button>
             );
@@ -398,13 +443,14 @@ function ExamScreen({
             <>
               {q.hint && (
                 <div className="lp-hint-panel">
-                  <div className="lp-hint-title"><span>💡</span> Hint</div>
-                  <div className="lp-hint-body"><MathText text={q.hint} /></div>
+                  <div className="lp-hint-title"><span>💡</span> {t('level.hint_title')}</div>
+                  {/* hint text is English-only per DB schema */}
+                  <div className="lp-hint-body" dir="ltr"><MathText text={q.hint} /></div>
                 </div>
               )}
               {showWrongNext && (
                 <button className="lp-next-btn" onClick={() => onNavigate(nextTarget)}>
-                  Next →
+                  {t('level.next', { arrow })}
                 </button>
               )}
             </>
@@ -412,25 +458,42 @@ function ExamScreen({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(currentIdx - 1)} disabled={currentIdx === 0}>← Prev</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(currentIdx - 1)} disabled={currentIdx === 0}>
+            {t('level.prev_btn')}
+          </button>
           <div className="lp-dot-nav" style={{ flex: 1 }}>
             {questions.map((qq, i) => {
               const fb = feedback[qq.id];
               const dotClass = fb === 'correct' ? 'correct-dot' : fb === 'wrong' ? 'wrong-dot' : (answers[qq.id] ? 'answered' : '');
               return (
-                <button key={qq.id} className={`lp-dot ${dotClass} ${i === currentIdx ? 'current' : ''}`} onClick={() => onNavigate(i)} title={`Question ${i + 1}`}>
+                <button
+                  key={qq.id}
+                  className={`lp-dot ${dotClass} ${i === currentIdx ? 'current' : ''}`}
+                  onClick={() => onNavigate(i)}
+                  title={t('level.dot_title', { n: i + 1 })}
+                >
                   {i + 1}
                 </button>
               );
             })}
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(currentIdx + 1)} disabled={currentIdx === totalQ - 1}>Next →</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(currentIdx + 1)} disabled={currentIdx === totalQ - 1}>
+            {t('level.next_btn')}
+          </button>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
-          {!allAnswered && <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', alignSelf: 'center' }}>You can submit with unanswered questions.</span>}
-          <button className={`btn ${allAnswered ? 'btn-violet' : 'btn-ghost'}`} style={{ padding: '10px 28px', fontWeight: 700, fontSize: '0.95rem' }} onClick={onSubmit}>
-            {allAnswered ? 'Submit ✓' : 'Submit anyway'}
+          {!allAnswered && (
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+              {t('level.submit_hint_incomplete')}
+            </span>
+          )}
+          <button
+            className={`btn ${allAnswered ? 'btn-violet' : 'btn-ghost'}`}
+            style={{ padding: '10px 28px', fontWeight: 700, fontSize: '0.95rem' }}
+            onClick={onSubmit}
+          >
+            {allAnswered ? t('level.submit_all') : t('level.submit_anyway')}
           </button>
         </div>
 
@@ -447,8 +510,18 @@ function ResultsScreen({
   passThreshold, worldCompleted, timeTakenSeconds, onRetry,
   predictedScore,
 }) {
+  const { t } = useTranslation();
   const nextLevel  = levelNumber < 10 ? levelNumber + 1 : null;
   const scoreColor = passed ? '#4ade80' : '#f87171';
+
+  const arrow    = t('common.arrow');
+  const examName = t(`common.${exam}`);
+
+  const headline = worldCompleted
+    ? t('level.results.world_complete_title')
+    : passed
+      ? t('level.results.level_passed_title')
+      : t('level.results.not_passed_title');
 
   return (
     <>
@@ -456,12 +529,14 @@ function ResultsScreen({
       <div className="page" style={{ paddingTop: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <Link to={`/exam/${exam}`} style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
-            ← {exam === 'qudurat' ? 'Qudurat' : 'Tahsili'}
+            ← {examName}
           </Link>
           <span style={{ color: 'var(--border)' }}>/</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{worldLabel(worldKey)}</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{worldLabel(worldKey, t)}</span>
           <span style={{ color: 'var(--border)' }}>/</span>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Level {levelNumber} — Results</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
+            {t('level.breadcrumb_results', { n: levelNumber })}
+          </span>
         </div>
 
         <div className="lp-results-card">
@@ -469,25 +544,25 @@ function ResultsScreen({
             {worldCompleted ? '🏆' : passed ? '✅' : '❌'}
           </div>
           <div style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 4, color: scoreColor }}>
-            {worldCompleted ? 'World Complete!' : passed ? 'Level Passed!' : 'Not quite — try again'}
+            {headline}
           </div>
           <div className="lp-score-big" style={{ color: scoreColor }}>{Math.round(scorePercent)}%</div>
           <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: 4 }}>
-            {score} / {total} correct · pass threshold {passThreshold}%
+            {t('level.results.stat_correct', { score, total, threshold: passThreshold })}
           </div>
 
           <div className="lp-stat-row">
             <div className="lp-stat-item">
               <div className="lp-stat-value" style={{ color: 'var(--text-primary)' }}>{fmtTime(timeTakenSeconds)}</div>
-              <div className="lp-stat-label">Time taken</div>
+              <div className="lp-stat-label">{t('level.results.stat_time')}</div>
             </div>
             <div className="lp-stat-item">
               <div className="lp-stat-value" style={{ color: scoreColor }}>{score}/{total}</div>
-              <div className="lp-stat-label">Score</div>
+              <div className="lp-stat-label">{t('level.results.stat_score')}</div>
             </div>
             <div className="lp-stat-item">
               <div className="lp-stat-value" style={{ color: 'var(--text-secondary)' }}>{total - score}</div>
-              <div className="lp-stat-label">Missed</div>
+              <div className="lp-stat-label">{t('level.results.stat_missed')}</div>
             </div>
           </div>
 
@@ -498,15 +573,16 @@ function ResultsScreen({
             }}>
               <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase',
                 letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 6 }}>
-                🎯 Predicted {EXAM_SHORT[exam] || exam} Score
+                {t('level.results.predicted_title', { exam: examName })}
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1,
                 color: CONF_COLOR[predictedScore.confidence] || 'var(--text-primary)' }}>
                 {predictedScore.score}%
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 5 }}>
-                {predictedScore.confidence} confidence
-                {' · '}{predictedScore.based_on_levels} level{predictedScore.based_on_levels !== 1 ? 's' : ''} passed
+                {predictedScore.based_on_levels === 1
+                  ? t('level.results.confidence_level',  { confidence: predictedScore.confidence })
+                  : t('level.results.confidence_levels', { confidence: predictedScore.confidence, count: predictedScore.based_on_levels })}
               </div>
               {Object.keys(predictedScore.sections || {}).length > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10,
@@ -515,6 +591,7 @@ function ResultsScreen({
                     <div key={sec} style={{ textAlign: 'center' }}>
                       <div style={{ fontWeight: 700, fontSize: '0.95rem',
                         color: CONF_COLOR[predictedScore.confidence] || 'var(--text-primary)' }}>{s}%</div>
+                      {/* Section keys from backend are English — stay English until backend provides AR */}
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)',
                         textTransform: 'capitalize', marginTop: 2 }}>{sec}</div>
                     </div>
@@ -525,21 +602,33 @@ function ResultsScreen({
           )}
 
           <div className="lp-ranking-card">
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 6 }}>🏅 Student Ranking</div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Coming soon — see how you compare to other students.</div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 6 }}>
+              {t('level.results.ranking_title')}
+            </div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {t('level.results.ranking_placeholder')}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
             {passed && nextLevel && !worldCompleted && (
-              <Link to={`/exam/${exam}/world/${worldKey}/level/${nextLevel}`} className="btn btn-green" style={{ fontWeight: 700 }}>Level {nextLevel} →</Link>
+              <Link to={`/exam/${exam}/world/${worldKey}/level/${nextLevel}`} className="btn btn-green" style={{ fontWeight: 700 }}>
+                {t('level.results.next_level_btn', { n: nextLevel, arrow })}
+              </Link>
             )}
             {passed && worldCompleted && (
-              <Link to={`/exam/${exam}`} className="btn btn-green" style={{ fontWeight: 700 }}>Back to Map →</Link>
+              <Link to={`/exam/${exam}`} className="btn btn-green" style={{ fontWeight: 700 }}>
+                {t('level.results.back_to_map_btn', { arrow })}
+              </Link>
             )}
             {!passed && (
-              <button className="btn btn-violet" style={{ fontWeight: 700 }} onClick={onRetry}>Try Again</button>
+              <button className="btn btn-violet" style={{ fontWeight: 700 }} onClick={onRetry}>
+                {t('level.results.try_again')}
+              </button>
             )}
-            <Link to={`/exam/${exam}`} className="btn btn-ghost btn-sm">Back to Map</Link>
+            <Link to={`/exam/${exam}`} className="btn btn-ghost btn-sm">
+              {t('level.back_to_map')}
+            </Link>
           </div>
         </div>
       </div>
@@ -550,6 +639,7 @@ function ResultsScreen({
 // ── MAIN PAGE ─────────────────────────────────────────────────────────────────
 
 export default function LevelPage() {
+  const { t } = useTranslation();
   const { exam, worldKey, levelNumber: levelParam } = useParams();
   const navigate    = useNavigate();
   const levelNumber = parseInt(levelParam, 10);
@@ -629,17 +719,17 @@ export default function LevelPage() {
         startTimeRef.current = Date.now();
       })
       .catch((err) => {
-        const msg  = err?.error?.message || 'Failed to load questions.';
+        const msg  = err?.error?.message || t('level.load_failed');
         const code = err?.error?.code;
         if (['prereq_incomplete', 'level_locked', 'beyond_trial_cap', 'no_entitlement'].includes(code)) {
-          setLoadError(msg + ' Returning to map…');
+          setLoadError(msg + t('level.load_failed_redirect_suffix'));
           setTimeout(() => navigate(`/exam/${exam}`, { replace: true }), 2200);
         } else {
           setLoadError(msg);
         }
       })
       .finally(() => setLoading(false));
-  }, [exam, worldKey, levelNumber, navigate]);
+  }, [exam, worldKey, levelNumber, navigate, t]);
 
   useEffect(() => {
     if (questions.length === 0 || results !== null) return;
@@ -716,12 +806,12 @@ export default function LevelPage() {
       setPassThreshold(data.pass_threshold_pct ?? 100);
       setWorldCompleted(data.world_completed ?? false);
     } catch (err) {
-      setSubmitError(err?.error?.message || 'Submission failed. Please try again.');
+      setSubmitError(err?.error?.message || t('level.submit_failed'));
       autoSubmitRef.current = false;
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, answers, exam, worldKey, levelNumber]);
+  }, [submitting, answers, exam, worldKey, levelNumber, t]);
 
   const handleRetry = useCallback(() => {
     setAnswers({});
@@ -765,7 +855,7 @@ export default function LevelPage() {
       <FullScreen>
         <div style={{ textAlign: 'center', maxWidth: 420 }}>
           <div className="alert alert-error" style={{ marginBottom: 16 }}>{loadError}</div>
-          <Link to={`/exam/${exam}`} className="btn btn-ghost">← Back to Map</Link>
+          <Link to={`/exam/${exam}`} className="btn btn-ghost">{t('level.back_to_map')}</Link>
         </div>
       </FullScreen>
     );
@@ -775,8 +865,8 @@ export default function LevelPage() {
     return (
       <FullScreen>
         <div style={{ textAlign: 'center', maxWidth: 420 }}>
-          <div className="alert alert-error" style={{ marginBottom: 16 }}>No questions available for this level yet.</div>
-          <Link to={`/exam/${exam}`} className="btn btn-ghost">← Back to Map</Link>
+          <div className="alert alert-error" style={{ marginBottom: 16 }}>{t('level.no_questions')}</div>
+          <Link to={`/exam/${exam}`} className="btn btn-ghost">{t('level.back_to_map')}</Link>
         </div>
       </FullScreen>
     );
@@ -784,15 +874,18 @@ export default function LevelPage() {
 
   if (results !== null) {
     return (
-      <ResultsScreen
-        exam={exam} worldKey={worldKey} levelNumber={levelNumber}
-        passed={passed} score={score}
-        total={submittedTotal || questions.length}
-        scorePercent={scorePercent} passThreshold={passThreshold}
-        worldCompleted={worldCompleted} timeTakenSeconds={timeTakenSeconds}
-        onRetry={handleRetry}
-        predictedScore={predictedScore}
-      />
+      <>
+        <ResultsScreen
+          exam={exam} worldKey={worldKey} levelNumber={levelNumber}
+          passed={passed} score={score}
+          total={submittedTotal || questions.length}
+          scorePercent={scorePercent} passThreshold={passThreshold}
+          worldCompleted={worldCompleted} timeTakenSeconds={timeTakenSeconds}
+          onRetry={handleRetry}
+          predictedScore={predictedScore}
+        />
+        <LangToggleFloat />
+      </>
     );
   }
 
@@ -807,7 +900,7 @@ export default function LevelPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: '24px 32px', textAlign: 'center', border: '1px solid var(--border)' }}>
             <div className="spinner" style={{ marginBottom: 12 }} />
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Submitting…</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('level.submitting')}</div>
           </div>
         </div>
       )}
@@ -832,6 +925,7 @@ export default function LevelPage() {
         currentIdx={currentIdx} timeLeft={timeLeft} totalTime={totalTime}
         onSelectAnswer={handleSelectAnswer} onNavigate={handleNavigate} onSubmit={handleSubmit}
       />
+      <LangToggleFloat />
     </>
   );
 }

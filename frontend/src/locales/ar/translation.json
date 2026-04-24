@@ -360,5 +360,52 @@
       "notrial_body": "انقر على أي اختبار أعلاه للبدء. العالم الأول مجاني — لا حاجة لبطاقة ائتمانية.",
       "notrial_cta": "اعرض الخطط"
     }
+  },
+  "level": {
+    "tier": {
+      "bidaya":  "البداية",
+      "suood":   "الصعود",
+      "tahadi":  "التحدي",
+      "itqan":   "الإتقان",
+      "qimma":   "القمة"
+    },
+    "breadcrumb_level": "المستوى {{n}}",
+    "breadcrumb_results": "المستوى {{n}} — النتائج",
+    "question_of": "السؤال",
+    "of": "من",
+    "unanswered_pill": "⚠ {{count}} بدون إجابة",
+    "hint_title": "تلميح",
+    "next": "التالي {{arrow}}",
+    "prev_btn": "← السابق",
+    "next_btn": "التالي ←",
+    "dot_title": "السؤال {{n}}",
+    "submit_hint_incomplete": "يمكنك التقديم مع وجود أسئلة بدون إجابة.",
+    "submit_all": "إرسال ✓",
+    "submit_anyway": "إرسال رغم ذلك",
+    "submitting": "جارِ الإرسال…",
+    "submit_failed": "فشل الإرسال. يرجى المحاولة مرة أخرى.",
+    "load_failed": "فشل تحميل الأسئلة.",
+    "load_failed_redirect_suffix": " جارِ العودة إلى الخريطة…",
+    "no_questions": "لا توجد أسئلة متاحة لهذا المستوى بعد.",
+    "back_to_map": "← العودة إلى الخريطة",
+    "correct_label": "إجابة صحيحة!",
+    "sparkle_correct": "صحيحة!",
+    "results": {
+      "world_complete_title": "اكتمل العالم!",
+      "level_passed_title": "نجحت في المستوى!",
+      "not_passed_title": "لم تصل بعد — حاول مجدداً",
+      "stat_correct": "{{score}} / {{total}} صحيحة · عتبة النجاح {{threshold}}%",
+      "stat_time": "الوقت المستغرق",
+      "stat_score": "الدرجة",
+      "stat_missed": "الإجابات الخاطئة",
+      "predicted_title": "🎯 الدرجة المتوقَّعة — {{exam}}",
+      "confidence_level": "ثقة {{confidence}} · مستوى واحد مجتاز",
+      "confidence_levels": "ثقة {{confidence}} · {{count}} مستويات مجتازة",
+      "ranking_title": "🏅 ترتيب الطلاب",
+      "ranking_placeholder": "قريباً — قارن نفسك بالطلاب الآخرين.",
+      "next_level_btn": "المستوى {{n}} {{arrow}}",
+      "back_to_map_btn": "العودة إلى الخريطة {{arrow}}",
+      "try_again": "حاول مجدداً"
+    }
   }
 }
