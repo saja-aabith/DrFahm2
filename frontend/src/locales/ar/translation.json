@@ -407,5 +407,80 @@
       "back_to_map_btn": "العودة إلى الخريطة {{arrow}}",
       "try_again": "حاول مجدداً"
     }
+  },
+  "exam": {
+    "breadcrumb_dashboard": "← لوحة التحكم",
+    "title_qudurat": "القدرات",
+    "title_tahsili": "التحصيل",
+    "subtitle_one_track": "مسار واحد · {{worlds}} عوالم لكل مسار · 10 مستويات لكل عالم",
+    "subtitle_many_tracks": "{{count}} مسارات · {{worlds}} عوالم لكل مسار · 10 مستويات لكل عالم",
+    "plan_active_banner": "خطة {{plan}} نشطة — جميع العوالم مفتوحة",
+    "trial_banner_title": "أنت في التجربة المجانية — العالم الأول مفتوح لكل مسار",
+    "trial_banner_body": "قم بالترقية إلى الفضي للحصول على وصول 90 يوماً، أو الذهبي للسنة الكاملة.",
+    "trial_banner_silver_cta": "فضي",
+    "trial_banner_gold_cta": "ذهبي",
+    "expired_banner_title": "انتهت تجربتك",
+    "expired_banner_body": "قم بالترقية إلى الفضي أو الذهبي لمتابعة تحضيرك للاختبار.",
+    "expired_banner_cta": "اعرض الخطط",
+    "view_map": "الخريطة",
+    "view_leaderboard": "قائمة المتصدرين",
+    "load_map_failed": "فشل تحميل خريطة العوالم.",
+    "back_to_dashboard": "← العودة إلى لوحة التحكم",
+    "predicted": {
+      "label": "الدرجة المتوقَّعة — {{exam}}",
+      "conf_high": "ثقة عالية",
+      "conf_medium": "ثقة متوسطة",
+      "conf_low": "ثقة منخفضة (أكمل مزيداً من المستويات)",
+      "level_suffix": "مستوى واحد مجتاز",
+      "levels_suffix": "{{count}} مستويات مجتازة"
+    },
+    "topics": {
+      "title": "مواضيع للمراجعة",
+      "based_on_level": "بناءً على مستوى واحد مجتاز",
+      "based_on_levels": "بناءً على {{count}} مستويات مجتازة",
+      "levels_count": "{{struggled}}/{{total}} مستوى",
+      "priority_high": "أولوية عالية",
+      "priority_review": "للمراجعة"
+    },
+    "world": {
+      "passed_count": "{{passed}}/10 مستوى مجتاز",
+      "complete": "مكتمل",
+      "unlock_pill": "افتح {{arrow}}"
+    },
+    "lock_reason": {
+      "no_entitlement":    "ابدأ تجربتك المجانية لفتحه",
+      "trial_expired":     "انتهت التجربة — قم بالترقية للمتابعة",
+      "beyond_trial_cap":  "قم بالترقية للوصول إلى هذا العالم",
+      "prereq_incomplete": "أكمل العالم السابق أولاً",
+      "level_locked":      "اجتز المستوى السابق أولاً",
+      "seat_no_coverage":  "مدرستك لم تفتح هذا العالم"
+    },
+    "level_node": {
+      "unlock_with_upgrade": "افتح بالوصول الكامل ←",
+      "tooltip_level": "المستوى {{n}}"
+    },
+    "tracks": {
+      "math":      "الرياضيات",
+      "verbal":    "اللفظي",
+      "biology":   "الأحياء",
+      "chemistry": "الكيمياء",
+      "physics":   "الفيزياء"
+    },
+    "track_progress": {
+      "worlds_complete": "{{completed}}/{{total}} عالم مكتمل",
+      "levels_passed":   "{{passed}}/{{total}} مستوى مجتاز"
+    },
+    "leaderboard": {
+      "empty_title": "لا توجد ترتيبات بعد",
+      "empty_body": "كن أول من يُكمل مستوى ويحصد المركز الأول.",
+      "load_failed": "فشل تحميل قائمة المتصدرين.",
+      "col_rank": "الترتيب",
+      "col_username": "اسم المستخدم",
+      "col_levels": "المستويات",
+      "col_avg_time": "متوسط الوقت",
+      "you_pill": "أنت",
+      "not_on_board": "أكمل مستوى لتظهر في قائمة المتصدرين.",
+      "footnote": "متوسط الوقت = الثواني لكل مستوى مجتاز · — تعني لا توجد بيانات توقيت بعد"
+    }
   }
 }

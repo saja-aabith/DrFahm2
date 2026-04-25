@@ -407,5 +407,80 @@
       "back_to_map_btn": "Back to Map {{arrow}}",
       "try_again": "Try Again"
     }
+  },
+  "exam": {
+    "breadcrumb_dashboard": "← Dashboard",
+    "title_qudurat": "Qudurat — قدرات",
+    "title_tahsili": "Tahsili — تحصيلي",
+    "subtitle_one_track": "1 track · {{worlds}} worlds each · 10 levels per world",
+    "subtitle_many_tracks": "{{count}} tracks · {{worlds}} worlds each · 10 levels per world",
+    "plan_active_banner": "{{plan}} plan active — all worlds unlocked",
+    "trial_banner_title": "You're on the free trial — World 1 unlocked per track",
+    "trial_banner_body": "Upgrade to Silver for 90 days access, or Gold for the full year.",
+    "trial_banner_silver_cta": "Silver",
+    "trial_banner_gold_cta": "Gold",
+    "expired_banner_title": "Your trial has expired",
+    "expired_banner_body": "Upgrade to Silver or Gold to continue your exam preparation.",
+    "expired_banner_cta": "View Plans",
+    "view_map": "Map",
+    "view_leaderboard": "Leaderboard",
+    "load_map_failed": "Failed to load world map.",
+    "back_to_dashboard": "← Back to Dashboard",
+    "predicted": {
+      "label": "Predicted {{exam}} score",
+      "conf_high": "high confidence",
+      "conf_medium": "medium confidence",
+      "conf_low": "low confidence (complete more levels)",
+      "level_suffix": "1 level passed",
+      "levels_suffix": "{{count}} levels passed"
+    },
+    "topics": {
+      "title": "Topics to Review",
+      "based_on_level": "based on 1 passed level",
+      "based_on_levels": "based on {{count}} passed levels",
+      "levels_count": "{{struggled}}/{{total}} levels",
+      "priority_high": "High priority",
+      "priority_review": "Review"
+    },
+    "world": {
+      "passed_count": "{{passed}}/10 levels passed",
+      "complete": "Complete",
+      "unlock_pill": "Unlock {{arrow}}"
+    },
+    "lock_reason": {
+      "no_entitlement":    "Start your free trial to unlock",
+      "trial_expired":     "Trial expired — upgrade to continue",
+      "beyond_trial_cap":  "Upgrade to access this world",
+      "prereq_incomplete": "Complete the previous world first",
+      "level_locked":      "Pass the previous level first",
+      "seat_no_coverage":  "Your school has not unlocked this world"
+    },
+    "level_node": {
+      "unlock_with_upgrade": "Unlock with full access →",
+      "tooltip_level": "Level {{n}}"
+    },
+    "tracks": {
+      "math":      "الرياضيات",
+      "verbal":    "اللفظي",
+      "biology":   "الأحياء",
+      "chemistry": "الكيمياء",
+      "physics":   "الفيزياء"
+    },
+    "track_progress": {
+      "worlds_complete": "{{completed}}/{{total}} worlds complete",
+      "levels_passed":   "{{passed}}/{{total}} levels passed"
+    },
+    "leaderboard": {
+      "empty_title": "No rankings yet",
+      "empty_body": "Be the first to complete a level and claim the top spot.",
+      "load_failed": "Failed to load leaderboard.",
+      "col_rank": "Rank",
+      "col_username": "Username",
+      "col_levels": "Levels",
+      "col_avg_time": "Avg Time",
+      "you_pill": "you",
+      "not_on_board": "Complete a level to appear on the leaderboard.",
+      "footnote": "Avg Time = average seconds per passed level · — means no timing data yet"
+    }
   }
 }

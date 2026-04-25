@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Map, Trophy, Lock, ChevronUp, ChevronDown,
   CheckCircle, Clock, Layers,
@@ -8,32 +9,15 @@ import { exams as examsApi, billing } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 
-const EXAM_LABELS = {
-  qudurat: 'Qudurat \u2014 \u0627\u0644\u0642\u062f\u0631\u0627\u062a',
-  tahsili: 'Tahsili \u2014 \u0627\u0644\u062a\u062d\u0635\u064a\u0644\u064a',
-};
-
-const EXAM_SHORT = {
-  qudurat: 'Qudurat',
-  tahsili: 'Tahsili',
-};
-
-const TRACK_LABELS_AR = {
-  math:      '\u0627\u0644\u0631\u064a\u0627\u0636\u064a\u0627\u062a',
-  verbal:    '\u0627\u0644\u0644\u0641\u0638\u064a',
-  biology:   '\u0627\u0644\u0623\u062d\u064a\u0627\u0621',
-  chemistry: '\u0627\u0644\u0643\u064a\u0645\u064a\u0627\u0621',
-  physics:   '\u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0621',
-};
-
-const LOCK_MESSAGES = {
-  no_entitlement:    'Start your free trial to unlock',
-  trial_expired:     'Trial expired \u2014 upgrade to continue',
-  beyond_trial_cap:  'Upgrade to access this world',
-  prereq_incomplete: 'Complete the previous world first',
-  level_locked:      'Pass the previous level first',
-  seat_no_coverage:  'Your school has not unlocked this world',
-};
+// Plan display name — resolves to pricing.plans.* keys so Pricing is source of truth
+function planDisplayName(t, planId) {
+  switch (planId) {
+    case 'free':    return t('pricing.plans.free.name');
+    case 'basic':   return t('pricing.plans.silver.name');
+    case 'premium': return t('pricing.plans.gold.name');
+    default:        return planId;
+  }
+}
 
 const RANK_STYLES = [
   { bg: 'rgba(250,204,21,0.15)',  border: 'rgba(250,204,21,0.4)',  color: '#facc15' },
@@ -45,13 +29,6 @@ const CONF_COLOR = {
   high:   '#15803d',
   medium: '#0891b2',
   low:    '#b45309',
-};
-
-// Display name mapping — plan_id values unchanged in DB/API
-const PLAN_DISPLAY = {
-  basic:   'Silver',
-  premium: 'Gold',
-  free:    'Free',
 };
 
 function fmtAvg(seconds) {
@@ -85,11 +62,16 @@ function RankBadge({ rank }) {
 // ── M2: Predicted Score Banner ────────────────────────────────────────────────
 
 function PredictedScoreBanner({ exam, data }) {
+  const { t } = useTranslation();
   if (!data || data.score == null) return null;
   const confColor  = CONF_COLOR[data.confidence] || 'var(--text-primary)';
-  const confLabel  = data.confidence === 'high'   ? 'high confidence'
-                   : data.confidence === 'medium' ? 'medium confidence'
-                   : 'low confidence (complete more levels)';
+  const examName   = t(`common.${exam}`);
+  const confLabel  = data.confidence === 'high'   ? t('exam.predicted.conf_high')
+                   : data.confidence === 'medium' ? t('exam.predicted.conf_medium')
+                   : t('exam.predicted.conf_low');
+  const levelsSuffix = data.based_on_levels === 1
+    ? t('exam.predicted.level_suffix')
+    : t('exam.predicted.levels_suffix', { count: data.based_on_levels });
   const hasSections = Object.keys(data.sections || {}).length > 1;
 
   return (
@@ -102,22 +84,24 @@ function PredictedScoreBanner({ exam, data }) {
       <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎯</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>
-          Predicted {EXAM_SHORT[exam] || exam} score
+          {t('exam.predicted.label', { exam: examName })}
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.7rem', fontWeight: 800, lineHeight: 1, color: confColor }}>
             {data.score}%
           </span>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            {confLabel} &middot; {data.based_on_levels} level{data.based_on_levels !== 1 ? 's' : ''} passed
+            {confLabel} &middot; {levelsSuffix}
           </span>
         </div>
       </div>
       {hasSections && (
         <div style={{
           display: 'flex', gap: 16, flexShrink: 0,
-          paddingLeft: 16, borderLeft: '1px solid var(--border)',
+          paddingInlineStart: 16,
+          borderInlineStart: '1px solid var(--border)',
         }}>
+          {/* Section keys (math/verbal/biology/…) come from backend in English. POST-MVP: AR */}
           {Object.entries(data.sections).map(([sec, score]) => (
             <div key={sec} style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: confColor }}>{score}%</div>
@@ -132,32 +116,42 @@ function PredictedScoreBanner({ exam, data }) {
 
 // ── M3: Weak Topics Card ──────────────────────────────────────────────────────
 
-const PRIORITY_STYLE = {
-  high:   { color: '#dc2626', bg: 'rgba(220,38,38,0.08)',  border: 'rgba(220,38,38,0.2)',  label: 'High priority' },
-  review: { color: '#b45309', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.2)',  label: 'Review' },
-};
-
 function WeakTopicsCard({ data }) {
+  const { t } = useTranslation();
+
+  const PRIORITY_STYLE = {
+    high:   { color: '#dc2626', bg: 'rgba(220,38,38,0.08)',  border: 'rgba(220,38,38,0.2)',  label: t('exam.topics.priority_high') },
+    review: { color: '#b45309', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.2)',  label: t('exam.topics.priority_review') },
+  };
+
   if (!data?.weak_topics?.length) return null;
   const topics = data.weak_topics;
+
+  const basedOnText = data.based_on_levels === 1
+    ? t('exam.topics.based_on_level')
+    : t('exam.topics.based_on_levels', { count: data.based_on_levels });
+
   return (
     <div style={{ padding: '14px 18px', borderRadius: 10, marginBottom: 20, background: 'var(--bg-card, rgba(255,255,255,0.04))', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: '1.1rem' }}>⚠</span>
-        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>Topics to Review</span>
-        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 4 }}>based on {data.based_on_levels} passed level{data.based_on_levels !== 1 ? 's' : ''}</span>
+        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>{t('exam.topics.title')}</span>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginInlineStart: 4 }}>{basedOnText}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {topics.map((t) => {
-          const ps     = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE.review;
-          const barPct = Math.round(t.struggle_rate * 100);
+        {topics.map((topic) => {
+          const ps     = PRIORITY_STYLE[topic.priority] || PRIORITY_STYLE.review;
+          const barPct = Math.round(topic.struggle_rate * 100);
           return (
-            <div key={t.topic} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 100px 100px', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.label}>{t.label}</span>
+            <div key={topic.topic} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 100px 100px', gap: 10, alignItems: 'center' }}>
+              {/* topic.label is English from backend — POST-MVP: backend AR */}
+              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={topic.label}>{topic.label}</span>
               <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${barPct}%`, background: ps.color, borderRadius: 4, transition: 'width 0.4s ease', opacity: 0.8 }} />
               </div>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>{t.struggled_levels}/{t.total_levels} levels</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'end', whiteSpace: 'nowrap' }}>
+                {t('exam.topics.levels_count', { struggled: topic.struggled_levels, total: topic.total_levels })}
+              </span>
               <span style={{ display: 'inline-flex', justifyContent: 'center', padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600, background: ps.bg, color: ps.color, border: `1px solid ${ps.border}`, whiteSpace: 'nowrap' }}>{ps.label}</span>
             </div>
           );
@@ -170,6 +164,7 @@ function WeakTopicsCard({ data }) {
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 
 function LeaderboardView({ exam }) {
+  const { t } = useTranslation();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
@@ -179,9 +174,9 @@ function LeaderboardView({ exam }) {
     setError('');
     examsApi.leaderboard(exam)
       .then(setData)
-      .catch((err) => setError(err?.error?.message || 'Failed to load leaderboard.'))
+      .catch((err) => setError(err?.error?.message || t('exam.leaderboard.load_failed')))
       .finally(() => setLoading(false));
-  }, [exam]);
+  }, [exam, t]);
 
   if (loading) {
     return (
@@ -205,17 +200,21 @@ function LeaderboardView({ exam }) {
       {isEmpty ? (
         <div style={{ textAlign: 'center', padding: '60px 24px', background: 'var(--bg-card, rgba(255,255,255,0.03))', border: '1px solid var(--border)', borderRadius: 14 }}>
           <Trophy size={52} strokeWidth={1.4} style={{ color: 'var(--text-muted)', marginBottom: 14 }} />
-          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>No rankings yet</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Be the first to complete a level and claim the top spot.</div>
+          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>{t('exam.leaderboard.empty_title')}</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('exam.leaderboard.empty_body')}</div>
         </div>
       ) : (
         <>
           <div style={{ background: 'var(--bg-card, rgba(255,255,255,0.03))', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: colGrid, padding: '10px 20px', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', alignItems: 'center' }}>
-              <span>Rank</span>
-              <span>Username</span>
-              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}><Layers size={14} strokeWidth={2} /> Levels</span>
-              <span style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}><Clock size={14} strokeWidth={2} /> Avg Time</span>
+              <span>{t('exam.leaderboard.col_rank')}</span>
+              <span>{t('exam.leaderboard.col_username')}</span>
+              <span style={{ textAlign: 'end', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                <Layers size={14} strokeWidth={2} /> {t('exam.leaderboard.col_levels')}
+              </span>
+              <span style={{ textAlign: 'end', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                <Clock size={14} strokeWidth={2} /> {t('exam.leaderboard.col_avg_time')}
+              </span>
             </div>
             {top.map((row) => {
               const isMe = row.is_current_user;
@@ -224,10 +223,10 @@ function LeaderboardView({ exam }) {
                   <RankBadge rank={row.rank} />
                   <span style={{ fontWeight: isMe ? 700 : 500, fontSize: '0.93rem', color: isMe ? 'var(--violet-light, #a78bfa)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {row.username}
-                    {isMe && <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--violet-light, #a78bfa)', letterSpacing: '0.3px' }}>you</span>}
+                    {isMe && <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--violet-light, #a78bfa)', letterSpacing: '0.3px' }}>{t('exam.leaderboard.you_pill')}</span>}
                   </span>
-                  <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{row.levels_passed}</span>
-                  <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>{fmtAvg(row.avg_seconds_per_level)}</span>
+                  <span style={{ textAlign: 'end', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{row.levels_passed}</span>
+                  <span style={{ textAlign: 'end', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>{fmtAvg(row.avg_seconds_per_level)}</span>
                 </div>
               );
             })}
@@ -237,19 +236,19 @@ function LeaderboardView({ exam }) {
               <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--violet-light, #a78bfa)' }}>#{currentUser.rank}</span>
               <span style={{ fontWeight: 700, color: 'var(--violet-light, #a78bfa)', fontSize: '0.93rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                 {currentUser.username}
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--violet-light, #a78bfa)' }}>you</span>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--violet-light, #a78bfa)' }}>{t('exam.leaderboard.you_pill')}</span>
               </span>
-              <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{currentUser.levels_passed}</span>
-              <span style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>{fmtAvg(currentUser.avg_seconds_per_level)}</span>
+              <span style={{ textAlign: 'end', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{currentUser.levels_passed}</span>
+              <span style={{ textAlign: 'end', color: 'var(--text-muted)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>{fmtAvg(currentUser.avg_seconds_per_level)}</span>
             </div>
           )}
           {!currentUser && (
             <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-              Complete a level to appear on the leaderboard.
+              {t('exam.leaderboard.not_on_board')}
             </div>
           )}
-          <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right', paddingRight: 4 }}>
-            Avg Time = average seconds per passed level &middot; &mdash; means no timing data yet
+          <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'end', paddingInlineEnd: 4 }}>
+            {t('exam.leaderboard.footnote')}
           </div>
         </>
       )}
@@ -264,6 +263,7 @@ const PRICING_LOCK_REASONS = new Set([
 ]);
 
 function LevelNode({ level, examKey, worldKey }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { level_number, locked, lock_reason, passed } = level;
   const status        = passed ? 'passed' : locked ? 'locked' : 'unlocked';
@@ -276,11 +276,20 @@ function LevelNode({ level, examKey, worldKey }) {
       navigate(`/pricing?exam=${examKey}`);
     }
   };
+
+  // Tooltip text resolution
+  const lockReasonText = t(`exam.lock_reason.${lock_reason}`, { defaultValue: lock_reason });
+  const title = isPricingLock
+    ? t('exam.level_node.unlock_with_upgrade')
+    : locked
+      ? lockReasonText
+      : t('exam.level_node.tooltip_level', { n: level_number });
+
   return (
     <div
       className={`level-node ${status}${isPricingLock ? ' upgrade-trigger' : ''}`}
       onClick={handleClick}
-      title={isPricingLock ? 'Unlock with full access →' : locked ? (LOCK_MESSAGES[lock_reason] || lock_reason) : `Level ${level_number}`}
+      title={title}
       role="button"
       tabIndex={locked && !isPricingLock ? -1 : 0}
       onKeyDown={(e) => e.key === 'Enter' && handleClick()}
@@ -303,12 +312,19 @@ function LevelNode({ level, examKey, worldKey }) {
 // ── World Card ───────────────────────────────────────────────────────────────
 
 function WorldCard({ world, examKey, defaultOpen }) {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(defaultOpen);
   const { world_key, world_name, world_name_ar, index, locked, lock_reason, levels } = world;
   const passedCount   = levels.filter((l) => l.passed).length;
   const allPassed     = passedCount === 10;
   const isPricingLock = locked && PRICING_LOCK_REASONS.has(lock_reason);
+
+  const isArabic = i18n.language === 'ar';
+
+  const arrow           = t('common.arrow');
+  const lockReasonText  = t(`exam.lock_reason.${lock_reason}`, { defaultValue: lock_reason });
+  const passedCountText = t('exam.world.passed_count', { passed: passedCount });
 
   const handleHeaderClick = () => {
     if (isPricingLock) {
@@ -325,16 +341,27 @@ function WorldCard({ world, examKey, defaultOpen }) {
           <div className={`world-index-badge ${locked ? 'locked' : 'unlocked'}`}>W{index}</div>
           <div>
             <div className="world-name">
-              {world_name}
-              {world_name_ar && <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', marginLeft: 8 }}>{world_name_ar}</span>}
+              {/* In AR show Arabic name only. In EN show both EN and muted AR */}
+              {isArabic
+                ? (world_name_ar || world_name)
+                : (
+                  <>
+                    {world_name}
+                    {world_name_ar && (
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', marginInlineStart: 8 }}>
+                        {world_name_ar}
+                      </span>
+                    )}
+                  </>
+                )}
             </div>
-            <div className="world-meta">{locked ? (LOCK_MESSAGES[lock_reason] || lock_reason) : `${passedCount}/10 levels passed`}</div>
+            <div className="world-meta">{locked ? lockReasonText : passedCountText}</div>
           </div>
         </div>
         <div className="world-status-right">
           {allPassed && !locked && (
             <span className="world-completion-text" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <CheckCircle size={17} strokeWidth={2.5} /> Complete
+              <CheckCircle size={17} strokeWidth={2.5} /> {t('exam.world.complete')}
             </span>
           )}
           {locked && isPricingLock && (
@@ -345,7 +372,7 @@ function WorldCard({ world, examKey, defaultOpen }) {
               color: 'var(--brand-green, #0B5D4B)', fontSize: '0.78rem', fontWeight: 700,
               cursor: 'pointer',
             }}>
-              Unlock →
+              {t('exam.world.unlock_pill', { arrow })}
             </span>
           )}
           {locked && !isPricingLock && (
@@ -371,18 +398,31 @@ function WorldCard({ world, examKey, defaultOpen }) {
 // ── Track Tabs ───────────────────────────────────────────────────────────────
 
 function TrackTabs({ tracks, activeTrack, onSelect }) {
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === 'ar';
+
   return (
     <div className="track-tabs">
-      {tracks.map((track) => (
-        <button
-          key={track.track_key}
-          className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`}
-          onClick={() => onSelect(track.track_key)}
-        >
-          <span className="track-tab-en">{track.track_name}</span>
-          <span className="track-tab-ar">{TRACK_LABELS_AR[track.track_key] || ''}</span>
-        </button>
-      ))}
+      {tracks.map((track) => {
+        // track_name from backend is English (e.g. "Math"). Arabic comes from exam.tracks.{key}
+        const arName = t(`exam.tracks.${track.track_key}`, { defaultValue: '' });
+        return (
+          <button
+            key={track.track_key}
+            className={`track-tab ${activeTrack === track.track_key ? 'active' : ''}`}
+            onClick={() => onSelect(track.track_key)}
+          >
+            {isArabic ? (
+              <span className="track-tab-ar">{arName || track.track_name}</span>
+            ) : (
+              <>
+                <span className="track-tab-en">{track.track_name}</span>
+                <span className="track-tab-ar">{arName}</span>
+              </>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -390,6 +430,7 @@ function TrackTabs({ tracks, activeTrack, onSelect }) {
 // ── Track Progress Bar ────────────────────────────────────────────────────────
 
 function TrackProgressBar({ track }) {
+  const { t } = useTranslation();
   const totalWorlds     = track.worlds.length;
   const completedWorlds = track.worlds.filter((w) => w.levels.filter((l) => l.passed).length === 10).length;
   const totalLevels     = totalWorlds * 10;
@@ -398,8 +439,8 @@ function TrackProgressBar({ track }) {
   return (
     <div className="track-progress-summary">
       <div className="track-progress-stats">
-        <span>{completedWorlds}/{totalWorlds} worlds complete</span>
-        <span>{passedLevels}/{totalLevels} levels passed</span>
+        <span>{t('exam.track_progress.worlds_complete', { completed: completedWorlds, total: totalWorlds })}</span>
+        <span>{t('exam.track_progress.levels_passed',   { passed:    passedLevels,    total: totalLevels })}</span>
       </div>
       <div className="track-progress-bar">
         <div className="track-progress-fill" style={{ width: `${pct}%` }} />
@@ -432,6 +473,7 @@ function ViewToggleBtn({ active, onClick, icon: Icon, label }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function ExamPage() {
+  const { t } = useTranslation();
   const { exam }  = useParams();
   const navigate  = useNavigate();
   const { user }  = useAuth();
@@ -467,9 +509,9 @@ export default function ExamPage() {
         setActiveTrack(mapData.tracks[0].track_key);
       }
     }).catch((err) => {
-      setError(err?.error?.message || 'Failed to load world map.');
+      setError(err?.error?.message || t('exam.load_map_failed'));
     }).finally(() => setLoading(false));
-  }, [exam, navigate]);
+  }, [exam, navigate, t]);
 
   if (loading) {
     return (
@@ -490,14 +532,16 @@ export default function ExamPage() {
         <Navbar />
         <div className="page">
           <div className="alert alert-error">{error}</div>
-          <Link to="/dashboard" className="btn btn-ghost" style={{ marginTop: 16 }}>&larr; Back to Dashboard</Link>
+          <Link to="/dashboard" className="btn btn-ghost" style={{ marginTop: 16 }}>
+            {t('exam.back_to_dashboard')}
+          </Link>
         </div>
       </>
     );
   }
 
   const tracks       = worldMap?.tracks || [];
-  const currentTrack = tracks.find((t) => t.track_key === activeTrack) || tracks[0];
+  const currentTrack = tracks.find((tr) => tr.track_key === activeTrack) || tracks[0];
 
   const allEntitlements = [
     ...(entitlements?.individual_entitlements || []),
@@ -506,17 +550,22 @@ export default function ExamPage() {
   const hasPaidPlan = allEntitlements.some(
     (e) => e.exam === exam && new Date() < new Date(e.entitlement_expires_at)
   );
-  const trial       = entitlements?.trials?.find((t) => t.exam === exam);
+  const trial       = entitlements?.trials?.find((tr) => tr.exam === exam);
   const trialActive = trial && new Date() < new Date(trial.trial_expires_at);
 
   const activeEnt        = allEntitlements.find(
     (e) => e.exam === exam && new Date() < new Date(e.entitlement_expires_at)
   );
-  const planDisplayName  = activeEnt ? (PLAN_DISPLAY[activeEnt.plan_id] || activeEnt.plan_id) : null;
+  const planName         = activeEnt ? planDisplayName(t, activeEnt.plan_id) : null;
 
   const firstUnlockedIdx = currentTrack?.worlds?.findIndex((w) => !w.locked) ?? 0;
   const totalTracks      = tracks.length;
   const worldsPerTrack   = currentTrack?.worlds?.length || 5;
+
+  const examTitle = t(`exam.title_${exam}`, { defaultValue: exam });
+  const subtitle  = totalTracks === 1
+    ? t('exam.subtitle_one_track',   { worlds: worldsPerTrack })
+    : t('exam.subtitle_many_tracks', { count:  totalTracks, worlds: worldsPerTrack });
 
   return (
     <>
@@ -525,23 +574,19 @@ export default function ExamPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <Link to="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
-            &larr; Dashboard
+            {t('exam.breadcrumb_dashboard')}
           </Link>
           <span style={{ color: 'var(--border)' }}>/</span>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            {EXAM_LABELS[exam] || exam}
-          </span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{examTitle}</span>
         </div>
 
         <div className="page-header">
-          <h1 className="page-title">{EXAM_LABELS[exam] || exam}</h1>
-          <p className="page-subtitle">
-            {totalTracks} {totalTracks === 1 ? 'track' : 'tracks'} &middot; {worldsPerTrack} worlds each &middot; 10 levels per world
-          </p>
+          <h1 className="page-title">{examTitle}</h1>
+          <p className="page-subtitle">{subtitle}</p>
         </div>
 
         {/* Paid plan — show active plan info, no nudge */}
-        {!isAdmin && hasPaidPlan && planDisplayName && (
+        {!isAdmin && hasPaidPlan && planName && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '12px 18px', borderRadius: 10, marginBottom: 24,
@@ -549,7 +594,7 @@ export default function ExamPage() {
           }}>
             <span style={{ fontSize: '1rem' }}>✓</span>
             <span style={{ fontSize: '0.9rem', color: 'var(--brand-green)', fontWeight: 600 }}>
-              {planDisplayName} plan active — all worlds unlocked
+              {t('exam.plan_active_banner', { plan: planName })}
             </span>
           </div>
         )}
@@ -558,12 +603,16 @@ export default function ExamPage() {
         {!isAdmin && !hasPaidPlan && trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
-              <h3>You're on the free trial &mdash; World 1 unlocked per track</h3>
-              <p>Upgrade to Silver for 90 days access, or Gold for the full year.</p>
+              <h3>{t('exam.trial_banner_title')}</h3>
+              <p>{t('exam.trial_banner_body')}</p>
             </div>
             <div className="paywall-actions">
-              <Link to={`/pricing?exam=${exam}`} className="btn btn-ghost btn-sm">Silver</Link>
-              <Link to={`/pricing?exam=${exam}`} className="btn btn-violet btn-sm">Gold</Link>
+              <Link to={`/pricing?exam=${exam}`} className="btn btn-ghost btn-sm">
+                {t('exam.trial_banner_silver_cta')}
+              </Link>
+              <Link to={`/pricing?exam=${exam}`} className="btn btn-violet btn-sm">
+                {t('exam.trial_banner_gold_cta')}
+              </Link>
             </div>
           </div>
         )}
@@ -572,18 +621,20 @@ export default function ExamPage() {
         {!isAdmin && !hasPaidPlan && !trialActive && (
           <div className="paywall-banner" style={{ marginBottom: 24 }}>
             <div className="paywall-text">
-              <h3>Your trial has expired</h3>
-              <p>Upgrade to Silver or Gold to continue your exam preparation.</p>
+              <h3>{t('exam.expired_banner_title')}</h3>
+              <p>{t('exam.expired_banner_body')}</p>
             </div>
             <div className="paywall-actions">
-              <Link to={`/pricing?exam=${exam}`} className="btn btn-primary btn-sm">View Plans</Link>
+              <Link to={`/pricing?exam=${exam}`} className="btn btn-primary btn-sm">
+                {t('exam.expired_banner_cta')}
+              </Link>
             </div>
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-          <ViewToggleBtn active={view === 'map'}         onClick={() => setView('map')}         icon={Map}    label="Map" />
-          <ViewToggleBtn active={view === 'leaderboard'} onClick={() => setView('leaderboard')} icon={Trophy} label="Leaderboard" />
+          <ViewToggleBtn active={view === 'map'}         onClick={() => setView('map')}         icon={Map}    label={t('exam.view_map')} />
+          <ViewToggleBtn active={view === 'leaderboard'} onClick={() => setView('leaderboard')} icon={Trophy} label={t('exam.view_leaderboard')} />
         </div>
 
         {view === 'map' && (
