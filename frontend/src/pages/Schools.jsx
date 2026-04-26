@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Navbar from '../components/Navbar';
 import {
   Users, LayoutDashboard, ShieldCheck,
@@ -11,101 +12,22 @@ const CALENDLY_URL       = 'https://calendly.com/drfahm-info/30min';
 const WA_NUMBER          = '447346463512';
 const WA_SCHOOLS_MESSAGE = encodeURIComponent('Hi, I am interested in DrFahm for schools');
 
-// ── Data (unchanged) ──────────────────────────────────────────────────────────
+// ── Tier config — pricing & rules only; user-facing text lives in i18n ────────
 const TIERS = [
-  {
-    id: 'standard', name: 'Standard', range: '30-99 STUDENTS',
-    price: 99, duration: '365 days', minStudents: 30,
-    ghost: true, gold: false, badge: null,
-  },
-  {
-    id: 'volume', name: 'Volume', range: '100+ STUDENTS',
-    price: 75, duration: '365 days', minStudents: 100,
-    ghost: false, gold: true, badge: 'Best Value',
-  },
+  { id: 'standard', price: 99, minStudents: 30,  ghost: true,  gold: false, hasBadge: false },
+  { id: 'volume',   price: 75, minStudents: 100, ghost: false, gold: true,  hasBadge: true  },
 ];
 
-const PROBLEMS = [
-  'Students study randomly — no structure, no clear path forward',
-  'Teachers have no visibility into who is struggling or why',
-  'Effort does not translate to score improvement without focused practice',
+// Icons in render order — paired by index with i18n outcomes/features/steps arrays
+const FEATURE_ICONS = [
+  Users,
+  LayoutDashboard,
+  ShieldCheck,
+  FileBarChart2,
+  Crown,
+  HeadphonesIcon,
 ];
 
-const FEATURES = [
-  {
-    icon:  <Users size={24} strokeWidth={1.5} />,
-    title: 'Bulk student accounts',
-    desc:  'Provision hundreds of accounts instantly. Each student gets a unique login with pre-set exam access.',
-  },
-  {
-    icon:  <LayoutDashboard size={24} strokeWidth={1.5} />,
-    title: 'Teacher dashboard',
-    desc:  "Track every student's world progress and level pass rate from a single view. Know who needs attention.",
-  },
-  {
-    icon:  <ShieldCheck size={24} strokeWidth={1.5} />,
-    title: 'Managed access control',
-    desc:  'Students only see what you have activated. Lock or unlock worlds per student group from one place.',
-  },
-  {
-    icon:  <FileBarChart2 size={24} strokeWidth={1.5} />,
-    title: 'Progress reports',
-    desc:  'Export student progress data for internal reporting, parent communication, or teacher review.',
-  },
-  {
-    icon:  <Crown size={24} strokeWidth={1.5} />,
-    title: 'School leader account',
-    desc:  'One designated leader manages all student accounts. No admin intervention required after setup.',
-  },
-  {
-    icon:  <HeadphonesIcon size={24} strokeWidth={1.5} />,
-    title: 'Dedicated onboarding',
-    desc:  'We set up your org, configure access, and brief your team. No technical knowledge needed on your end.',
-  },
-];
-
-const OUTCOMES = [
-  {
-    stat:  'From day 1',
-    label: 'Students have access',
-    desc:  'Accounts are live and ready to use from the moment we finish setup. No delays.',
-  },
-  {
-    stat:  'One view',
-    label: 'Full class visibility',
-    desc:  "See every student's progress, completion rate, and weak areas in a single dashboard.",
-  },
-  {
-    stat:  'Per exam',
-    label: 'Flexible licensing',
-    desc:  'Pay only for the exams your students need — Qudurat, Tahsili, or both.',
-  },
-];
-
-const STEPS = [
-  {
-    num:   '01',
-    title: 'Contact us',
-    desc:  'Fill in the form below or reach us on WhatsApp. We will call you back within one business day.',
-  },
-  {
-    num:   '02',
-    title: 'Agree the deal',
-    desc:  'We confirm your student count and send a secure payment link — payable by Mada, Visa, or Mastercard.',
-  },
-  {
-    num:   '03',
-    title: 'We set everything up',
-    desc:  'We provision all accounts, configure access, and give your team a walkthrough. Nothing on your end.',
-  },
-  {
-    num:   '04',
-    title: 'Students start learning',
-    desc:  'Accounts are ready on day one. Students log in and begin their structured path immediately.',
-  },
-];
-
-// ── Helpers (unchanged) ───────────────────────────────────────────────────────
 const BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
 function getTierForCount(count) {
@@ -116,6 +38,9 @@ function getTierForCount(count) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Schools() {
+  const { t } = useTranslation();
+  const arrow = t('common.arrow');
+
   const [form, setForm] = useState({
     name: '', email: '', phone: '', school_name: '',
     qudurat_students: '', tahsili_students: '', message: '',
@@ -138,7 +63,27 @@ export default function Schools() {
   const qEst = examEstimate(qCount);
   const tEst = examEstimate(tCount);
 
-  // ── Submit (unchanged) ──────────────────────────────────────────────────────
+  // ── i18n array fetches (guarded) ────────────────────────────────────────────
+  const problems = (() => {
+    const v = t('schools.problem.items', { returnObjects: true });
+    return Array.isArray(v) ? v : [];
+  })();
+  const outcomes = (() => {
+    const v = t('schools.results.outcomes', { returnObjects: true });
+    return Array.isArray(v) ? v : [];
+  })();
+  const features = (() => {
+    const v = t('schools.results.features', { returnObjects: true });
+    return Array.isArray(v) ? v : [];
+  })();
+  const steps = (() => {
+    const v = t('schools.process.steps', { returnObjects: true });
+    return Array.isArray(v) ? v : [];
+  })();
+
+  const getTierName = (tierId) => t(`schools.pricing.tiers.${tierId}.name`);
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setSubmitting(true);
@@ -163,7 +108,7 @@ export default function Schools() {
       if (!res.ok) throw data;
       setSubmitted(true);
     } catch (err) {
-      setError(err?.error?.message || 'Something went wrong. Please try again.');
+      setError(err?.error?.message || t('schools.form.error_generic'));
     } finally {
       setSubmitting(false);
     }
@@ -184,23 +129,22 @@ export default function Schools() {
         <div className="sch-container" style={{ textAlign: 'center' }}>
           <div className="sch-eyebrow">
             <span className="sch-eyebrow-dot" />
-            For Schools
+            {t('schools.hero.eyebrow')}
           </div>
 
           <h1 className="sch-hero-title">
-            Give every student a<br />
-            <span style={{ color: '#4ADE80' }}>structured exam path</span>
+            {t('schools.hero.title_line1')}<br />
+            <span style={{ color: '#4ADE80' }}>{t('schools.hero.title_accent')}</span>
           </h1>
 
           <p className="sch-hero-sub">
-            DrFahm for schools — bulk accounts, teacher visibility, managed
-            access. All set up by us, ready on day one.
+            {t('schools.hero.sub')}
           </p>
 
           <div className="sch-hero-actions">
             <a href="#contact" className="hero-cta" style={{ textDecoration: 'none' }}>
-              Get school pricing
-              <span className="hero-cta-arrow">→</span>
+              {t('schools.hero.cta_pricing')}
+              <span className="hero-cta-arrow">{arrow}</span>
             </a>
             <a
               href={`https://wa.me/${WA_NUMBER}?text=${WA_SCHOOLS_MESSAGE}`}
@@ -208,15 +152,15 @@ export default function Schools() {
               rel="noopener noreferrer"
               className="sch-hero-ghost-btn"
             >
-              Message on WhatsApp
+              {t('schools.hero.cta_whatsapp')}
             </a>
           </div>
 
           <div className="sch-hero-trust">
-            <span>✓ Min 30 students</span>
-            <span>✓ 365 days access</span>
-            <span>✓ Ready from day 1</span>
-            <span>✓ Dedicated onboarding</span>
+            <span>{t('schools.hero.trust_min_students')}</span>
+            <span>{t('schools.hero.trust_365_days')}</span>
+            <span>{t('schools.hero.trust_ready')}</span>
+            <span>{t('schools.hero.trust_onboarding')}</span>
           </div>
         </div>
       </section>
@@ -225,7 +169,6 @@ export default function Schools() {
           PROBLEM — #0D1F35
           ══════════════════════════════════════════════════════════════════════ */}
       <section className="sch-section" style={{ background: '#0D1F35' }}>
-        {/* orbs */}
         <div style={{
           position: 'absolute', borderRadius: '50%', filter: 'blur(90px)', pointerEvents: 'none',
           width: 600, height: 600,
@@ -240,23 +183,21 @@ export default function Schools() {
         }} />
 
         <div className="sch-container">
-          {/* eyebrow */}
           <div className="prob-eyebrow" style={{ display: 'inline-flex', marginBottom: 24 }}>
-            The Problem
+            {t('schools.problem.eyebrow')}
           </div>
           <h2 className="sch-section-title">
-            What is holding your{' '}
-            <span style={{ color: '#F87171' }}>students back</span>
+            {t('schools.problem.title_before')}{' '}
+            <span style={{ color: '#F87171' }}>{t('schools.problem.title_accent')}</span>
           </h2>
           <p className="sch-section-sub">
-            Most schools have hardworking students and motivated teachers — but no
-            system that ties effort to results.
+            {t('schools.problem.sub')}
           </p>
 
           {/* Problem rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 700, marginBottom: 16 }}>
-            {PROBLEMS.map((item) => (
-              <div key={item} className="sch-problem-item">
+            {problems.map((item, i) => (
+              <div key={i} className="sch-problem-item">
                 <span className="sch-problem-icon">✕</span>
                 <span className="sch-problem-text">{item}</span>
               </div>
@@ -265,10 +206,9 @@ export default function Schools() {
 
           {/* Solution row */}
           <div className="sch-solution-item" style={{ maxWidth: 700 }}>
-            <span style={{ color: '#4ADE80', fontSize: '1.1rem', flexShrink: 0, marginTop: 1 }}>→</span>
+            <span style={{ color: '#4ADE80', fontSize: '1.1rem', flexShrink: 0, marginTop: 1 }}>{arrow}</span>
             <span style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600, lineHeight: 1.6 }}>
-              DrFahm gives every student a clear, structured path — and gives you
-              the visibility to see it working.
+              {t('schools.problem.solution')}
             </span>
           </div>
         </div>
@@ -284,20 +224,18 @@ export default function Schools() {
         }} />
 
         <div className="sch-container">
-          {/* header */}
           <div className="val-eyebrow" style={{ display: 'inline-flex', marginBottom: 20 }}>
-            Results
+            {t('schools.results.eyebrow')}
           </div>
-          <h2 className="sch-section-title">What your school gets</h2>
+          <h2 className="sch-section-title">{t('schools.results.title')}</h2>
           <p className="sch-section-sub">
-            Everything your school needs to run structured, measurable exam prep
-            — without any technical overhead.
+            {t('schools.results.sub')}
           </p>
 
           {/* Outcome stat cards */}
           <div className="sch-outcomes-grid">
-            {OUTCOMES.map((o) => (
-              <div key={o.label} className="sch-outcome-card">
+            {outcomes.map((o, i) => (
+              <div key={i} className="sch-outcome-card">
                 <div className="sch-outcome-stat">{o.stat}</div>
                 <div className="sch-outcome-label">{o.label}</div>
                 <div className="sch-outcome-desc">{o.desc}</div>
@@ -307,13 +245,18 @@ export default function Schools() {
 
           {/* Feature cards — white on dark */}
           <div className="sch-features-grid">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="sch-feature-card">
-                <div className="sch-feature-icon">{f.icon}</div>
-                <div className="sch-feature-title">{f.title}</div>
-                <div className="sch-feature-desc">{f.desc}</div>
-              </div>
-            ))}
+            {features.map((f, i) => {
+              const Icon = FEATURE_ICONS[i];
+              return (
+                <div key={i} className="sch-feature-card">
+                  <div className="sch-feature-icon">
+                    {Icon ? <Icon size={24} strokeWidth={1.5} /> : null}
+                  </div>
+                  <div className="sch-feature-title">{f.title}</div>
+                  <div className="sch-feature-desc">{f.desc}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -330,51 +273,55 @@ export default function Schools() {
         <div className="sch-container">
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <div className="cmp-eyebrow" style={{ display: 'inline-flex', marginBottom: 20 }}>
-              Pricing
+              {t('schools.pricing.eyebrow')}
             </div>
-            <h2 className="sch-section-title">Simple, transparent pricing</h2>
+            <h2 className="sch-section-title">{t('schools.pricing.title')}</h2>
             <p className="sch-section-sub" style={{ margin: '0 auto' }}>
-              One-time annual fee, per exam. Pay for Qudurat, Tahsili, or both.
+              {t('schools.pricing.sub')}
             </p>
           </div>
 
           {/* Pricing cards — white cards naturally pop on dark */}
           <div className="pricing-grid" style={{ maxWidth: 680, margin: '0 auto 20px' }}>
-            {TIERS.map((t) => (
+            {TIERS.map((tier) => (
               <div
-                key={t.id}
+                key={tier.id}
                 className={[
                   'pricing-card',
-                  t.ghost ? 'ghost' : '',
-                  t.gold  ? 'gold'  : '',
+                  tier.ghost ? 'ghost' : '',
+                  tier.gold  ? 'gold'  : '',
                 ].filter(Boolean).join(' ')}
               >
-                {t.badge && <div className="pricing-gold-badge">{t.badge}</div>}
+                {tier.hasBadge && (
+                  <div className="pricing-gold-badge">
+                    {t(`schools.pricing.tiers.${tier.id}.badge`)}
+                  </div>
+                )}
                 <div className="pricing-card-header">
-                  <div className={`pricing-plan-name ${t.gold ? 'gold-name' : ''}`}>
-                    {t.range}
+                  <div className={`pricing-plan-name ${tier.gold ? 'gold-name' : ''}`}>
+                    {t(`schools.pricing.tiers.${tier.id}.range`)}
                   </div>
                   <div className="pricing-plan-price">
-                    <span className="pricing-price-currency">SAR </span>
-                    <span className="pricing-price-amount">{t.price}</span>
-                    <span className="pricing-price-period"> / student</span>
+                    <span className="pricing-price-currency">{t('schools.pricing.card.currency')} </span>
+                    <span className="pricing-price-amount">{tier.price}</span>
+                    <span className="pricing-price-period">{t('schools.pricing.card.per_student')}</span>
                   </div>
                   <div className="pricing-plan-worlds">
-                    per exam &middot; 365 days &middot; min {t.minStudents} students
+                    {t('schools.pricing.card.details', { minStudents: tier.minStudents })}
                   </div>
                 </div>
                 <ul className="pricing-feature-list">
                   <li className="pricing-feature-item">
                     <span className="pricing-check">✓</span>
-                    Minimum {t.minStudents} students
+                    {t('schools.pricing.card.feature_min_students', { count: tier.minStudents })}
                   </li>
                   <li className="pricing-feature-item">
                     <span className="pricing-check">✓</span>
-                    Full access for 365 days
+                    {t('schools.pricing.card.feature_access')}
                   </li>
                   <li className="pricing-feature-item">
                     <span className="pricing-check">✓</span>
-                    Teacher dashboard included
+                    {t('schools.pricing.card.feature_dashboard')}
                   </li>
                 </ul>
                 <div className="pricing-card-actions">
@@ -382,11 +329,11 @@ export default function Schools() {
                     href="#contact"
                     className={[
                       'btn btn-full',
-                      t.gold  ? 'btn-gold'  : '',
-                      t.ghost ? 'btn-ghost' : '',
+                      tier.gold  ? 'btn-gold'  : '',
+                      tier.ghost ? 'btn-ghost' : '',
                     ].filter(Boolean).join(' ')}
                   >
-                    Get started →
+                    {t('schools.pricing.card.cta', { arrow })}
                   </a>
                 </div>
               </div>
@@ -394,7 +341,7 @@ export default function Schools() {
           </div>
 
           <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>
-            Prices in SAR. Payment via Mada, Visa or Mastercard — secure Stripe checkout.
+            {t('schools.pricing.footnote')}
           </p>
         </div>
       </section>
@@ -413,17 +360,17 @@ export default function Schools() {
 
         <div className="sch-container">
           <div className="val-eyebrow" style={{ display: 'inline-flex', marginBottom: 20 }}>
-            Process
+            {t('schools.process.eyebrow')}
           </div>
-          <h2 className="sch-section-title">How it works</h2>
+          <h2 className="sch-section-title">{t('schools.process.title')}</h2>
           <p className="sch-section-sub">
-            From first contact to students learning — typically under 2 business days.
+            {t('schools.process.sub')}
           </p>
 
           <div className="sch-steps">
-            {STEPS.map((s) => (
-              <div key={s.num} className="sch-step">
-                <div className="sch-step-num">{s.num}</div>
+            {steps.map((s, i) => (
+              <div key={i} className="sch-step">
+                <div className="sch-step-num">{String(i + 1).padStart(2, '0')}</div>
                 <div>
                   <div className="sch-step-title">{s.title}</div>
                   <div className="sch-step-desc">{s.desc}</div>
@@ -441,7 +388,6 @@ export default function Schools() {
         className="sch-section"
         style={{ background: 'linear-gradient(135deg, #052E16 0%, #14532D 40%, #052E16 100%)' }}
       >
-        {/* orbs */}
         <div style={{
           position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none',
           width: 500, height: 500,
@@ -459,12 +405,11 @@ export default function Schools() {
           <div style={{ fontSize: '2.8rem', marginBottom: 20 }}>📅</div>
           <div className="fcta-eyebrow">
             <span className="fcta-eyebrow-dot" />
-            Talk to us
+            {t('schools.call_cta.eyebrow')}
           </div>
-          <h2 className="sch-section-title">Prefer to talk first?</h2>
+          <h2 className="sch-section-title">{t('schools.call_cta.title')}</h2>
           <p className="sch-section-sub" style={{ margin: '0 auto 32px' }}>
-            Book a free 30-minute call with our team. We will answer your questions
-            and walk you through the platform.
+            {t('schools.call_cta.sub')}
           </p>
 
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -476,7 +421,7 @@ export default function Schools() {
                 className="fcta-btn-primary"
                 style={{ textDecoration: 'none' }}
               >
-                Book a 30-min call →
+                {t('schools.call_cta.cta_book', { arrow })}
               </a>
             ) : (
               <a
@@ -486,11 +431,11 @@ export default function Schools() {
                 className="fcta-btn-primary"
                 style={{ textDecoration: 'none' }}
               >
-                Message us on WhatsApp →
+                {t('schools.call_cta.cta_whatsapp', { arrow })}
               </a>
             )}
             <a href="#contact" className="sch-ghost-btn">
-              Or fill in the form ↓
+              {t('schools.call_cta.cta_form')}
             </a>
           </div>
         </div>
@@ -510,29 +455,29 @@ export default function Schools() {
         <div className="sch-container">
           <div style={{ marginBottom: 40 }}>
             <div className="val-eyebrow" style={{ display: 'inline-flex', marginBottom: 16 }}>
-              Get started
+              {t('schools.form.eyebrow')}
             </div>
-            <h2 className="sch-section-title">Tell us about your school</h2>
+            <h2 className="sch-section-title">{t('schools.form.title')}</h2>
             <p className="sch-section-sub">
-              We will be in touch within one business day.
+              {t('schools.form.sub')}
             </p>
           </div>
 
           {submitted ? (
             <div className="sch-success-card">
               <div style={{ fontSize: '3rem', marginBottom: 16 }}>✅</div>
-              <h3 className="sch-success-title">Request received!</h3>
+              <h3 className="sch-success-title">{t('schools.form.success_title')}</h3>
               <p className="sch-success-sub">
-                We will be in touch at{' '}
-                <strong style={{ color: '#4ADE80' }}>{form.email}</strong>{' '}
-                within one business day.
+                {t('schools.form.success_body_before')}
+                <strong style={{ color: '#4ADE80' }}>{form.email}</strong>
+                {t('schools.form.success_body_after')}
               </p>
               <Link
                 to="/"
                 className="hero-cta"
                 style={{ marginTop: 28, textDecoration: 'none', display: 'inline-flex' }}
               >
-                Back to home
+                {t('schools.form.success_back')}
               </Link>
             </div>
           ) : (
@@ -545,40 +490,40 @@ export default function Schools() {
                 {/* Row: name + email */}
                 <div className="schools-form-row">
                   <div className="form-group">
-                    <label className="sch-form-label">Your name *</label>
+                    <label className="sch-form-label">{t('schools.form.label_name')}</label>
                     <input
                       className="sch-form-input"
                       value={form.name} onChange={set('name')} required
-                      placeholder="e.g. Ahmed Al-Rashid"
+                      placeholder={t('schools.form.ph_name')}
                     />
                   </div>
                   <div className="form-group">
-                    <label className="sch-form-label">Work email *</label>
+                    <label className="sch-form-label">{t('schools.form.label_email')}</label>
                     <input
                       className="sch-form-input" type="email"
                       value={form.email} onChange={set('email')} required
-                      placeholder="you@school.edu.sa"
+                      placeholder={t('schools.form.ph_email')}
                     />
                   </div>
                 </div>
 
                 {/* Phone */}
                 <div className="form-group">
-                  <label className="sch-form-label">Phone (optional)</label>
+                  <label className="sch-form-label">{t('schools.form.label_phone')}</label>
                   <input
                     className="sch-form-input" type="tel"
                     value={form.phone} onChange={set('phone')}
-                    placeholder="+966 5X XXX XXXX"
+                    placeholder={t('schools.form.ph_phone')}
                   />
                 </div>
 
                 {/* School name */}
                 <div className="form-group">
-                  <label className="sch-form-label">School name *</label>
+                  <label className="sch-form-label">{t('schools.form.label_school')}</label>
                   <input
                     className="sch-form-input"
                     value={form.school_name} onChange={set('school_name')}
-                    placeholder="e.g. Al Noor International School, Riyadh"
+                    placeholder={t('schools.form.ph_school')}
                     required
                   />
                 </div>
@@ -586,7 +531,7 @@ export default function Schools() {
                 {/* Row: student counts */}
                 <div className="schools-form-row">
                   <div className="form-group">
-                    <label className="sch-form-label">Students preparing for Qudurat</label>
+                    <label className="sch-form-label">{t('schools.form.label_qudurat_count')}</label>
                     <input
                       className="sch-form-input" type="number" min={0}
                       value={form.qudurat_students} onChange={set('qudurat_students')}
@@ -594,7 +539,7 @@ export default function Schools() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="sch-form-label">Students preparing for Tahsili</label>
+                    <label className="sch-form-label">{t('schools.form.label_tahsili_count')}</label>
                     <input
                       className="sch-form-input" type="number" min={0}
                       value={form.tahsili_students} onChange={set('tahsili_students')}
@@ -603,37 +548,53 @@ export default function Schools() {
                   </div>
                 </div>
 
-                {/* Live estimate (unchanged logic) */}
+                {/* Live estimate */}
                 {(qCount > 0 || tCount > 0) && (
                   <div className="sch-estimate">
                     <span style={{ fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginBottom: 6, display: 'block' }}>
-                      Estimated pricing
+                      {t('schools.form.estimate.title')}
                     </span>
                     {qCount > 0 && (
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.45)', minWidth: 72 }}>Qudurat</span>
+                        <span style={{ color: 'rgba(255,255,255,0.45)', minWidth: 72 }}>
+                          {t('schools.form.estimate.qudurat_label')}
+                        </span>
                         {qEst ? (
                           <>
-                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>{qCount} × SAR {qEst.tier.price}</span>
-                            <span style={{ fontWeight: 700, color: '#4ADE80' }}>= SAR {qEst.total.toLocaleString()}</span>
-                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>({qEst.tier.name})</span>
+                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                              {t('schools.form.estimate.calc', { count: qCount, price: qEst.tier.price })}
+                            </span>
+                            <span style={{ fontWeight: 700, color: '#4ADE80' }}>
+                              {t('schools.form.estimate.total_line', { total: qEst.total.toLocaleString() })}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>
+                              ({getTierName(qEst.tier.id)})
+                            </span>
                           </>
                         ) : (
-                          <span style={{ color: '#FBBF24' }}>Minimum 30 students required</span>
+                          <span style={{ color: '#FBBF24' }}>{t('schools.form.estimate.min_warning')}</span>
                         )}
                       </div>
                     )}
                     {tCount > 0 && (
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.45)', minWidth: 72 }}>Tahsili</span>
+                        <span style={{ color: 'rgba(255,255,255,0.45)', minWidth: 72 }}>
+                          {t('schools.form.estimate.tahsili_label')}
+                        </span>
                         {tEst ? (
                           <>
-                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>{tCount} × SAR {tEst.tier.price}</span>
-                            <span style={{ fontWeight: 700, color: '#4ADE80' }}>= SAR {tEst.total.toLocaleString()}</span>
-                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>({tEst.tier.name})</span>
+                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                              {t('schools.form.estimate.calc', { count: tCount, price: tEst.tier.price })}
+                            </span>
+                            <span style={{ fontWeight: 700, color: '#4ADE80' }}>
+                              {t('schools.form.estimate.total_line', { total: tEst.total.toLocaleString() })}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>
+                              ({getTierName(tEst.tier.id)})
+                            </span>
                           </>
                         ) : (
-                          <span style={{ color: '#FBBF24' }}>Minimum 30 students required</span>
+                          <span style={{ color: '#FBBF24' }}>{t('schools.form.estimate.min_warning')}</span>
                         )}
                       </div>
                     )}
@@ -643,7 +604,9 @@ export default function Schools() {
                         borderTop: '1px solid rgba(255,255,255,0.1)',
                         fontWeight: 800, fontSize: '0.95rem', color: '#FFFFFF',
                       }}>
-                        Total estimate: SAR {((qEst?.total || 0) + (tEst?.total || 0)).toLocaleString()}
+                        {t('schools.form.estimate.grand_total', {
+                          total: ((qEst?.total || 0) + (tEst?.total || 0)).toLocaleString(),
+                        })}
                       </div>
                     )}
                   </div>
@@ -651,11 +614,11 @@ export default function Schools() {
 
                 {/* Message */}
                 <div className="form-group">
-                  <label className="sch-form-label">Anything else you would like us to know?</label>
+                  <label className="sch-form-label">{t('schools.form.label_message')}</label>
                   <textarea
                     className="sch-form-input" rows={3}
                     value={form.message} onChange={set('message')}
-                    placeholder="e.g. exam dates, number of classes, special requirements"
+                    placeholder={t('schools.form.ph_message')}
                   />
                 </div>
 
@@ -666,7 +629,9 @@ export default function Schools() {
                   style={{ justifyContent: 'center', width: '100%', marginTop: 4 }}
                   disabled={submitting}
                 >
-                  {submitting ? 'Sending...' : 'Send request →'}
+                  {submitting
+                    ? t('schools.form.submitting')
+                    : t('schools.form.submit', { arrow })}
                 </button>
 
                 {/* Footer */}
@@ -677,17 +642,17 @@ export default function Schools() {
                   alignItems: 'center', textAlign: 'center',
                 }}>
                   <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.3)' }}>
-                    We respond within 1 business day.
+                    {t('schools.form.footer_response')}
                   </p>
                   <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)' }}>
-                    Prefer to message us?{' '}
+                    {t('schools.form.footer_message_prefix')}{' '}
                     <a
                       href={`https://wa.me/${WA_NUMBER}?text=${WA_SCHOOLS_MESSAGE}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ color: '#4ADE80', fontWeight: 700, textDecoration: 'none' }}
                     >
-                      Reach us on WhatsApp
+                      {t('schools.form.footer_whatsapp_link')}
                     </a>
                   </p>
                   <a
