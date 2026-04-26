@@ -10,48 +10,43 @@ import { LogoFull } from '../components/LogoSVG';
 const WA_NUMBER  = '447346463512';
 const WA_MESSAGE = encodeURIComponent('Hi, I have a question about DrFahm');
 
-// ── Demo questions (content stays English — DB is English-only) ───────────────
-const QUDURAT_DEMO_QUESTIONS = [
-  {
-    id: 'q1',
-    question_text: 'If $\\frac{x}{y} = 7$, find the value of $\\frac{x + 3y}{2y}$',
-    option_a: '5', option_b: '$\\frac{3}{7}$', option_c: '10', option_d: '21',
-    correct_answer: 'a',
-  },
-  {
-    id: 'q2',
-    question_text: 'A car travels 120 km in 2 hours. What is its average speed in km/h?',
-    option_a: '40', option_b: '60', option_c: '80', option_d: '100',
-    correct_answer: 'b',
-  },
-  {
-    id: 'q3',
-    question_text: 'If $2x + 3 = 15$, what is the value of $x^{2}$?',
-    option_a: '6', option_b: '12', option_c: '36', option_d: '144',
-    correct_answer: 'c',
-  },
-];
-
-const TAHSILI_DEMO_QUESTIONS = [
-  {
-    id: 't1',
-    question_text: 'Which organelle is responsible for producing energy (ATP) in a cell?',
-    option_a: 'Nucleus', option_b: 'Ribosome', option_c: 'Mitochondria', option_d: 'Golgi apparatus',
-    correct_answer: 'c',
-  },
-  {
-    id: 't2',
-    question_text: 'What is the value of $\\sin(90°)$?',
-    option_a: '0', option_b: '$\\frac{1}{2}$', option_c: '$\\frac{\\sqrt{2}}{2}$', option_d: '1',
-    correct_answer: 'd',
-  },
-  {
-    id: 't3',
-    question_text: 'What type of bond holds the two strands of DNA together?',
-    option_a: 'Ionic bonds', option_b: 'Hydrogen bonds', option_c: 'Covalent bonds', option_d: 'Peptide bonds',
-    correct_answer: 'b',
-  },
-];
+// ── Demo questions ────────────────────────────────────────────────────────────
+// Question/option text comes from translations (demo.qudurat.* and demo.tahsili.*)
+// so toggling language re-renders them. Math expressions stay as LaTeX strings —
+// they are language-neutral. correct_answer is a key letter (a/b/c/d), never
+// displayed as text — it must NOT be translated.
+function buildDemoQuestions(t, exam) {
+  const ns = `demo.${exam}`;
+  return [
+    {
+      id:             `${exam}_q1`,
+      question_text:  t(`${ns}.q1.text`),
+      option_a:       t(`${ns}.q1.a`),
+      option_b:       t(`${ns}.q1.b`),
+      option_c:       t(`${ns}.q1.c`),
+      option_d:       t(`${ns}.q1.d`),
+      correct_answer: t(`${ns}.q1.correct`),
+    },
+    {
+      id:             `${exam}_q2`,
+      question_text:  t(`${ns}.q2.text`),
+      option_a:       t(`${ns}.q2.a`),
+      option_b:       t(`${ns}.q2.b`),
+      option_c:       t(`${ns}.q2.c`),
+      option_d:       t(`${ns}.q2.d`),
+      correct_answer: t(`${ns}.q2.correct`),
+    },
+    {
+      id:             `${exam}_q3`,
+      question_text:  t(`${ns}.q3.text`),
+      option_a:       t(`${ns}.q3.a`),
+      option_b:       t(`${ns}.q3.b`),
+      option_c:       t(`${ns}.q3.c`),
+      option_d:       t(`${ns}.q3.d`),
+      correct_answer: t(`${ns}.q3.correct`),
+    },
+  ];
+}
 
 const DEMO_TIMER = 30;
 
@@ -929,7 +924,9 @@ export default function Home() {
     setDemoFinished(true);
   };
 
-  const demoQuestions = selectedExam === 'tahsili' ? TAHSILI_DEMO_QUESTIONS : QUDURAT_DEMO_QUESTIONS;
+  // Demo questions are now built from translation strings — toggling language
+  // re-renders DemoWidget with translated content
+  const demoQuestions = buildDemoQuestions(t, selectedExam);
   const demoLabel     = selectedExam === 'tahsili' ? t('demo.label_tahsili') : t('demo.label_qudurat');
   const examName      = selectedExam === 'tahsili' ? t('common.tahsili') : t('common.qudurat');
   const altExam       = selectedExam === 'tahsili' ? 'qudurat' : 'tahsili';
@@ -937,6 +934,10 @@ export default function Home() {
 
   const cmpBad  = t('cmp.bad',  { returnObjects: true });
   const cmpGood = t('cmp.good', { returnObjects: true });
+
+  // Re-key DemoWidget on both exam change AND language change so the question
+  // text re-renders correctly when the user toggles language mid-demo
+  const demoKey = `${selectedExam}-${i18n.language}`;
 
   return (
     <>
@@ -961,24 +962,41 @@ export default function Home() {
               {t('hero.title_3')}
             </h1>
             <p className="hero-sub">{t('hero.sub')}</p>
-            <div className="hero-toggle">
-              <button
-                className={`hero-toggle-btn ${selectedExam === 'qudurat' ? 'active' : ''}`}
-                onClick={() => handleExamChange('qudurat')}
-              >
-                {t('common.qudurat')}
-              </button>
-              <button
-                className={`hero-toggle-btn ${selectedExam === 'tahsili' ? 'active' : ''}`}
-                onClick={() => handleExamChange('tahsili')}
-              >
-                {t('common.tahsili')}
+
+            {/*
+              Stack toggle and CTA vertically always.
+              Wrapping in a flex column with align-items:flex-start keeps both
+              elements at their natural width (toggle is pill-sized, CTA is
+              wider) instead of stretching to fill the container, and prevents
+              them flowing inline next to each other on wide viewports.
+            */}
+            <div style={{
+              display:        'flex',
+              flexDirection:  'column',
+              alignItems:     'flex-start',
+              gap:            20,
+              marginBottom:   28,
+            }}>
+              <div className="hero-toggle" style={{ marginBottom: 0 }}>
+                <button
+                  className={`hero-toggle-btn ${selectedExam === 'qudurat' ? 'active' : ''}`}
+                  onClick={() => handleExamChange('qudurat')}
+                >
+                  {t('common.qudurat')}
+                </button>
+                <button
+                  className={`hero-toggle-btn ${selectedExam === 'tahsili' ? 'active' : ''}`}
+                  onClick={() => handleExamChange('tahsili')}
+                >
+                  {t('common.tahsili')}
+                </button>
+              </div>
+              <button className="hero-cta" style={{ marginBottom: 0 }} onClick={() => handleStart(selectedExam)}>
+                {t('hero.cta', { exam: examName })}
+                <span className="hero-cta-arrow">{t('common.arrow')}</span>
               </button>
             </div>
-            <button className="hero-cta" onClick={() => handleStart(selectedExam)}>
-              {t('hero.cta', { exam: examName })}
-              <span className="hero-cta-arrow">{t('common.arrow')}</span>
-            </button>
+
             <div className="hero-trust">
               <span>{t('hero.trust_1')}</span>
               <span>{t('hero.trust_2')}</span>
@@ -993,7 +1011,7 @@ export default function Home() {
                 <DemoResult answers={demoAnswers} onStart={handleStart} exam={selectedExam} />
               ) : (
                 <DemoWidget
-                  key={selectedExam}
+                  key={demoKey}
                   questions={demoQuestions}
                   examLabel={demoLabel}
                   onFinish={handleDemoFinish}
@@ -1357,25 +1375,20 @@ export default function Home() {
         <div className="home-container">
           <div className="home-footer-inner">
             <div className="home-footer-brand">
-              <LogoFull
-                height={26}
-                markColor="var(--brand-sand)"
-                fColor="rgba(245,242,236,0.85)"
-                textColor="rgba(245,242,236,0.85)"
-                dotColor="var(--brand-sand)"
-              />
+              {/* dark prop swaps to /logo-full-dark.png so the F/wordmark are warm white against the dark footer bg */}
+              <LogoFull height={26} dark />
               <p className="home-footer-tagline">{t('footer.tagline')}</p>
             </div>
             <div className="home-footer-links">
               <Link to="/pricing" className="home-footer-link">{t('footer.pricing')}</Link>
               <Link to="/schools" className="home-footer-link">{t('footer.schools')}</Link>
               <Link to="/login"   className="home-footer-link">{t('footer.login')}</Link>
-              <a
+              
                 href={`https://wa.me/${WA_NUMBER}?text=${WA_MESSAGE}`}
                 className="home-footer-link"
                 target="_blank"
                 rel="noopener noreferrer"
-              >
+                >
                 {t('footer.whatsapp')}
               </a>
               <a href="mailto:info@drfahm.com" className="home-footer-link">

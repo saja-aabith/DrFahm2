@@ -36,7 +36,59 @@
     "result_score": "{{score}}/{{total}} correct. Start the full structured path free.",
     "start_btn": "Start free — {{exam}}",
     "alt_btn": "or start with {{exam}}",
-    "trial_note": "7-day free trial · No credit card required"
+    "trial_note": "7-day free trial · No credit card required",
+    "qudurat": {
+      "q1": {
+        "text": "If $\\frac{x}{y} = 7$, find the value of $\\frac{x + 3y}{2y}$",
+        "a": "5",
+        "b": "$\\frac{3}{7}$",
+        "c": "10",
+        "d": "21",
+        "correct": "a"
+      },
+      "q2": {
+        "text": "A car travels 120 km in 2 hours. What is its average speed in km/h?",
+        "a": "40",
+        "b": "60",
+        "c": "80",
+        "d": "100",
+        "correct": "b"
+      },
+      "q3": {
+        "text": "If $2x + 3 = 15$, what is the value of $x^{2}$?",
+        "a": "6",
+        "b": "12",
+        "c": "36",
+        "d": "144",
+        "correct": "c"
+      }
+    },
+    "tahsili": {
+      "q1": {
+        "text": "Which organelle is responsible for producing energy (ATP) in a cell?",
+        "a": "Nucleus",
+        "b": "Ribosome",
+        "c": "Mitochondria",
+        "d": "Golgi apparatus",
+        "correct": "c"
+      },
+      "q2": {
+        "text": "What is the value of $\\sin(90°)$?",
+        "a": "0",
+        "b": "$\\frac{1}{2}$",
+        "c": "$\\frac{\\sqrt{2}}{2}$",
+        "d": "1",
+        "correct": "d"
+      },
+      "q3": {
+        "text": "What type of bond holds the two strands of DNA together?",
+        "a": "Ionic bonds",
+        "b": "Hydrogen bonds",
+        "c": "Covalent bonds",
+        "d": "Peptide bonds",
+        "correct": "b"
+      }
+    }
   },
   "stats": {
     "questions_label": "exam-style questions",
