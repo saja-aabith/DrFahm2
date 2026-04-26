@@ -548,5 +548,172 @@
     "ent_row_detail": "Worlds 1–{{max}} · Expires {{date}}",
     "go_to_dashboard": "Go to Dashboard {{arrow}}",
     "start_exam": "Start {{exam}} {{arrow}}"
+  },
+  "schools": {
+    "hero": {
+      "eyebrow": "For Schools",
+      "title_line1": "Give every student a",
+      "title_accent": "structured exam path",
+      "sub": "DrFahm for schools — bulk accounts, teacher visibility, managed access. All set up by us, ready on day one.",
+      "cta_pricing": "Get school pricing",
+      "cta_whatsapp": "Message on WhatsApp",
+      "trust_min_students": "✓ Min 30 students",
+      "trust_365_days": "✓ 365 days access",
+      "trust_ready": "✓ Ready from day 1",
+      "trust_onboarding": "✓ Dedicated onboarding"
+    },
+    "problem": {
+      "eyebrow": "The Problem",
+      "title_before": "What is holding your",
+      "title_accent": "students back",
+      "sub": "Most schools have hardworking students and motivated teachers — but no system that ties effort to results.",
+      "items": [
+        "Students study randomly — no structure, no clear path forward",
+        "Teachers have no visibility into who is struggling or why",
+        "Effort does not translate to score improvement without focused practice"
+      ],
+      "solution": "DrFahm gives every student a clear, structured path — and gives you the visibility to see it working."
+    },
+    "results": {
+      "eyebrow": "Results",
+      "title": "What your school gets",
+      "sub": "Everything your school needs to run structured, measurable exam prep — without any technical overhead.",
+      "outcomes": [
+        {
+          "stat": "From day 1",
+          "label": "Students have access",
+          "desc": "Accounts are live and ready to use from the moment we finish setup. No delays."
+        },
+        {
+          "stat": "One view",
+          "label": "Full class visibility",
+          "desc": "See every student's progress, completion rate, and weak areas in a single dashboard."
+        },
+        {
+          "stat": "Per exam",
+          "label": "Flexible licensing",
+          "desc": "Pay only for the exams your students need — Qudurat, Tahsili, or both."
+        }
+      ],
+      "features": [
+        {
+          "title": "Bulk student accounts",
+          "desc": "Provision hundreds of accounts instantly. Each student gets a unique login with pre-set exam access."
+        },
+        {
+          "title": "Teacher dashboard",
+          "desc": "Track every student's world progress and level pass rate from a single view. Know who needs attention."
+        },
+        {
+          "title": "Managed access control",
+          "desc": "Students only see what you have activated. Lock or unlock worlds per student group from one place."
+        },
+        {
+          "title": "Progress reports",
+          "desc": "Export student progress data for internal reporting, parent communication, or teacher review."
+        },
+        {
+          "title": "School leader account",
+          "desc": "One designated leader manages all student accounts. No admin intervention required after setup."
+        },
+        {
+          "title": "Dedicated onboarding",
+          "desc": "We set up your org, configure access, and brief your team. No technical knowledge needed on your end."
+        }
+      ]
+    },
+    "pricing": {
+      "eyebrow": "Pricing",
+      "title": "Simple, transparent pricing",
+      "sub": "One-time annual fee, per exam. Pay for Qudurat, Tahsili, or both.",
+      "tiers": {
+        "standard": {
+          "name": "Standard",
+          "range": "30-99 STUDENTS"
+        },
+        "volume": {
+          "name": "Volume",
+          "range": "100+ STUDENTS",
+          "badge": "Best Value"
+        }
+      },
+      "card": {
+        "currency": "SAR",
+        "per_student": " / student",
+        "details": "per exam · 365 days · min {{minStudents}} students",
+        "feature_min_students": "Minimum {{count}} students",
+        "feature_access": "Full access for 365 days",
+        "feature_dashboard": "Teacher dashboard included",
+        "cta": "Get started {{arrow}}"
+      },
+      "footnote": "Prices in SAR. Payment via Mada, Visa or Mastercard — secure Stripe checkout."
+    },
+    "process": {
+      "eyebrow": "Process",
+      "title": "How it works",
+      "sub": "From first contact to students learning — typically under 2 business days.",
+      "steps": [
+        {
+          "title": "Contact us",
+          "desc": "Fill in the form below or reach us on WhatsApp. We will call you back within one business day."
+        },
+        {
+          "title": "Agree the deal",
+          "desc": "We confirm your student count and send a secure payment link — payable by Mada, Visa, or Mastercard."
+        },
+        {
+          "title": "We set everything up",
+          "desc": "We provision all accounts, configure access, and give your team a walkthrough. Nothing on your end."
+        },
+        {
+          "title": "Students start learning",
+          "desc": "Accounts are ready on day one. Students log in and begin their structured path immediately."
+        }
+      ]
+    },
+    "call_cta": {
+      "eyebrow": "Talk to us",
+      "title": "Prefer to talk first?",
+      "sub": "Book a free 30-minute call with our team. We will answer your questions and walk you through the platform.",
+      "cta_book": "Book a 30-min call {{arrow}}",
+      "cta_whatsapp": "Message us on WhatsApp {{arrow}}",
+      "cta_form": "Or fill in the form ↓"
+    },
+    "form": {
+      "eyebrow": "Get started",
+      "title": "Tell us about your school",
+      "sub": "We will be in touch within one business day.",
+      "success_title": "Request received!",
+      "success_body_before": "We will be in touch at ",
+      "success_body_after": " within one business day.",
+      "success_back": "Back to home",
+      "label_name": "Your name *",
+      "label_email": "Work email *",
+      "label_phone": "Phone (optional)",
+      "label_school": "School name *",
+      "label_qudurat_count": "Students preparing for Qudurat",
+      "label_tahsili_count": "Students preparing for Tahsili",
+      "label_message": "Anything else you would like us to know?",
+      "ph_name": "e.g. Ahmed Al-Rashid",
+      "ph_email": "you@school.edu.sa",
+      "ph_phone": "+966 5X XXX XXXX",
+      "ph_school": "e.g. Al Noor International School, Riyadh",
+      "ph_message": "e.g. exam dates, number of classes, special requirements",
+      "estimate": {
+        "title": "Estimated pricing",
+        "qudurat_label": "Qudurat",
+        "tahsili_label": "Tahsili",
+        "calc": "{{count}} × SAR {{price}}",
+        "total_line": "= SAR {{total}}",
+        "min_warning": "Minimum 30 students required",
+        "grand_total": "Total estimate: SAR {{total}}"
+      },
+      "submit": "Send request {{arrow}}",
+      "submitting": "Sending...",
+      "footer_response": "We respond within 1 business day.",
+      "footer_message_prefix": "Prefer to message us?",
+      "footer_whatsapp_link": "Reach us on WhatsApp",
+      "error_generic": "Something went wrong. Please try again."
+    }
   }
 }
