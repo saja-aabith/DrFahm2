@@ -1,19 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { billing } from '../api';
 import Navbar from '../components/Navbar';
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLLS        = 12;
 
-// Display name mapping — plan_id values unchanged in DB/API
-const PLAN_DISPLAY = {
-  basic:   'Silver',
-  premium: 'Gold',
-  free:    'Free',
+// Map plan_id (DB/API value, NEVER changes) → translation key under pricing.plans.*
+// `basic` → silver, `premium` → gold, `free` → free.
+const PLAN_TKEY = {
+  basic:   'silver',
+  premium: 'gold',
+  free:    'free',
 };
 
 export default function BillingSuccess() {
+  const { t, i18n } = useTranslation();
   const [entitlements, setEntitlements] = useState(null);
   const [pollCount,    setPollCount]    = useState(0);
   const [gaveUp,       setGaveUp]       = useState(false);
@@ -58,6 +61,22 @@ export default function BillingSuccess() {
   ].filter((e) => new Date() < new Date(e.entitlement_expires_at));
 
   const activated = activeEnts.length > 0;
+  const arrow     = t('common.arrow');
+  const dateLocale = i18n.language === 'ar' ? 'ar' : 'en-GB';
+
+  const formatDate = (iso) =>
+    new Date(iso).toLocaleDateString(dateLocale, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+  const getPlanName = (planId) => {
+    const key = PLAN_TKEY[planId];
+    return key ? t(`pricing.plans.${key}.name`) : planId;
+  };
+
+  const getExamName = (exam) => t(`common.${exam}`, { defaultValue: exam });
 
   return (
     <>
@@ -66,54 +85,56 @@ export default function BillingSuccess() {
         <div className="success-card">
           <div className="success-icon">{activated ? '🎉' : '⏳'}</div>
           <h1 className="success-title">
-            {activated ? 'Payment successful!' : 'Confirming your payment…'}
+            {activated
+              ? t('billing_success.title_activated')
+              : t('billing_success.title_pending')}
           </h1>
           <p className="success-subtitle">
             {activated
-              ? "Your plan is now active. Your full exam journey is unlocked — let's go."
-              : 'Your payment went through. We\'re activating your plan now.'}
+              ? t('billing_success.subtitle_activated')
+              : t('billing_success.subtitle_pending')}
           </p>
 
           {!activated && !gaveUp && (
             <div style={{ margin: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <div className="spinner" />
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Checking… ({pollCount}/{MAX_POLLS})
+                {t('billing_success.polling_status', { count: pollCount, max: MAX_POLLS })}
               </p>
             </div>
           )}
 
           {!activated && gaveUp && (
             <div className="alert alert-info" style={{ marginBottom: 24 }}>
-              Your payment was received but activation is taking longer than usual.
-              Please refresh your dashboard in a minute — your plan will appear automatically.
-              If it does not arrive within 5 minutes,{' '}
+              {t('billing_success.give_up_before')}
               <a href="mailto:info@drfahm.com" style={{ color: 'var(--brand-green)' }}>
-                contact us
-              </a>.
+                {t('billing_success.give_up_link')}
+              </a>
+              {t('billing_success.give_up_after')}
             </div>
           )}
 
           {activated && (
             <div style={{ marginBottom: 28 }}>
               {activeEnts.map((e) => {
-                const displayName = PLAN_DISPLAY[e.plan_id] || e.plan_id;
+                const planName = getPlanName(e.plan_id);
+                const examName = getExamName(e.exam);
                 return (
-                  <div key={e.id} className="card" style={{ marginBottom: 10, textAlign: 'left' }}>
+                  <div key={e.id} className="card" style={{ marginBottom: 10, textAlign: 'start' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>
-                          {e.exam} — {displayName} Plan
+                        <div style={{ fontWeight: 700 }}>
+                          {t('billing_success.ent_row_title', { exam: examName, plan: planName })}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                          Worlds 1–{e.max_world_index} · Expires{' '}
-                          {new Date(e.entitlement_expires_at).toLocaleDateString('en-GB', {
-                            day: 'numeric', month: 'short', year: 'numeric',
+                          {t('billing_success.ent_row_detail', {
+                            max: e.max_world_index,
+                            date: formatDate(e.entitlement_expires_at),
                           })}
                         </div>
                       </div>
                       <span className={`plan-pill ${e.plan_id}`}>
-                        {displayName}
+                        {planName}
                       </span>
                     </div>
                   </div>
@@ -124,11 +145,14 @@ export default function BillingSuccess() {
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/dashboard" className="btn btn-primary">
-              Go to Dashboard →
+              {t('billing_success.go_to_dashboard', { arrow })}
             </Link>
             {activated && activeEnts.length > 0 && (
               <Link to={`/exam/${activeEnts[0].exam}`} className="btn btn-ghost">
-                Start {activeEnts[0].exam} →
+                {t('billing_success.start_exam', {
+                  exam: getExamName(activeEnts[0].exam),
+                  arrow,
+                })}
               </Link>
             )}
           </div>

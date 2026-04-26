@@ -415,11 +415,11 @@
   },
   "level": {
     "tier": {
-      "bidaya":  "Bidaya — البداية",
-      "suood":   "Su'ood — الصعود",
-      "tahadi":  "Tahadi — التحدي",
-      "itqan":   "Itqan — الإتقان",
-      "qimma":   "Qimma — القمة"
+      "bidaya": "Bidaya — البداية",
+      "suood": "Su'ood — الصعود",
+      "tahadi": "Tahadi — التحدي",
+      "itqan": "Itqan — الإتقان",
+      "qimma": "Qimma — القمة"
     },
     "breadcrumb_level": "Level {{n}}",
     "breadcrumb_results": "Level {{n}} — Results",
@@ -500,27 +500,27 @@
       "unlock_pill": "Unlock {{arrow}}"
     },
     "lock_reason": {
-      "no_entitlement":    "Start your free trial to unlock",
-      "trial_expired":     "Trial expired — upgrade to continue",
-      "beyond_trial_cap":  "Upgrade to access this world",
+      "no_entitlement": "Start your free trial to unlock",
+      "trial_expired": "Trial expired — upgrade to continue",
+      "beyond_trial_cap": "Upgrade to access this world",
       "prereq_incomplete": "Complete the previous world first",
-      "level_locked":      "Pass the previous level first",
-      "seat_no_coverage":  "Your school has not unlocked this world"
+      "level_locked": "Pass the previous level first",
+      "seat_no_coverage": "Your school has not unlocked this world"
     },
     "level_node": {
       "unlock_with_upgrade": "Unlock with full access →",
       "tooltip_level": "Level {{n}}"
     },
     "tracks": {
-      "math":      "الرياضيات",
-      "verbal":    "اللفظي",
-      "biology":   "الأحياء",
+      "math": "الرياضيات",
+      "verbal": "اللفظي",
+      "biology": "الأحياء",
       "chemistry": "الكيمياء",
-      "physics":   "الفيزياء"
+      "physics": "الفيزياء"
     },
     "track_progress": {
       "worlds_complete": "{{completed}}/{{total}} worlds complete",
-      "levels_passed":   "{{passed}}/{{total}} levels passed"
+      "levels_passed": "{{passed}}/{{total}} levels passed"
     },
     "leaderboard": {
       "empty_title": "No rankings yet",
@@ -534,5 +534,19 @@
       "not_on_board": "Complete a level to appear on the leaderboard.",
       "footnote": "Avg Time = average seconds per passed level · — means no timing data yet"
     }
+  },
+  "billing_success": {
+    "title_activated": "Payment successful!",
+    "title_pending": "Confirming your payment…",
+    "subtitle_activated": "Your plan is now active. Your full exam journey is unlocked — let's go.",
+    "subtitle_pending": "Your payment went through. We're activating your plan now.",
+    "polling_status": "Checking… ({{count}}/{{max}})",
+    "give_up_before": "Your payment was received but activation is taking longer than usual. Please refresh your dashboard in a minute — your plan will appear automatically. If it does not arrive within 5 minutes, ",
+    "give_up_link": "contact us",
+    "give_up_after": ".",
+    "ent_row_title": "{{exam}} — {{plan}} Plan",
+    "ent_row_detail": "Worlds 1–{{max}} · Expires {{date}}",
+    "go_to_dashboard": "Go to Dashboard {{arrow}}",
+    "start_exam": "Start {{exam}} {{arrow}}"
   }
 }

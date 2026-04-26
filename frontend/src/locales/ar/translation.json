@@ -415,11 +415,11 @@
   },
   "level": {
     "tier": {
-      "bidaya":  "البداية",
-      "suood":   "الصعود",
-      "tahadi":  "التحدي",
-      "itqan":   "الإتقان",
-      "qimma":   "القمة"
+      "bidaya": "البداية",
+      "suood": "الصعود",
+      "tahadi": "التحدي",
+      "itqan": "الإتقان",
+      "qimma": "القمة"
     },
     "breadcrumb_level": "المستوى {{n}}",
     "breadcrumb_results": "المستوى {{n}} — النتائج",
@@ -500,27 +500,27 @@
       "unlock_pill": "افتح {{arrow}}"
     },
     "lock_reason": {
-      "no_entitlement":    "ابدأ تجربتك المجانية لفتحه",
-      "trial_expired":     "انتهت التجربة — قم بالترقية للمتابعة",
-      "beyond_trial_cap":  "قم بالترقية للوصول إلى هذا العالم",
+      "no_entitlement": "ابدأ تجربتك المجانية لفتحه",
+      "trial_expired": "انتهت التجربة — قم بالترقية للمتابعة",
+      "beyond_trial_cap": "قم بالترقية للوصول إلى هذا العالم",
       "prereq_incomplete": "أكمل العالم السابق أولاً",
-      "level_locked":      "اجتز المستوى السابق أولاً",
-      "seat_no_coverage":  "مدرستك لم تفتح هذا العالم"
+      "level_locked": "اجتز المستوى السابق أولاً",
+      "seat_no_coverage": "مدرستك لم تفتح هذا العالم"
     },
     "level_node": {
       "unlock_with_upgrade": "افتح بالوصول الكامل ←",
       "tooltip_level": "المستوى {{n}}"
     },
     "tracks": {
-      "math":      "الرياضيات",
-      "verbal":    "اللفظي",
-      "biology":   "الأحياء",
+      "math": "الرياضيات",
+      "verbal": "اللفظي",
+      "biology": "الأحياء",
       "chemistry": "الكيمياء",
-      "physics":   "الفيزياء"
+      "physics": "الفيزياء"
     },
     "track_progress": {
       "worlds_complete": "{{completed}}/{{total}} عالم مكتمل",
-      "levels_passed":   "{{passed}}/{{total}} مستوى مجتاز"
+      "levels_passed": "{{passed}}/{{total}} مستوى مجتاز"
     },
     "leaderboard": {
       "empty_title": "لا توجد ترتيبات بعد",
@@ -534,5 +534,19 @@
       "not_on_board": "أكمل مستوى لتظهر في قائمة المتصدرين.",
       "footnote": "متوسط الوقت = الثواني لكل مستوى مجتاز · — تعني لا توجد بيانات توقيت بعد"
     }
+  },
+  "billing_success": {
+    "title_activated": "تم الدفع بنجاح!",
+    "title_pending": "جارِ تأكيد دفعتك…",
+    "subtitle_activated": "خطتك نشطة الآن. تم فتح رحلة الاختبار الكاملة — هيا بنا.",
+    "subtitle_pending": "تم استلام دفعتك. نقوم بتفعيل خطتك الآن.",
+    "polling_status": "جارِ التحقق… ({{count}}/{{max}})",
+    "give_up_before": "تم استلام دفعتك لكن التفعيل يستغرق وقتاً أطول من المعتاد. يرجى تحديث لوحة التحكم خلال دقيقة — ستظهر خطتك تلقائياً. إذا لم تظهر خلال 5 دقائق، ",
+    "give_up_link": "تواصل معنا",
+    "give_up_after": ".",
+    "ent_row_title": "{{exam}} — خطة {{plan}}",
+    "ent_row_detail": "العوالم 1–{{max}} · تنتهي في {{date}}",
+    "go_to_dashboard": "اذهب إلى لوحة التحكم {{arrow}}",
+    "start_exam": "ابدأ {{exam}} {{arrow}}"
   }
 }
