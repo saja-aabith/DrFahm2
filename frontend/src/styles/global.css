@@ -991,7 +991,7 @@ body {
 }
 
 .home-stats-row { display: flex; align-items: stretch; justify-content: center; gap: 0; flex-wrap: wrap; background: #4ADE80; border-top: none; border-bottom: none; padding: 0; width: 100%; }
-.home-stat       { text-align: center; padding: 44px 80px; flex: 1; min-width: 240px; background: transparent; }
+.home-stat       { text-align: center; padding: 44px 56px; flex: 1; min-width: 220px; background: transparent; }
 .home-stat-num   { display: block; font-size: 3.8rem; font-weight: 800; line-height: 1; color: #052E16; }
 .home-stat-unit  { font-size: 2.2rem; color: #166534; }
 .home-stat-label { display: block; font-size: 1rem; font-weight: 600; color: rgba(5,46,22,0.65); margin-top: 8px; letter-spacing: 0.3px; }
@@ -1968,115 +1968,125 @@ body {
 [dir="rtl"] .sch-form-input { text-align: right; }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   HERO PARTICLE FIELD — 3-layer parallax depth
-   24 particles across deep/mid/foreground layers drifting at different speeds.
-   Pure CSS, GPU-accelerated transforms only. Hidden below 768px.
+   HERO 3D CLIMBING LADDER
+   10 stacked translucent green platforms forming a 3D staircase, with a glowing
+   gold marker climbing from bottom to top then resetting. Pure CSS, GPU-only
+   transforms. Hidden below 1024px so it does not compete with mobile hero.
+   The top platform is gold to reinforce the "100% goal" theme.
    ════════════════════════════════════════════════════════════════════════════ */
-.hero-particles {
+.ladder3d-scene {
+  position: absolute;
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 160px;
+  height: 320px;
+  perspective: 800px;
+  perspective-origin: center center;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+}
+@media (max-width: 1024px) { .ladder3d-scene { display: none; } }
+
+.ladder3d-float {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  animation: ladder3d-float 5s ease-in-out infinite alternate;
+}
+@keyframes ladder3d-float {
+  from { transform: translateY(-10px); }
+  to   { transform: translateY(10px); }
+}
+
+.ladder3d-rotate {
   position: absolute;
   inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
+  transform-style: preserve-3d;
+  animation: ladder3d-rotate 18s linear infinite;
 }
-@media (max-width: 768px) {
-  .hero-particles { display: none; }
+@keyframes ladder3d-rotate {
+  from { transform: rotateX(-12deg) rotateY(0deg); }
+  to   { transform: rotateX(-12deg) rotateY(360deg); }
 }
 
-.hero-particle {
+/* Each step is a translucent green slab — semi-3D look via inset shadow */
+.ladder3d-step {
   position: absolute;
+  left: 50%;
+  width: 84px;
+  height: 12px;
+  margin-left: -42px;
+  background: rgba(74,222,128,0.16);
+  border: 1px solid rgba(74,222,128,0.55);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -2px 4px rgba(21,128,61,0.15),
+    0 0 14px rgba(74,222,128,0.25);
+  backface-visibility: visible;
+}
+
+/* Stair geometry: each step rises ~28px and shifts ~7px deeper in Z, creating
+   a forward-marching staircase silhouette. Step 10 is gold (the goal). */
+.ladder3d-step-1  { top: 290px; transform: translateZ(-32px); }
+.ladder3d-step-2  { top: 262px; transform: translateZ(-25px); }
+.ladder3d-step-3  { top: 234px; transform: translateZ(-18px); }
+.ladder3d-step-4  { top: 206px; transform: translateZ(-11px); }
+.ladder3d-step-5  { top: 178px; transform: translateZ(-4px); }
+.ladder3d-step-6  { top: 150px; transform: translateZ(3px); }
+.ladder3d-step-7  { top: 122px; transform: translateZ(10px); }
+.ladder3d-step-8  { top: 94px;  transform: translateZ(17px); }
+.ladder3d-step-9  { top: 66px;  transform: translateZ(24px); }
+.ladder3d-step-10 {
+  top: 38px;
+  transform: translateZ(31px);
+  background: rgba(250,204,21,0.22);
+  border-color: rgba(250,204,21,0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    inset 0 -2px 4px rgba(217,119,6,0.2),
+    0 0 18px rgba(250,204,21,0.45);
+}
+
+/* The climbing marker — a glowing gold orb that ascends through the steps
+   then loops. Smooth easing between positions reads as confident progression. */
+.ladder3d-marker {
+  position: absolute;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
   border-radius: 50%;
-  background: rgba(74,222,128,0.5);
-  will-change: transform, opacity;
+  background: radial-gradient(circle at 35% 30%, #FDE68A 0%, #FBBF24 50%, #B45309 100%);
+  box-shadow:
+    0 0 10px rgba(251,191,36,0.85),
+    0 0 22px rgba(251,191,36,0.45),
+    inset 0 -2px 3px rgba(180,83,9,0.4);
+  animation: ladder3d-climb 14s ease-in-out infinite;
 }
 
-@keyframes hp-drift-deep {
-  0%   { transform: translate3d(0, 0, 0); opacity: 0.2; }
-  50%  { transform: translate3d(20px, -30px, 0); opacity: 0.4; }
-  100% { transform: translate3d(0, 0, 0); opacity: 0.2; }
+@keyframes ladder3d-climb {
+  0%   { top: 282px; transform: translateZ(-32px); opacity: 1; }
+  9%   { top: 254px; transform: translateZ(-25px); opacity: 1; }
+  18%  { top: 226px; transform: translateZ(-18px); opacity: 1; }
+  27%  { top: 198px; transform: translateZ(-11px); opacity: 1; }
+  36%  { top: 170px; transform: translateZ(-4px);  opacity: 1; }
+  45%  { top: 142px; transform: translateZ(3px);   opacity: 1; }
+  54%  { top: 114px; transform: translateZ(10px);  opacity: 1; }
+  63%  { top: 86px;  transform: translateZ(17px);  opacity: 1; }
+  72%  { top: 58px;  transform: translateZ(24px);  opacity: 1; }
+  82%  { top: 30px;  transform: translateZ(31px);  opacity: 1; }
+  88%  { top: 30px;  transform: translateZ(31px);  opacity: 1; }
+  92%  { top: 30px;  transform: translateZ(31px);  opacity: 0; }
+  93%  { top: 282px; transform: translateZ(-32px); opacity: 0; }
+  100% { top: 282px; transform: translateZ(-32px); opacity: 1; }
 }
-@keyframes hp-drift-mid {
-  0%   { transform: translate3d(0, 0, 0); opacity: 0.4; }
-  50%  { transform: translate3d(-30px, -50px, 0); opacity: 0.7; }
-  100% { transform: translate3d(0, 0, 0); opacity: 0.4; }
-}
-@keyframes hp-drift-fore {
-  0%   { transform: translate3d(0, 0, 0); opacity: 0.55; }
-  50%  { transform: translate3d(40px, -70px, 0); opacity: 0.9; }
-  100% { transform: translate3d(0, 0, 0); opacity: 0.55; }
-}
 
-/* ── Deep layer (8 particles, 1-2px, slowest) ─────────────────────────────── */
-.hp-d1  { left: 8%;  top: 22%; width: 2px; height: 2px; background: rgba(74,222,128,0.35); animation: hp-drift-deep 28s ease-in-out infinite; animation-delay:  0s; }
-.hp-d2  { left: 18%; top: 68%; width: 1px; height: 1px; background: rgba(74,222,128,0.3);  animation: hp-drift-deep 32s ease-in-out infinite; animation-delay: -4s; }
-.hp-d3  { left: 32%; top: 14%; width: 2px; height: 2px; background: rgba(74,222,128,0.4);  animation: hp-drift-deep 26s ease-in-out infinite; animation-delay: -9s; }
-.hp-d4  { left: 46%; top: 78%; width: 1px; height: 1px; background: rgba(74,222,128,0.32); animation: hp-drift-deep 30s ease-in-out infinite; animation-delay: -2s; }
-.hp-d5  { left: 62%; top: 28%; width: 2px; height: 2px; background: rgba(74,222,128,0.38); animation: hp-drift-deep 34s ease-in-out infinite; animation-delay: -12s; }
-.hp-d6  { left: 75%; top: 62%; width: 1px; height: 1px; background: rgba(74,222,128,0.3);  animation: hp-drift-deep 27s ease-in-out infinite; animation-delay: -6s; }
-.hp-d7  { left: 88%; top: 18%; width: 2px; height: 2px; background: rgba(74,222,128,0.35); animation: hp-drift-deep 31s ease-in-out infinite; animation-delay: -15s; }
-.hp-d8  { left: 92%; top: 82%; width: 1px; height: 1px; background: rgba(74,222,128,0.28); animation: hp-drift-deep 29s ease-in-out infinite; animation-delay: -8s; }
-
-/* ── Mid layer (10 particles, 2-3px, medium speed) ────────────────────────── */
-.hp-d9  { left: 12%; top: 38%; width: 3px; height: 3px; background: rgba(74,222,128,0.55); animation: hp-drift-mid  20s ease-in-out infinite; animation-delay: -1s; }
-.hp-d10 { left: 24%; top: 52%; width: 2px; height: 2px; background: rgba(74,222,128,0.5);  animation: hp-drift-mid  22s ease-in-out infinite; animation-delay: -7s; }
-.hp-d11 { left: 38%; top: 32%; width: 3px; height: 3px; background: rgba(74,222,128,0.6);  animation: hp-drift-mid  18s ease-in-out infinite; animation-delay: -3s; }
-.hp-d12 { left: 42%; top: 88%; width: 2px; height: 2px; background: rgba(74,222,128,0.5);  animation: hp-drift-mid  24s ease-in-out infinite; animation-delay: -11s; }
-.hp-d13 { left: 54%; top: 48%; width: 3px; height: 3px; background: rgba(74,222,128,0.55); animation: hp-drift-mid  21s ease-in-out infinite; animation-delay: -5s; }
-.hp-d14 { left: 66%; top: 38%; width: 2px; height: 2px; background: rgba(74,222,128,0.5);  animation: hp-drift-mid  23s ease-in-out infinite; animation-delay: -14s; }
-.hp-d15 { left: 72%; top: 86%; width: 3px; height: 3px; background: rgba(74,222,128,0.58); animation: hp-drift-mid  19s ease-in-out infinite; animation-delay: -2s; }
-.hp-d16 { left: 82%; top: 44%; width: 2px; height: 2px; background: rgba(74,222,128,0.52); animation: hp-drift-mid  22s ease-in-out infinite; animation-delay: -9s; }
-.hp-d17 { left: 6%;  top: 58%; width: 3px; height: 3px; background: rgba(74,222,128,0.55); animation: hp-drift-mid  20s ease-in-out infinite; animation-delay: -13s; }
-.hp-d18 { left: 96%; top: 56%; width: 2px; height: 2px; background: rgba(74,222,128,0.48); animation: hp-drift-mid  24s ease-in-out infinite; animation-delay: -6s; }
-
-/* ── Foreground layer (6 particles, 3-4px, fastest, 2 gold accents) ───────── */
-.hp-d19 { left: 16%; top: 26%; width: 4px; height: 4px; background: rgba(74,222,128,0.75); animation: hp-drift-fore 14s ease-in-out infinite; animation-delay:  0s; }
-.hp-d20 { left: 36%; top: 66%; width: 3px; height: 3px; background: rgba(250,204,21,0.65); animation: hp-drift-fore 16s ease-in-out infinite; animation-delay: -4s; }
-.hp-d21 { left: 58%; top: 18%; width: 4px; height: 4px; background: rgba(74,222,128,0.7);  animation: hp-drift-fore 13s ease-in-out infinite; animation-delay: -8s; }
-.hp-d22 { left: 64%; top: 72%; width: 3px; height: 3px; background: rgba(74,222,128,0.72); animation: hp-drift-fore 15s ease-in-out infinite; animation-delay: -2s; }
-.hp-d23 { left: 84%; top: 32%; width: 4px; height: 4px; background: rgba(250,204,21,0.6);  animation: hp-drift-fore 12s ease-in-out infinite; animation-delay: -6s; }
-.hp-d24 { left: 28%; top: 84%; width: 3px; height: 3px; background: rgba(74,222,128,0.7);  animation: hp-drift-fore 16s ease-in-out infinite; animation-delay: -10s; }
-
-/* ── LIGHT THEME — soften particles for light hero background ─────────────── */
-/* ── LIGHT THEME — darken particles + boost orb visibility on light hero ── */
-/* Stronger orbs so the hero has visible color depth on the cream/blue bg */
-.hero-orb-1 { background: radial-gradient(circle, rgba(21,128,61,0.32) 0%, transparent 70%); }
-.hero-orb-2 { background: radial-gradient(circle, rgba(74,222,128,0.22) 0%, transparent 70%); }
-.hero-orb-3 { background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%); }
-
-/* ── LIGHT THEME — darken particles + boost orb visibility on light hero ── */
-/* Orbs — punchy enough to read as colored bloom behind the hero content */
-.hero-orb-1 { background: radial-gradient(circle, rgba(21,128,61,0.5) 0%, transparent 70%); }
-.hero-orb-2 { background: radial-gradient(circle, rgba(74,222,128,0.4) 0%, transparent 70%); }
-.hero-orb-3 { background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%); }
-
-/* Particles — visibly green dots with opacity tuned per layer */
-.hero-particles .hero-particle { background: rgba(21,128,61,0.85); }
-
-/* Deep layer slightly dimmer to preserve the parallax illusion */
-.hero-particles .hp-d1,  .hero-particles .hp-d2,  .hero-particles .hp-d3,
-.hero-particles .hp-d4,  .hero-particles .hp-d5,  .hero-particles .hp-d6,
-.hero-particles .hp-d7,  .hero-particles .hp-d8 { background: rgba(21,128,61,0.55); }
-
-/* Gold foreground accents */
-.hero-particles .hp-d20,
-.hero-particles .hp-d23 { background: rgba(198,168,91,0.95); }
-
-/* Bump every particle 2× — they were too small to read against grid */
-.hero-particles .hero-particle { width: 4px; height: 4px; }
-.hero-particles .hp-d1,  .hero-particles .hp-d2,  .hero-particles .hp-d3,
-.hero-particles .hp-d4,  .hero-particles .hp-d5,  .hero-particles .hp-d6,
-.hero-particles .hp-d7,  .hero-particles .hp-d8  { width: 3px; height: 3px; }
-.hero-particles .hp-d19, .hero-particles .hp-d21 { width: 7px; height: 7px; }
-.hero-particles .hp-d22, .hero-particles .hp-d24 { width: 6px; height: 6px; }
-.hero-particles .hp-d20, .hero-particles .hp-d23 { width: 6px; height: 6px; }
-
-/* Soften the grid so particles don't compete with grid intersections */
-.hero-grid {
-  background-image:
-    linear-gradient(rgba(15,23,42,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15,23,42,0.025) 1px, transparent 1px);
-}
 /* Reduce motion — respect accessibility preference */
 @media (prefers-reduced-motion: reduce) {
-  .hero-particle { animation: none !important; }
+  .ladder3d-rotate,
+  .ladder3d-float,
+  .ladder3d-marker { animation: none !important; }
 }

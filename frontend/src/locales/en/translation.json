@@ -92,7 +92,8 @@
   },
   "stats": {
     "questions_label": "exam-style questions",
-    "levels_label": "structured mastery levels"
+    "levels_label": "structured mastery levels",
+    "advance_label": "required to advance"
   },
   "prob": {
     "eyebrow": "Why most students don't improve",

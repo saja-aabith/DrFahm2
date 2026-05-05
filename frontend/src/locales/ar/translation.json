@@ -92,7 +92,8 @@
   },
   "stats": {
     "questions_label": "سؤال بأسلوب الاختبار",
-    "levels_label": "مستوى إتقان منظّم"
+    "levels_label": "مستوى إتقان منظّم",
+    "advance_label": "مطلوب للتقدُّم"
   },
   "prob": {
     "eyebrow": "لماذا لا يتحسن معظم الطلاب",

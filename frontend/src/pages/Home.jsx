@@ -278,6 +278,7 @@ function StatsSection() {
   const [ref, inView] = useInView(0.3);
   const questions = useCounter(6000, 2000, inView);
   const levels    = useCounter(300,  1400, inView);
+  const passing   = useCounter(100,  1200, inView);
   return (
     <div ref={ref} className="home-stats-row">
       <div className="home-stat">
@@ -290,6 +291,13 @@ function StatsSection() {
       <div className="home-stat">
         <span className="home-stat-num">{levels}</span>
         <span className="home-stat-label">{t('stats.levels_label')}</span>
+      </div>
+      <div className="home-stat-divider" />
+      <div className="home-stat">
+        <span className="home-stat-num">
+          {passing}<span className="home-stat-unit">%</span>
+        </span>
+        <span className="home-stat-label">{t('stats.advance_label')}</span>
       </div>
     </div>
   );
@@ -889,6 +897,33 @@ function Cube3D() {
   );
 }
 
+// ── 3D Climbing ladder — visualizes the 100-level mastery path ────────────────
+// 10 stacked translucent green platforms forming a staircase, with a glowing
+// gold marker climbing from level 1 to 10 then resetting. Pure CSS, GPU-only
+// transforms. Renders in the hero section behind/right of the demo widget at
+// low opacity. The top platform is gold to reinforce the "100% goal" theme.
+function Ladder3D() {
+  return (
+    <div className="ladder3d-scene" aria-hidden="true">
+      <div className="ladder3d-float">
+        <div className="ladder3d-rotate">
+          <div className="ladder3d-step ladder3d-step-1" />
+          <div className="ladder3d-step ladder3d-step-2" />
+          <div className="ladder3d-step ladder3d-step-3" />
+          <div className="ladder3d-step ladder3d-step-4" />
+          <div className="ladder3d-step ladder3d-step-5" />
+          <div className="ladder3d-step ladder3d-step-6" />
+          <div className="ladder3d-step ladder3d-step-7" />
+          <div className="ladder3d-step ladder3d-step-8" />
+          <div className="ladder3d-step ladder3d-step-9" />
+          <div className="ladder3d-step ladder3d-step-10" />
+          <div className="ladder3d-marker" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Home() {
   const { user }    = useAuth();
@@ -948,12 +983,8 @@ export default function Home() {
         <div className="hero-orb hero-orb-1" />
         <div className="hero-orb hero-orb-2" />
         <div className="hero-orb hero-orb-3" />
-        <div className="hero-particles" aria-hidden="true">
-          {[...Array(24)].map((_, i) => (
-            <div key={i} className={`hero-particle hp-d${i + 1}`} />
-          ))}
-        </div>
         <div className="hero-grid" aria-hidden="true" />
+        <Ladder3D />
 
         <div className="hero-inner">
           <div className={`hero-content ${heroVisible ? 'anim-in' : ''}`}>
