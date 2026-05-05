@@ -2043,20 +2043,39 @@ body {
 .hero-orb-2 { background: radial-gradient(circle, rgba(74,222,128,0.22) 0%, transparent 70%); }
 .hero-orb-3 { background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%); }
 
-/* Particles — bigger, darker, more opaque on light bg so they actually read */
-.hero-particles .hero-particle { background: rgba(21,128,61,0.55); }
+/* ── LIGHT THEME — darken particles + boost orb visibility on light hero ── */
+/* Orbs — punchy enough to read as colored bloom behind the hero content */
+.hero-orb-1 { background: radial-gradient(circle, rgba(21,128,61,0.5) 0%, transparent 70%); }
+.hero-orb-2 { background: radial-gradient(circle, rgba(74,222,128,0.4) 0%, transparent 70%); }
+.hero-orb-3 { background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%); }
+
+/* Particles — visibly green dots with opacity tuned per layer */
+.hero-particles .hero-particle { background: rgba(21,128,61,0.85); }
+
+/* Deep layer slightly dimmer to preserve the parallax illusion */
 .hero-particles .hp-d1,  .hero-particles .hp-d2,  .hero-particles .hp-d3,
 .hero-particles .hp-d4,  .hero-particles .hp-d5,  .hero-particles .hp-d6,
-.hero-particles .hp-d7,  .hero-particles .hp-d8 { background: rgba(21,128,61,0.4); }
+.hero-particles .hp-d7,  .hero-particles .hp-d8 { background: rgba(21,128,61,0.55); }
+
+/* Gold foreground accents */
 .hero-particles .hp-d20,
-.hero-particles .hp-d23 { background: rgba(198,168,91,0.75); }
+.hero-particles .hp-d23 { background: rgba(198,168,91,0.95); }
 
-/* Bump foreground particle sizes slightly so they're not lost in the grid */
-.hero-particles .hp-d19 { width: 5px; height: 5px; }
-.hero-particles .hp-d21 { width: 5px; height: 5px; }
-.hero-particles .hp-d22 { width: 4px; height: 4px; }
-.hero-particles .hp-d24 { width: 4px; height: 4px; }
+/* Bump every particle 2× — they were too small to read against grid */
+.hero-particles .hero-particle { width: 4px; height: 4px; }
+.hero-particles .hp-d1,  .hero-particles .hp-d2,  .hero-particles .hp-d3,
+.hero-particles .hp-d4,  .hero-particles .hp-d5,  .hero-particles .hp-d6,
+.hero-particles .hp-d7,  .hero-particles .hp-d8  { width: 3px; height: 3px; }
+.hero-particles .hp-d19, .hero-particles .hp-d21 { width: 7px; height: 7px; }
+.hero-particles .hp-d22, .hero-particles .hp-d24 { width: 6px; height: 6px; }
+.hero-particles .hp-d20, .hero-particles .hp-d23 { width: 6px; height: 6px; }
 
+/* Soften the grid so particles don't compete with grid intersections */
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(15,23,42,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,0.025) 1px, transparent 1px);
+}
 /* Reduce motion — respect accessibility preference */
 @media (prefers-reduced-motion: reduce) {
   .hero-particle { animation: none !important; }
