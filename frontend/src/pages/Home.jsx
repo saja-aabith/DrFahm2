@@ -948,6 +948,11 @@ export default function Home() {
         <div className="hero-orb hero-orb-1" />
         <div className="hero-orb hero-orb-2" />
         <div className="hero-orb hero-orb-3" />
+        <div className="hero-particles" aria-hidden="true">
+          {[...Array(24)].map((_, i) => (
+            <div key={i} className={`hero-particle hp-d${i + 1}`} />
+          ))}
+        </div>
         <div className="hero-grid" aria-hidden="true" />
 
         <div className="hero-inner">
