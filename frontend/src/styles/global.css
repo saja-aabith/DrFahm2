@@ -2100,3 +2100,171 @@ body {
 .val-eyebrow,
 .sit-eyebrow,
 .cmp-eyebrow { display: none; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SCHOOLS PAGE — LIGHT SECTION VARIANT
+   `.sch-section.sch-light` flips background to cream and overrides text +
+   card styling to read on light. Applied to Problem, Pricing, Contact form
+   sections so the page rhythm alternates: hero(D) → problem(L) → results(D) →
+   pricing(L) → process(D) → cta(D) → form(L).
+
+   Also defines new classes (sch-solution-text, sch-pricing-footnote,
+   sch-success-email, sch-estimate-*, sch-form-footer-*) that replace inline
+   style blocks in Schools.jsx so light theme can take effect.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.sch-section.sch-light { background: #FAF7F2; }
+
+.sch-section.sch-light .sch-section-title { color: #0F172A; }
+.sch-section.sch-light .sch-section-sub   { color: #475569; }
+
+/* ── Problem section overrides ────────────────────────────────────────────── */
+.sch-section.sch-light .sch-problem-item {
+  background: rgba(220,38,38,0.05);
+  border-color: rgba(220,38,38,0.22);
+}
+.sch-section.sch-light .sch-problem-item:hover { border-color: rgba(220,38,38,0.45); }
+.sch-section.sch-light .sch-problem-icon {
+  background: rgba(220,38,38,0.14);
+  color: #DC2626;
+}
+.sch-section.sch-light .sch-problem-text { color: #475569; }
+
+.sch-section.sch-light .sch-solution-item {
+  background: rgba(21,128,61,0.07);
+  border-color: rgba(21,128,61,0.32);
+}
+
+/* sch-solution-text — replaces the inline-styled span. Defaults are for light. */
+.sch-solution-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: #0F172A;
+}
+
+/* ── Pricing section overrides ────────────────────────────────────────────── */
+/* Pricing cards already use var(--bg-card) (white) + var(--border) so they
+   render correctly on the cream bg natively. Just the gold-card shadow needs
+   a touch more punch on light. */
+.sch-section.sch-light .pricing-card { box-shadow: 0 4px 18px rgba(28,39,51,0.06); }
+.sch-section.sch-light .pricing-card.gold {
+  box-shadow: 0 6px 28px rgba(198,168,91,0.22), 0 1px 4px rgba(28,39,51,0.06);
+}
+
+/* sch-pricing-footnote — replaces the inline-styled <p>. */
+.sch-pricing-footnote {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #94A3B8;
+}
+
+/* ── Contact form section overrides ───────────────────────────────────────── */
+.sch-section.sch-light .sch-form-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(28,39,51,0.1);
+  box-shadow: 0 4px 24px rgba(28,39,51,0.06);
+}
+
+.sch-section.sch-light .sch-form-label { color: #3E444B; }
+
+.sch-section.sch-light .sch-form-input {
+  background: #F5F2EC;
+  border-color: rgba(28,39,51,0.14);
+  color: #0F172A;
+}
+.sch-section.sch-light .sch-form-input:focus { border-color: rgba(21,128,61,0.5); }
+.sch-section.sch-light .sch-form-input::placeholder { color: #94A3B8; }
+
+.sch-section.sch-light .sch-estimate {
+  background: rgba(21,128,61,0.05);
+  border-color: rgba(21,128,61,0.22);
+}
+
+/* Estimate panel — replaces inline-styled spans/divs */
+.sch-estimate-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #0F172A;
+  margin-bottom: 6px;
+}
+.sch-estimate-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.88rem;
+  flex-wrap: wrap;
+}
+.sch-estimate-row-label {
+  color: #64748B;
+  min-width: 72px;
+  font-weight: 500;
+}
+.sch-estimate-row-calc { color: #475569; }
+.sch-estimate-row-total {
+  font-weight: 700;
+  color: #15803D;
+}
+.sch-estimate-row-tier {
+  font-size: 0.78rem;
+  color: #94A3B8;
+}
+.sch-estimate-row-warn {
+  color: #B45309;
+  font-weight: 600;
+}
+.sch-estimate-grand {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(28,39,51,0.1);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #0F172A;
+}
+
+/* Success card on light */
+.sch-section.sch-light .sch-success-card {
+  background: #FFFFFF;
+  border-color: rgba(21,128,61,0.3);
+  box-shadow: 0 8px 32px rgba(21,128,61,0.08);
+}
+.sch-section.sch-light .sch-success-title { color: #0F172A; }
+.sch-section.sch-light .sch-success-sub   { color: #475569; }
+
+.sch-success-email {
+  color: #15803D;
+  font-weight: 700;
+}
+
+/* Form footer — replaces the inline-styled wrapping div + children */
+.sch-form-footer {
+  border-top: 1px solid rgba(28,39,51,0.08);
+  padding-top: 20px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+.sch-form-footer-response {
+  font-size: 0.8rem;
+  color: #94A3B8;
+}
+.sch-form-footer-message {
+  font-size: 0.875rem;
+  color: #475569;
+}
+.sch-form-footer-link {
+  color: #15803D;
+  font-weight: 700;
+  text-decoration: none;
+}
+.sch-form-footer-link:hover { text-decoration: underline; }
+.sch-form-footer-email {
+  font-size: 0.8rem;
+  color: #94A3B8;
+  text-decoration: none;
+}
+.sch-form-footer-email:hover { color: #475569; }

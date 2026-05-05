@@ -119,7 +119,7 @@ export default function Schools() {
       <Navbar />
 
       {/* ══════════════════════════════════════════════════════════════════════
-          HERO — dark, pulls behind transparent navbar
+          HERO — DARK (anchor — no change)
           ══════════════════════════════════════════════════════════════════════ */}
       <section className="sch-hero">
         <div className="sch-grid" />
@@ -166,29 +166,14 @@ export default function Schools() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          PROBLEM — #0D1F35
+          PROBLEM — LIGHT cream — sch-light
+          Orbs removed (clean light surface). Solution text refactored to class.
           ══════════════════════════════════════════════════════════════════════ */}
-      <section className="sch-section" style={{ background: '#0D1F35' }}>
-        <div style={{
-          position: 'absolute', borderRadius: '50%', filter: 'blur(90px)', pointerEvents: 'none',
-          width: 600, height: 600,
-          background: 'radial-gradient(circle, rgba(220,38,38,0.18) 0%, transparent 70%)',
-          top: -200, left: -150,
-        }} />
-        <div style={{
-          position: 'absolute', borderRadius: '50%', filter: 'blur(90px)', pointerEvents: 'none',
-          width: 500, height: 500,
-          background: 'radial-gradient(circle, rgba(21,128,61,0.14) 0%, transparent 70%)',
-          bottom: -100, right: -80,
-        }} />
-
+      <section className="sch-section sch-light">
         <div className="sch-container">
-          <div className="prob-eyebrow" style={{ display: 'inline-flex', marginBottom: 24 }}>
-            {t('schools.problem.eyebrow')}
-          </div>
           <h2 className="sch-section-title">
             {t('schools.problem.title_before')}{' '}
-            <span style={{ color: '#F87171' }}>{t('schools.problem.title_accent')}</span>
+            <span style={{ color: '#DC2626' }}>{t('schools.problem.title_accent')}</span>
           </h2>
           <p className="sch-section-sub">
             {t('schools.problem.sub')}
@@ -206,8 +191,8 @@ export default function Schools() {
 
           {/* Solution row */}
           <div className="sch-solution-item" style={{ maxWidth: 700 }}>
-            <span style={{ color: '#4ADE80', fontSize: '1.1rem', flexShrink: 0, marginTop: 1 }}>{arrow}</span>
-            <span style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600, lineHeight: 1.6 }}>
+            <span style={{ color: '#15803D', fontSize: '1.1rem', flexShrink: 0, marginTop: 1 }}>{arrow}</span>
+            <span className="sch-solution-text">
               {t('schools.problem.solution')}
             </span>
           </div>
@@ -215,7 +200,7 @@ export default function Schools() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          RESULTS + FEATURES — #0B3D2E
+          RESULTS + FEATURES — DARK green #0B3D2E (no change)
           ══════════════════════════════════════════════════════════════════════ */}
       <section className="sch-section" style={{ background: '#0B3D2E' }}>
         <div style={{
@@ -224,9 +209,6 @@ export default function Schools() {
         }} />
 
         <div className="sch-container">
-          <div className="val-eyebrow" style={{ display: 'inline-flex', marginBottom: 20 }}>
-            {t('schools.results.eyebrow')}
-          </div>
           <h2 className="sch-section-title">{t('schools.results.title')}</h2>
           <p className="sch-section-sub">
             {t('schools.results.sub')}
@@ -262,26 +244,20 @@ export default function Schools() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          PRICING — #0F172A
+          PRICING — LIGHT cream — sch-light
+          Orb wrapper removed. Pricing cards already white — work natively.
+          Footnote refactored to class.
           ══════════════════════════════════════════════════════════════════════ */}
-      <section className="sch-section" style={{ background: '#0F172A' }}>
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse 40% 60% at 0% 50%, rgba(198,168,91,0.07) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 100% 50%, rgba(21,128,61,0.1) 0%, transparent 70%)',
-        }} />
-
+      <section className="sch-section sch-light">
         <div className="sch-container">
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div className="cmp-eyebrow" style={{ display: 'inline-flex', marginBottom: 20 }}>
-              {t('schools.pricing.eyebrow')}
-            </div>
             <h2 className="sch-section-title">{t('schools.pricing.title')}</h2>
             <p className="sch-section-sub" style={{ margin: '0 auto' }}>
               {t('schools.pricing.sub')}
             </p>
           </div>
 
-          {/* Pricing cards — white cards naturally pop on dark */}
+          {/* Pricing cards — white cards already styled for light bg */}
           <div className="pricing-grid" style={{ maxWidth: 680, margin: '0 auto 20px' }}>
             {TIERS.map((tier) => (
               <div
@@ -340,14 +316,14 @@ export default function Schools() {
             ))}
           </div>
 
-          <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>
+          <p className="sch-pricing-footnote">
             {t('schools.pricing.footnote')}
           </p>
         </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          HOW IT WORKS — #0A1628
+          HOW IT WORKS — DARK #0A1628 (no change)
           ══════════════════════════════════════════════════════════════════════ */}
       <section className="sch-section" style={{ background: '#0A1628' }}>
         <div className="sch-grid" />
@@ -359,9 +335,6 @@ export default function Schools() {
         }} />
 
         <div className="sch-container">
-          <div className="val-eyebrow" style={{ display: 'inline-flex', marginBottom: 20 }}>
-            {t('schools.process.eyebrow')}
-          </div>
           <h2 className="sch-section-title">{t('schools.process.title')}</h2>
           <p className="sch-section-sub">
             {t('schools.process.sub')}
@@ -382,7 +355,7 @@ export default function Schools() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          BOOK A CALL CTA — gradient green (matches fcta-section)
+          BOOK A CALL CTA — DARK gradient green (no change)
           ══════════════════════════════════════════════════════════════════════ */}
       <section
         className="sch-section"
@@ -403,10 +376,6 @@ export default function Schools() {
 
         <div className="sch-container" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '2.8rem', marginBottom: 20 }}>📅</div>
-          <div className="fcta-eyebrow">
-            <span className="fcta-eyebrow-dot" />
-            {t('schools.call_cta.eyebrow')}
-          </div>
           <h2 className="sch-section-title">{t('schools.call_cta.title')}</h2>
           <p className="sch-section-sub" style={{ margin: '0 auto 32px' }}>
             {t('schools.call_cta.sub')}
@@ -442,21 +411,12 @@ export default function Schools() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          CONTACT FORM — #0D1F35
+          CONTACT FORM — LIGHT cream — sch-light
+          Orb removed. All inline white-text refactored to classes.
           ══════════════════════════════════════════════════════════════════════ */}
-      <section className="sch-section" id="contact" style={{ background: '#0D1F35' }}>
-        <div style={{
-          position: 'absolute', borderRadius: '50%', filter: 'blur(90px)', pointerEvents: 'none',
-          width: 400, height: 400,
-          background: 'radial-gradient(circle, rgba(21,128,61,0.12) 0%, transparent 70%)',
-          top: 0, right: 0,
-        }} />
-
+      <section className="sch-section sch-light" id="contact">
         <div className="sch-container">
           <div style={{ marginBottom: 40 }}>
-            <div className="val-eyebrow" style={{ display: 'inline-flex', marginBottom: 16 }}>
-              {t('schools.form.eyebrow')}
-            </div>
             <h2 className="sch-section-title">{t('schools.form.title')}</h2>
             <p className="sch-section-sub">
               {t('schools.form.sub')}
@@ -469,7 +429,7 @@ export default function Schools() {
               <h3 className="sch-success-title">{t('schools.form.success_title')}</h3>
               <p className="sch-success-sub">
                 {t('schools.form.success_body_before')}
-                <strong style={{ color: '#4ADE80' }}>{form.email}</strong>
+                <strong className="sch-success-email">{form.email}</strong>
                 {t('schools.form.success_body_after')}
               </p>
               <Link
@@ -551,59 +511,55 @@ export default function Schools() {
                 {/* Live estimate */}
                 {(qCount > 0 || tCount > 0) && (
                   <div className="sch-estimate">
-                    <span style={{ fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginBottom: 6, display: 'block' }}>
+                    <span className="sch-estimate-title">
                       {t('schools.form.estimate.title')}
                     </span>
                     {qCount > 0 && (
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.45)', minWidth: 72 }}>
+                      <div className="sch-estimate-row">
+                        <span className="sch-estimate-row-label">
                           {t('schools.form.estimate.qudurat_label')}
                         </span>
                         {qEst ? (
                           <>
-                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                            <span className="sch-estimate-row-calc">
                               {t('schools.form.estimate.calc', { count: qCount, price: qEst.tier.price })}
                             </span>
-                            <span style={{ fontWeight: 700, color: '#4ADE80' }}>
+                            <span className="sch-estimate-row-total">
                               {t('schools.form.estimate.total_line', { total: qEst.total.toLocaleString() })}
                             </span>
-                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>
+                            <span className="sch-estimate-row-tier">
                               ({getTierName(qEst.tier.id)})
                             </span>
                           </>
                         ) : (
-                          <span style={{ color: '#FBBF24' }}>{t('schools.form.estimate.min_warning')}</span>
+                          <span className="sch-estimate-row-warn">{t('schools.form.estimate.min_warning')}</span>
                         )}
                       </div>
                     )}
                     {tCount > 0 && (
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.88rem', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.45)', minWidth: 72 }}>
+                      <div className="sch-estimate-row">
+                        <span className="sch-estimate-row-label">
                           {t('schools.form.estimate.tahsili_label')}
                         </span>
                         {tEst ? (
                           <>
-                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                            <span className="sch-estimate-row-calc">
                               {t('schools.form.estimate.calc', { count: tCount, price: tEst.tier.price })}
                             </span>
-                            <span style={{ fontWeight: 700, color: '#4ADE80' }}>
+                            <span className="sch-estimate-row-total">
                               {t('schools.form.estimate.total_line', { total: tEst.total.toLocaleString() })}
                             </span>
-                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>
+                            <span className="sch-estimate-row-tier">
                               ({getTierName(tEst.tier.id)})
                             </span>
                           </>
                         ) : (
-                          <span style={{ color: '#FBBF24' }}>{t('schools.form.estimate.min_warning')}</span>
+                          <span className="sch-estimate-row-warn">{t('schools.form.estimate.min_warning')}</span>
                         )}
                       </div>
                     )}
                     {(qEst || tEst) && (
-                      <div style={{
-                        marginTop: 8, paddingTop: 10,
-                        borderTop: '1px solid rgba(255,255,255,0.1)',
-                        fontWeight: 800, fontSize: '0.95rem', color: '#FFFFFF',
-                      }}>
+                      <div className="sch-estimate-grand">
                         {t('schools.form.estimate.grand_total', {
                           total: ((qEst?.total || 0) + (tEst?.total || 0)).toLocaleString(),
                         })}
@@ -635,29 +591,24 @@ export default function Schools() {
                 </button>
 
                 {/* Footer */}
-                <div style={{
-                  borderTop: '1px solid rgba(255,255,255,0.08)',
-                  paddingTop: 20, marginTop: 4,
-                  display: 'flex', flexDirection: 'column', gap: 8,
-                  alignItems: 'center', textAlign: 'center',
-                }}>
-                  <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.3)' }}>
+                <div className="sch-form-footer">
+                  <p className="sch-form-footer-response">
                     {t('schools.form.footer_response')}
                   </p>
-                  <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)' }}>
+                  <p className="sch-form-footer-message">
                     {t('schools.form.footer_message_prefix')}{' '}
                     <a
                       href={`https://wa.me/${WA_NUMBER}?text=${WA_SCHOOLS_MESSAGE}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: '#4ADE80', fontWeight: 700, textDecoration: 'none' }}
+                      className="sch-form-footer-link"
                     >
                       {t('schools.form.footer_whatsapp_link')}
                     </a>
                   </p>
                   <a
                     href="mailto:info@drfahm.com"
-                    style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.25)', textDecoration: 'none' }}
+                    className="sch-form-footer-email"
                   >
                     info@drfahm.com
                   </a>
