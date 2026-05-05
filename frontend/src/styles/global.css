@@ -1831,20 +1831,7 @@ body {
   color: #15803D; box-shadow: 0 0 20px rgba(21,128,61,0.1);
 }
 
-/* ── Value section ────────────────────────────────────────────────────────── */
-.val-section { background: #F0FDF4; }
-.val-section::before {
-  background:
-    radial-gradient(ellipse 60% 50% at 10% 20%, rgba(74,222,128,0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 60% at 90% 80%, rgba(21,128,61,0.07) 0%, transparent 70%);
-}
-.val-eyebrow         { color: #15803D; background: rgba(21,128,61,0.08); border-color: rgba(21,128,61,0.2); }
-.val-headline        { color: #0F172A; }
-.val-headline-accent { color: #15803D; }
-.val-subhead         { color: #475569; }
-.val-cta-sub         { color: #475569; }
-.val-card:hover { box-shadow: 0 20px 40px rgba(28,39,51,0.1); }
-.val-card-featured   { box-shadow: 0 12px 36px rgba(28,39,51,0.1), 0 0 0 1px rgba(21,128,61,0.2); }
+
 
 /* ── Situation section ────────────────────────────────────────────────────── */
 .sit-section { background: #FAFAF8; }
