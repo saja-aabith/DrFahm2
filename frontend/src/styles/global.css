@@ -2037,9 +2037,25 @@ body {
 .hp-d24 { left: 28%; top: 84%; width: 3px; height: 3px; background: rgba(74,222,128,0.7);  animation: hp-drift-fore 16s ease-in-out infinite; animation-delay: -10s; }
 
 /* ── LIGHT THEME — soften particles for light hero background ─────────────── */
-.hero-section .hero-particle { background: rgba(21,128,61,0.5); }
-.hero-section .hp-d20,
-.hero-section .hp-d23 { background: rgba(198,168,91,0.55); }
+/* ── LIGHT THEME — darken particles + boost orb visibility on light hero ── */
+/* Stronger orbs so the hero has visible color depth on the cream/blue bg */
+.hero-orb-1 { background: radial-gradient(circle, rgba(21,128,61,0.32) 0%, transparent 70%); }
+.hero-orb-2 { background: radial-gradient(circle, rgba(74,222,128,0.22) 0%, transparent 70%); }
+.hero-orb-3 { background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%); }
+
+/* Particles — bigger, darker, more opaque on light bg so they actually read */
+.hero-particles .hero-particle { background: rgba(21,128,61,0.55); }
+.hero-particles .hp-d1,  .hero-particles .hp-d2,  .hero-particles .hp-d3,
+.hero-particles .hp-d4,  .hero-particles .hp-d5,  .hero-particles .hp-d6,
+.hero-particles .hp-d7,  .hero-particles .hp-d8 { background: rgba(21,128,61,0.4); }
+.hero-particles .hp-d20,
+.hero-particles .hp-d23 { background: rgba(198,168,91,0.75); }
+
+/* Bump foreground particle sizes slightly so they're not lost in the grid */
+.hero-particles .hp-d19 { width: 5px; height: 5px; }
+.hero-particles .hp-d21 { width: 5px; height: 5px; }
+.hero-particles .hp-d22 { width: 4px; height: 4px; }
+.hero-particles .hp-d24 { width: 4px; height: 4px; }
 
 /* Reduce motion — respect accessibility preference */
 @media (prefers-reduced-motion: reduce) {
