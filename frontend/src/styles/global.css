@@ -2090,3 +2090,13 @@ body {
   .ladder3d-float,
   .ladder3d-marker { animation: none !important; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Drop section eyebrow pills — Problem / Value / Situation / Comparison.
+   Hero + FCTA eyebrows kept (they anchor the start and end of the page).
+   Translation keys stay intact in JSON in case we want them back later.
+   ════════════════════════════════════════════════════════════════════════════ */
+.prob-eyebrow,
+.val-eyebrow,
+.sit-eyebrow,
+.cmp-eyebrow { display: none; }
